@@ -1,0 +1,32 @@
+*****
+26 Feb 24
+I start implementing the analyze phase.
+Most of the analyze phase can be taken from Tim Davis' book.
+---
+I need to choose which format of the matrix to accept as input, full or upper triangular.
+I decide to accept both. 
+If input is full, I extract the upper part.
+If input is upper, nothing else is needed.
+---
+Function to permute the matrix symmetrically into upper triangular form is taken straight from Tim Davis.
+I use this function also to extract the upper part from the full matrix, simply by using the identical permutation.
+---
+Function to get a permutation from Metis needs the full matrix, because Metis does not take triangular matrices for symmetric graphs.
+If the original input was upper, I need to create a temporary copy of the full matrix. This is similar to Permute.
+If the original input is full, I can save a pointer to it to use for Metis. Only that Metis takes non-const pointers.
+I need to make a local copy of the full matrix to pass to Metis. Annoying, but not a big deal.
+---
+Function for the elimination tree is straightforward. 
+The tree is saved in the vector parent, where if the parent is -1, then the node is the root.
+The function in Tim Davis book works only for upper triangular matrices. I initially go with lower triangular, but I have to change the format to avoid over complicating things.
+---
+I need to implement the postorder, which should also be straightforward. 
+But I am not sure if I should permute the matrix again. Maybe I can avoid it somehow.
+In the future, the analyze phase should include also the ordering to reduce stack size for frontal matrices. For now, I ignore this.
+---
+I have two matlab functions to check that everything works on some small example. 
+They convert between Matlab matrices and CSC matrices. 
+After some debugging, everything runs smoothly.
+---
+
+
