@@ -6,6 +6,7 @@ local_path = $(HOME)/local
 
 cpp_sources = \
 	Analyze.cpp \
+	Aux_analyze.cpp \
 	test.cpp
 
 # binary file name

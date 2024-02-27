@@ -29,4 +29,26 @@ They convert between Matlab matrices and CSC matrices.
 After some debugging, everything runs smoothly.
 ---
 
-
+*****
+27 Feb 24
+I implemented the post ordering. 
+Pretty straightforward, taken directly from Tim Davis.
+At the moment, after computing the postorder, the elimination tree is relabeled and the matrix is permuted.
+Also the vectors perm and iperm are updated, to keep track of the overall permutation applied to the original matrix.
+I added some auxiliary functions to manage the permutations and moved them into a file of auxiliary functions.
+---
+I had some issued when trying with larger problems. I spotted some issues with the Matlab functions that I was using to generate the CSC matrix.
+I fixed it and now it works for other problems as well.
+I made the Matlab functions a bit more automatic, so that everything runs more easily and faster.
+---
+I am still not sure of what's the best input form.
+As Julian pointed out, taking a full matrix is dangerous, so I may go back to taking only upper triangular.
+Generating a local copy of the full matrix is not a big deal.
+---
+I still have to implement, for the analyze:
+- column counts
+- full symbolic factorization
+- find (fundamental) supernodes
+- build assembly tree
+- build relative indices for frontal matrices
+---
