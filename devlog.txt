@@ -52,3 +52,19 @@ I still have to implement, for the analyze:
 - build assembly tree
 - build relative indices for frontal matrices
 ---
+
+*****
+28 Feb 24
+I spent a lot of time trying to use the algorithms in Tim Davis book for row and column counts. They don't work for some reason.
+I will go back to that later. For now I am using the slightly inefficient approach.
+It uses O(|L|) operations instead of O(|A|). Not a big deal, but it could be improved. 
+For now everything works. I implemented the row and column counts and the full symbolic factorization.
+Still missing supernode stuff.
+I also need to decide how and what to store at the end. I may need a struct SymbolicFact to store the permutation, elimination tree and sparsity structure of L.
+I am still trying to understand if I can avoid a second permutation with the postorder of the matrix. 
+It should be possible, but I need to figure out some details. Not a big deal anyway. 
+---
+Some matrices, like pilot (but also others when using augmented system) give issues. 
+There is a segfault during the call to Metis that I cannot understand.
+I need to try and build the matrix directly in cpp and see if it persists. Maybe I am doing something wrong with the way I create the matrix in Matlab.
+---

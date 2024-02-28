@@ -74,7 +74,7 @@ void Analyze::GetPermutation() {
 
     // compute column pointers from column counts
     std::vector<int> temp_ptr(n + 1, 0);
-    ColCount2Ptr(temp_ptr, work);
+    Counts2Ptr(temp_ptr, work);
 
     std::vector<int> temp_rows(temp_ptr.back(), 0);
 
@@ -130,7 +130,7 @@ void Analyze::Permute(const std::vector<int>& iperm) {
 
   // get column pointers by summing the count of nonzeros in each column.
   // copy column pointers into work
-  ColCount2Ptr(new_ptr, work);
+  Counts2Ptr(new_ptr, work);
 
   std::vector<int> new_rows(new_ptr.back());
 
@@ -222,19 +222,28 @@ void Analyze::Postorder() {
 
   // Permute elimination tree based on postorder
   std::vector<int> ipost(n);
-  Inverse_perm(postorder, ipost);
+  InversePerm(postorder, ipost);
   std::vector<int> new_parent(n);
   for (int i = 0; i < n; ++i) {
-    new_parent[ipost[i]] = ipost[parent[i]];
+    if (parent[i] != -1) {
+      new_parent[ipost[i]] = ipost[parent[i]];
+    } else {
+      new_parent[ipost[i]] = -1;
+    }
   }
   parent = std::move(new_parent);
 
   // Permute matrix based on postorder
   Permute(ipost);
 
+  // create the lower triangular part of the matrix
+  rowsLower.resize(nz);
+  ptrLower.resize(n + 1);
+  Transpose(rowsLower, ptrLower);
+
   // Update perm and iperm
-  Permute_vector(perm, postorder);
-  Inverse_perm(perm, iperm);
+  PermuteVector(perm, postorder);
+  InversePerm(perm, iperm);
 }
 
 void Analyze::DFS_post(int node, int& start, std::vector<int>& head,
@@ -264,3 +273,107 @@ void Analyze::DFS_post(int node, int& start, std::vector<int>& head,
   }
 }
 
+void Analyze::Transpose(std::vector<int>& rowsT, std::vector<int>& ptrT) const {
+  // Compute the transpose of the matrix and return it in rowsT and ptrT
+
+  std::vector<int> work(n);
+
+  // count the entries in each row into work
+  for (int i = 0; i < ptr.back(); ++i) {
+    ++work[rows[i]];
+  }
+
+  // sum row sums to obtain pointers
+  Counts2Ptr(ptrT, work);
+
+  for (int j = 0; j < n; ++j) {
+    for (int el = ptr[j]; el < ptr[j + 1]; ++el) {
+      int i = rows[el];
+
+      // entry (i,j) becomes entry (j,i)
+      int pos = work[i]++;
+      rowsT[pos] = j;
+    }
+  }
+}
+
+void Analyze::RowColCount() {
+  // Compute the number of nonzero entries for each row and column of the
+  // Cholesky factor.
+  // It requires O(|L|) operations.
+  // The method that uses O(|A|) operations does not work for now.
+  // I will come back to it later.
+
+  rowcount.resize(n);
+  colcount.resize(n);
+
+  // keep track of visited columns
+  std::vector<int> mark(n, -1);
+
+  // consider each row
+  for (int i = 0; i < n; ++i) {
+    // mark diagonal entry
+    mark[i] = i;
+    int rowc = 1;
+    ++colcount[i];
+
+    // for all entries in the row of lower triangle
+    for (int el = ptr[i]; el < ptr[i + 1]; ++el) {
+      int j = rows[el];
+      if (j == i) continue;
+
+      // while columns are not yet considered
+      while (mark[j] != i) {
+        mark[j] = i;
+        ++rowc;
+        ++colcount[j];
+
+        // go up the elimination tree
+        j = parent[j];
+      }
+    }
+
+    rowcount[i] = rowc;
+    nzL += rowc;
+  }
+}
+
+void Analyze::ColPattern(std::vector<int>& rowsL,
+                         std::vector<int>& ptrL) const {
+  // Compute sparsity pattern of Cholesky factor L.
+  // This is very similar to RowColCount(), but it needs the information about
+  // the column counts.
+
+  // keep track of visited columns
+  std::vector<int> mark(n, -1);
+
+  // compute column pointers of L
+  std::vector<int> work(colcount);
+  Counts2Ptr(ptrL, work);
+
+  // consider each row
+  for (int i = 0; i < n; ++i) {
+    // mark diagonal entry
+    mark[i] = i;
+
+    // there is a nonzero entry in column i at row i
+    rowsL[work[i]++] = i;
+
+    // for all entries in the row of lower triangle
+    for (int el = ptr[i]; el < ptr[i + 1]; ++el) {
+      int j = rows[el];
+      if (j == i) continue;
+
+      // while columns are not yet considered
+      while (mark[j] != i) {
+        mark[j] = i;
+
+        // there is a nonzero entry in column j at row i
+        rowsL[work[j]++] = i;
+
+        // go up the elimination tree
+        j = parent[j];
+      }
+    }
+  }
+}

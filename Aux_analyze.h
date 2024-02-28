@@ -3,8 +3,8 @@
 
 #include <vector>
 
-void ColCount2Ptr(std::vector<int>& ptr, std::vector<int>& w);
-void Inverse_perm(const std::vector<int>& perm, std::vector<int>& iperm);
-void Permute_vector(std::vector<int>& v, const std::vector<int>& perm);
+void Counts2Ptr(std::vector<int>& ptr, std::vector<int>& w);
+void InversePerm(const std::vector<int>& perm, std::vector<int>& iperm);
+void PermuteVector(std::vector<int>& v, const std::vector<int>& perm);
 
 #endif

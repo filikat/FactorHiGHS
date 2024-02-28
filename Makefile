@@ -19,7 +19,7 @@ objdir = obj
 CPP = clang++
 
 # compiler flags
-CPPFLAGS = -std=c++11 -O3
+CPPFLAGS = -std=c++11 -g
 
 # includes and libraries
 includes = -I$(highs_path)/build -I$(highs_path)/src/ -I$(metis_path)/include -I$(local_path)/include
