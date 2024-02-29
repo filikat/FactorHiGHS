@@ -34,3 +34,15 @@ void PermuteVector(std::vector<int>& v, const std::vector<int>& perm) {
   }
   v = std::move(new_v);
 }
+
+void SubtreeSize(const std::vector<int>& parent, std::vector<int>& sizes) {
+  // Compute sizes of subtrees of the tree given by parent
+  
+  int n = parent.size();
+  sizes.assign(n, 1);
+
+  for (int i = 0; i < n; ++i) {
+    int k = parent[i];
+    if (k != -1) sizes[k] += sizes[i];
+  }
+}

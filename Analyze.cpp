@@ -34,6 +34,7 @@ Analyze::Analyze(const int* row_ind, const int* col_ptr, int size, int nonzeros,
   }
 
   nz = ptr.back();
+  ready = true;
 }
 
 void Analyze::GetPermutation() {
@@ -338,11 +339,13 @@ void Analyze::RowColCount() {
   }
 }
 
-void Analyze::ColPattern(std::vector<int>& rowsL,
-                         std::vector<int>& ptrL) const {
+void Analyze::ColPattern() {
   // Compute sparsity pattern of Cholesky factor L.
   // This is very similar to RowColCount(), but it needs the information about
   // the column counts.
+
+  rowsL.resize(nzL);
+  ptrL.resize(n + 1);
 
   // keep track of visited columns
   std::vector<int> mark(n, -1);
@@ -376,4 +379,213 @@ void Analyze::ColPattern(std::vector<int>& rowsL,
       }
     }
   }
+}
+
+void Analyze::FundamentalSupernodes() {
+  // Find fundamental supernodes.
+  // The end result is a vector fsn, such that
+  //  fsn[i] = j
+  // means that node i belongs to supernode j.
+
+  // isSN[i] is true if node i is the start of a fundamental supernode
+  std::vector<bool> isSN(n, false);
+
+  std::vector<int> prev_nonz(n, 0);
+
+  // compute sizes of subtrees
+  std::vector<int> subtreeSizes(n);
+  SubtreeSize(parent, subtreeSizes);
+
+  for (int j = 0; j < n; ++j) {
+    for (int el = ptrLower[j]; el < ptrLower[j + 1]; ++el) {
+      int i = rowsLower[el];
+      int k = prev_nonz[i];
+
+      // mark as fundamental sn, nodes which are leaf of subtrees
+      if (k < j - subtreeSizes[j] + 1) {
+        isSN[j] = true;
+      }
+
+      // mark as fundamental sn, nodes which have more than one child
+      if (parent[i] != -1 && subtreeSizes[i] + 1 != subtreeSizes[parent[i]]) {
+        isSN[parent[i]] = true;
+      }
+
+      prev_nonz[i] = j;
+    }
+  }
+
+  // guarantee that node 0 is true (for some reason it does not happen)
+  isSN[0] = true;
+
+  // create information about fundamental supernodes
+  fsn_belong.resize(n);
+  int sn_number = -1;
+  for (int i = 0; i < n; ++i) {
+    // if isSN[i] is true, then node i is the start of a new supernode
+    if (isSN[i]) ++sn_number;
+
+    // mark node i as belonging to the current supernode
+    fsn_belong[i] = sn_number;
+  }
+
+  // number of supernodes found
+  fsn = fsn_belong.back() + 1;
+
+  // fsn_ptr contains pointers to the starting node of each supernode
+  fsn_ptr.resize(fsn + 1);
+  int next = 0;
+  for (int i = 0; i < n; ++i) {
+    if (isSN[i]) {
+      fsn_ptr[next] = i;
+      ++next;
+    }
+  }
+  fsn_ptr[next] = n;
+
+  // build supernodal elimination tree
+  fsn_parent.resize(fsn);
+  for (int i = 0; i < fsn - 1; ++i) {
+    int j = parent[fsn_ptr[i + 1] - 1];
+    if (j != -1) {
+      fsn_parent[i] = fsn_belong[j];
+    } else {
+      fsn_parent[i] = -1;
+    }
+  }
+  fsn_parent.back() = -1;
+}
+
+void Analyze::RelativeInd() {
+  // Find the relative indices of the child clique with respect to the parent
+  // indexing.
+  // E.g., supernode 0 has parent supernode 5.
+  // Supernode 0 is made of 1 node and its column is {0,8,9}, i.e., it has
+  // nonzero entries in its clique in rows {8,9}.
+  // Parent supernode is made of nodes {7,8,9} and the full column has nonzeros
+  // in rows {7,8,9,15}.
+  // Then, the relative indices of 0 with respect to its parent 5 are {1,2},
+  // because entry 8 in the clique of sn 0 corresponds to the entry number 1 in
+  // the full column of the parent sn 5...
+
+  relind.resize(fsn);
+
+  for (int sn = 0; sn < fsn; ++sn) {
+    // number of nodes in the supernode
+    int sn_size = fsn_ptr[sn + 1] - fsn_ptr[sn];
+
+    // column of the first node in the supernode
+    int j = fsn_ptr[sn];
+
+    // size of the first column of the supernode
+    int sn_column_size = ptrL[j + 1] - ptrL[j];
+
+    // size of the clique of the supernode
+    int sn_clique_size = sn_column_size - sn_size;
+
+    relind[sn].resize(sn_clique_size);
+
+    // iterate through the clique of sn
+    int ptr_current = ptrL[fsn_ptr[sn]] + sn_size;
+
+    // iterate through the full column of parent sn
+    int ptr_parent = ptrL[fsn_ptr[fsn_parent[sn]]];
+
+    // keep track of start and end of parent sn column
+    const int ptr_parent_start = ptr_parent;
+    const int ptr_parent_end = ptrL[fsn_ptr[fsn_parent[sn]] + 1];
+
+    // where to write into relind
+    int index{};
+
+    // iterate though the column of the parent sn
+    while (ptr_parent < ptr_parent_end) {
+      // if found all the relative indices that are needed, stop
+      if (index == sn_clique_size) {
+        break;
+      }
+
+      // check if indices coincide
+      if (rowsL[ptr_current] == rowsL[ptr_parent]) {
+        // yes: save relative index and move pointers forward
+        relind[sn][index] = ptr_parent - ptr_parent_start;
+        ++index;
+        ++ptr_parent;
+        ++ptr_current;
+      } else {
+        // no: move pointer of parent forward
+        ++ptr_parent;
+      }
+    }
+  }
+}
+
+void Analyze::clear() {
+  original_rows = NULL;
+  original_ptr = NULL;
+  original_nz = 0;
+  original_upper = false;
+  ready = false;
+  rows.clear();
+  ptr.clear();
+  rowsLower.clear();
+  ptrLower.clear();
+  n = 0;
+  nz = 0;
+  nzL = 0;
+  perm.clear();
+  iperm.clear();
+  parent.clear();
+  postorder.clear();
+  colcount.clear();
+  rowcount.clear();
+  rowsL.clear();
+  ptrL.clear();
+  fsn = 0;
+  fsn_belong.clear();
+  fsn_ptr.clear();
+  fsn_parent.clear();
+  relind.clear();
+}
+
+void Analyze::Run(Symbolic& S, bool runSymbolic, bool runSupernodes) {
+  // Perform analyze phase and store the result into the symbolic object S.
+  // After Run returns, the current Analyze object is cleared.
+
+  if (!ready) return;
+
+  GetPermutation();
+  Permute(iperm);
+  ETree();
+  Postorder();
+  RowColCount();
+
+  // potentially perform full symbolic factorization
+  if (runSymbolic) {
+    ColPattern();
+  }
+
+  // potentially look for supernodes
+  if (runSupernodes) {
+    FundamentalSupernodes();
+    RelativeInd();
+  }
+
+  // move relevant stuff into S
+  S.n = n;
+  S.nz = nzL;
+  S.perm = std::move(perm);
+  S.iperm = std::move(iperm);
+  S.parent = std::move(parent);
+  S.rowcount = std::move(rowcount);
+  S.colcount = std::move(colcount);
+  S.rows = std::move(rowsL);
+  S.ptr = std::move(ptrL);
+  S.fsn = fsn;
+  S.fsn_parent = std::move(fsn_parent);
+  S.fsn_ptr = std::move(fsn_ptr);
+  S.relind = std::move(relind);
+
+  // clear the remaining data
+  clear();
 }

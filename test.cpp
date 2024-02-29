@@ -4,6 +4,7 @@
 #include "Analyze.h"
 
 int main() {
+  // Read the problem
   std::ifstream file("matlab/data.txt");
 
   int n{};
@@ -24,52 +25,55 @@ int main() {
 
   file.close();
 
-  Analyze An(rows.data(), ptr.data(), n, nz, true);
-  An.GetPermutation();
-  An.Permute(An.iperm);
-  An.ETree();
-  An.Postorder();
-  An.RowColCount();
+  // Symbolic factorization
+  Symbolic S;
 
-  std::vector<int> rowsL(An.nzL);
-  std::vector<int> ptrL(n + 1);
-  An.ColPattern(rowsL, ptrL);
+  Analyze An(rows.data(), ptr.data(), n, nz, true);
+  An.Run(S, 1, 1);
+
+  // Write to file
 
   std::ofstream out_file;
 
   out_file.open("matlab/perm.txt");
-  for (int i = 0; i < n; ++i) {
-    out_file << An.perm[i] << '\n';
+  for (int i : S.perm) {
+    out_file << i << '\n';
   }
   out_file.close();
 
   out_file.open("matlab/parent.txt");
-  for (int i = 0; i < n; ++i) {
-    out_file << An.parent[i] << '\n';
+  for (int i : S.parent) {
+    out_file << i << '\n';
   }
   out_file.close();
 
   out_file.open("matlab/rowcount.txt");
-  for (int i = 0; i < n; ++i) {
-    out_file << An.rowcount[i] << '\n';
+  for (int i : S.rowcount) {
+    out_file << i << '\n';
   }
   out_file.close();
 
   out_file.open("matlab/colcount.txt");
-  for (int i = 0; i < n; ++i) {
-    out_file << An.colcount[i] << '\n';
+  for (int i : S.colcount) {
+    out_file << i << '\n';
   }
   out_file.close();
 
   out_file.open("matlab/ptrL.txt");
-  for (int i = 0; i < n + 1; ++i) {
-    out_file << ptrL[i] << '\n';
+  for (int i : S.ptr) {
+    out_file << i << '\n';
   }
   out_file.close();
 
   out_file.open("matlab/rowsL.txt");
-  for (int i = 0; i < An.nzL; ++i) {
-    out_file << rowsL[i] << '\n';
+  for (int i : S.rows) {
+    out_file << i << '\n';
+  }
+  out_file.close();
+
+  out_file.open("matlab/fsn_ptr.txt");
+  for (int i : S.fsn_ptr) {
+    out_file << i << '\n';
   }
   out_file.close();
 

@@ -45,13 +45,6 @@ I am still not sure of what's the best input form.
 As Julian pointed out, taking a full matrix is dangerous, so I may go back to taking only upper triangular.
 Generating a local copy of the full matrix is not a big deal.
 ---
-I still have to implement, for the analyze:
-- column counts
-- full symbolic factorization
-- find (fundamental) supernodes
-- build assembly tree
-- build relative indices for frontal matrices
----
 
 *****
 28 Feb 24
@@ -68,3 +61,33 @@ Some matrices, like pilot (but also others when using augmented system) give iss
 There is a segfault during the call to Metis that I cannot understand.
 I need to try and build the matrix directly in cpp and see if it persists. Maybe I am doing something wrong with the way I create the matrix in Matlab.
 ---
+
+*****
+29 Feb 24
+I implemented the fundamental supernodes. The algorithm to find them comes directly from Scott&Tuma book. 
+For some matrices the supernodes are quite small, especially when using augmented system. It may be needed to merge them. For now I leave as it is.
+Supernode information is stored as starting node of each supernode (fsn_ptr) and supernodal elimination tree.
+An intermediate vector of length n is needed to find the tree efficiently.
+---
+I created a separate object Symbolic to store the information of the analyze phase. 
+The idea is that an Analyze object creates a Symbollic object, and this is never modified again.
+I need to adjust a couple of things because at the moment it is a bit of a mess.
+No need to std::move everything if S is passed at the beginning and things are stored there directly.
+Everything that is not needed after the analyze phase is discarded.
+Symbolic is then accessed only by const public functions.
+---
+I implemented the relative indices for the frontal matrices, and also the extraction of the information of the clique tree.
+There is an issue if the supernodes are merged, because the information about which rows are nonzeros in the frontal matrix cannot be read directly from L anymore.
+The columns of the supernodes that were merged have to be merged as well and stored separately. 
+I will think about this if and when we decide to merge supernodes.
+---
+
+
+
+*****
+To do:
+-get rid of full matrix in input.
+-run analyze directly from constructor, passing Symbolic as input. 
+-remove things that are stored in Symbolic from Analyze.
+-try to avoid permuting the matrix, by using upper and lower triangular part
+-figure out why the skeleton matrix does not work
