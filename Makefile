@@ -20,7 +20,7 @@ objdir = obj
 CPP = clang++
 
 # compiler flags
-CPPFLAGS = -std=c++11 -g
+CPPFLAGS = -std=c++11 -g -Wno-deprecated
 
 # includes and libraries
 includes = -I$(highs_path)/build -I$(highs_path)/src/ -I$(metis_path)/include -I$(local_path)/include

@@ -4,12 +4,12 @@
 
 int Symbolic::sn_begin(int sn) const {
   // Return the first node in the supernode sn.
-  return fsn_ptr[sn];
+  return fsn_start[sn];
 }
 
 int Symbolic::sn_end(int sn) const {
   // Return the last node in the supernode sn.
-  return fsn_ptr[sn + 1];
+  return fsn_start[sn + 1];
 }
 
 int Symbolic::clique_begin(int sn) const {
@@ -49,10 +49,10 @@ void Symbolic::clique_info(int sn, int& position, int& snsize,
   // {15,17,23}.
 
   // size of the supernode
-  snsize = fsn_ptr[sn + 1] - fsn_ptr[sn];
+  snsize = fsn_start[sn + 1] - fsn_start[sn];
 
   // first column of the supernode
-  int j = fsn_ptr[sn];
+  int j = fsn_start[sn];
 
   // number of entries in column j of L, minus snsize
   cliquesize = ptr[j + 1] - ptr[j] - snsize;

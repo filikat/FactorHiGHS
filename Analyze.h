@@ -12,11 +12,6 @@
 // The final symbolic factorization is stored in an object of type Symbolic.
 
 class Analyze {
-  // Information about the original matrix.
-  const int* original_rows{};
-  const int* original_ptr{};
-  int original_nz{};
-  bool original_upper = false;
   bool ready = false;
 
   // Matrix to be factorized, stored in upper and lower triangular format
@@ -49,7 +44,7 @@ class Analyze {
   // fundamental supernodes information
   int fsn{};
   std::vector<int> fsn_belong{};
-  std::vector<int> fsn_ptr{};
+  std::vector<int> fsn_start{};
   std::vector<int> fsn_parent{};
 
   // relative indices for frontal matrices
@@ -69,9 +64,8 @@ class Analyze {
   void clear();
 
  public:
-  Analyze(const int* row_ind, const int* col_ptr, int size, int nonzeros,
-          bool is_upper);
-  void Run(Symbolic& S, bool runSymbolic, bool runSupernodes);
+  Analyze(const int* row_ind, const int* col_ptr, int size, int nonzeros);
+  void Run(Symbolic& S);
 };
 
 #endif

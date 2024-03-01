@@ -82,12 +82,32 @@ The columns of the supernodes that were merged have to be merged as well and sto
 I will think about this if and when we decide to merge supernodes.
 ---
 
+*****
+1 Mar 2024
+Removed option to input full matrix.
+Now, any matrix is given, it uses permute to extract the upper triangular part.
+I decided to keep Analyze and Symbolic as they are, with std::move, instead of passing S at the beginning.
+---
+I changed test.cpp to directly read the mps file of the problem and build either the augmented system or the normal equations.
+It can also presolve the problem. 
+The Matlab test file now reads everything as input from file, instead of building the matrix separately.
+---
+For some problems (e.g.,pilot and woodw), Metis gives some weird errors, but only sometimes. The errors are not even always the same.
+It gives segfault, bus error, trace trap. Backtracing in LLDB shows that this happens during the call to Metis.
+The problem becomes less frequent reading the matrix directly from mps file and presolving (for pilot at least), but it persists for woodw.
+No idea what is happening.
+---
+Also, the reordering using Metis is slightly worse than the reordering using dissect in Matlab.
+It should use Metis underneath, but I cannot reproduce the same results by changing the options.
+Maybe this only happens for small matrices, because amd is used at some point?
+---
+I improved the comments in Symbolic.h, so that everything is explained properly. 
+I added a small example to show what the vectors contain.
+---
+
 
 
 *****
 To do:
--get rid of full matrix in input.
--run analyze directly from constructor, passing Symbolic as input. 
--remove things that are stored in Symbolic from Analyze.
 -try to avoid permuting the matrix, by using upper and lower triangular part
 -figure out why the skeleton matrix does not work
