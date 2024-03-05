@@ -105,9 +105,37 @@ I improved the comments in Symbolic.h, so that everything is explained properly.
 I added a small example to show what the vectors contain.
 ---
 
+*****
+4 Mar 2024
+I implemented the dsyrk BLAS function.
+I basically copied it from the Netlib Fortran code and translated it to C.
+This is the most basic implementation, not optimized much. 
+It does access everything by columns, to get better data locality, but there's no other optimization.
+Indeed, comparing it to the BLAS function already installed on the computer, there is a factor approximately 50 of difference.
+There is basically no hope to compete with BLAS.
+I think that some kind of divide-and-conquer may help, but we will never match or get close to the optimized BLAS.
+I think we need to have the option to use pre-installed BLAS and Lapack.
+---
+
+*****
+5 Mar 2024
+I implemented dtrsm.
+I improved the tests for the BLAS functions.
+I can see that the time to solve the different subcases (there are 16 for dtrsm) changes considerably for different settings.
+The transpose option seems to have a big effect. This is probably due to how the memory is accessed. 
+However, trying multiple combinations and different sizes, the behaviour is still not too clear.
+An important thing is that, to do the operations C = A*B, it is more efficient to store C and B by columns and A by rows.
+If A fits in L1 cache, this is sometimes called data streaming, because the columns of C and B are streamed into cache one by one, while A is always present.
+So, for example, doing A^T*A should be faster than doing A*A^T, if A is stored by columns.
+I observe this, but if I reverse the size, the behaviour changes. There are probably multiple factors acting.
+---
 
 
 *****
 To do:
 -try to avoid permuting the matrix, by using upper and lower triangular part
 -figure out why the skeleton matrix does not work
+-dgemm
+-dpotrf2
+-dpotrf
+-"potrf" in packed format
