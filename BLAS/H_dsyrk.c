@@ -1,7 +1,8 @@
 #include "Hblas.h"
 
-void H_dsyrk(char* uplo, char* trans, int* n, int* k, double* alpha, double* A,
-             int* lda, double* beta, double* C, int* ldc) {
+void H_dsyrk(char* uplo, char* trans, int* n, int* k, double* alpha,
+             double* restrict A, int* ldA, double* beta, double* restrict C,
+             int* ldC) {
   // ===========================================================================
   // HiGHS BLAS function
   // DSYRK: Double SYmmetric Rank K update
@@ -21,10 +22,10 @@ void H_dsyrk(char* uplo, char* trans, int* n, int* k, double* alpha, double* A,
   // - A     : array of size (lda * k), for operation [1];
   //           array of size (lda * n), for operation [2].
   //           To be accessed by columns.
-  // - lda   : number of rows of A.
+  // - lda   : leading dimension of A.
   // - beta  : scalar.
   // - C     : array of size (ldc * n), to be accessed by columns.
-  // - ldc   : number of rows of C.
+  // - ldc   : leading dimension of C.
   //
   //
   // Filippo Zanetti, 2024
@@ -33,16 +34,19 @@ void H_dsyrk(char* uplo, char* trans, int* n, int* k, double* alpha, double* A,
   // ===========================================================================
   // Check input
   // ===========================================================================
-  if (!uplo || !trans || !n || !k || !alpha || !A || !lda || !beta || !C ||
-      !ldc) {
+  if (!uplo || !trans || !n || !k || !alpha || !A || !ldA || !beta || !C ||
+      !ldC) {
     printf("Invalid pointer\n");
     return;
   }
 
-  bool upper = (*uplo == 'u' || *uplo == 'U');
-  bool notrans = (*trans == 'n' || *trans == 'N');
+  int upper = (*uplo == 'u' || *uplo == 'U');
+  int notrans = (*trans == 'n' || *trans == 'N');
   int nrowc = *n;
   int nrowa = notrans ? *n : *k;
+  int ldc = *ldC;
+  int lda = *ldA;
+
   if (!upper && !(*uplo == 'l' || *uplo == 'L')) {
     printf("Invalid parameter uplo\n");
     return;
@@ -60,11 +64,11 @@ void H_dsyrk(char* uplo, char* trans, int* n, int* k, double* alpha, double* A,
     printf("Invalid parameter k\n");
     return;
   }
-  if (*lda < std::max(1, nrowa)) {
+  if (lda < max(1, nrowa)) {
     printf("Invalid parameter lda\n");
     return;
   }
-  if (*ldc < std::max(1, nrowc)) {
+  if (ldc < max(1, nrowc)) {
     printf("Invalid parameter ldc\n");
     return;
   }
@@ -77,7 +81,7 @@ void H_dsyrk(char* uplo, char* trans, int* n, int* k, double* alpha, double* A,
   // ===========================================================================
   // A and C are stored by columns.
   // To access A(i,j), i.e., entry in row i, column j, the operation is
-  //  A[i + nrowa * j].
+  //  A[i + lda * j].
   //
   // To perform the operations, there are three loops:
   // - for i, loops over the rows of C
@@ -106,21 +110,21 @@ void H_dsyrk(char* uplo, char* trans, int* n, int* k, double* alpha, double* A,
     if (upper) {
       if (*beta == 0.0) {
         for (int j = 0; j < nrowc; ++j) {
-          for (int i = 0; i < j + 1; ++i) C[nrowc * j + i] = 0.0;
+          for (int i = 0; i < j + 1; ++i) C[ldc * j + i] = 0.0;
         }
       } else {
         for (int j = 0; j < nrowc; ++j) {
-          for (int i = 0; i < j + 1; ++i) C[nrowc * j + i] *= *beta;
+          for (int i = 0; i < j + 1; ++i) C[ldc * j + i] *= *beta;
         }
       }
     } else {
       if (*beta == 0.0) {
         for (int j = 0; j < nrowc; ++j) {
-          for (int i = j; i < nrowc; ++i) C[nrowc * j + i] = 0.0;
+          for (int i = j; i < nrowc; ++i) C[ldc * j + i] = 0.0;
         }
       } else {
         for (int j = 0; j < nrowc; ++j) {
-          for (int i = j; i < nrowc; ++i) C[nrowc * j + i] *= *beta;
+          for (int i = j; i < nrowc; ++i) C[ldc * j + i] *= *beta;
         }
       }
     }
@@ -140,18 +144,18 @@ void H_dsyrk(char* uplo, char* trans, int* n, int* k, double* alpha, double* A,
       for (int j = 0; j < nrowc; ++j) {
         // Prepare C according to beta
         if (*beta == 0.0) {
-          for (int i = 0; i < j + 1; ++i) C[nrowc * j + i] = 0.0;
+          for (int i = 0; i < j + 1; ++i) C[ldc * j + i] = 0.0;
 
         } else if (*beta != 1.0) {
-          for (int i = 0; i < j + 1; ++i) C[nrowc * j + i] *= *beta;
+          for (int i = 0; i < j + 1; ++i) C[ldc * j + i] *= *beta;
         }
 
         // Compute values
         for (int l = 0; l < *k; ++l) {
-          if (A[nrowa * l + j] != 0.0) {
-            temp = *alpha * A[nrowa * l + j];
+          if (A[lda * l + j] != 0.0) {
+            temp = *alpha * A[lda * l + j];
             for (int i = 0; i < j + 1; ++i)
-              C[nrowc * j + i] += temp * A[nrowa * l + i];
+              C[ldc * j + i] += temp * A[lda * l + i];
           }
         }
       }
@@ -159,18 +163,18 @@ void H_dsyrk(char* uplo, char* trans, int* n, int* k, double* alpha, double* A,
       for (int j = 0; j < nrowc; ++j) {
         // Prepare C according to beta
         if (*beta == 0.0) {
-          for (int i = j; i < nrowc; ++i) C[nrowc * j + i] = 0.0;
+          for (int i = j; i < nrowc; ++i) C[ldc * j + i] = 0.0;
 
         } else if (*beta != 1.0) {
-          for (int i = j; i < nrowc; ++i) C[nrowc * j + i] *= *beta;
+          for (int i = j; i < nrowc; ++i) C[ldc * j + i] *= *beta;
         }
 
         // Compute values
         for (int l = 0; l < *k; ++l) {
-          if (A[nrowa * l + j] != 0.0) {
-            temp = *alpha * A[nrowa * l + j];
+          if (A[lda * l + j] != 0.0) {
+            temp = *alpha * A[lda * l + j];
             for (int i = j; i < nrowc; ++i)
-              C[nrowc * j + i] += temp * A[nrowa * l + i];
+              C[ldc * j + i] += temp * A[lda * l + i];
           }
         }
       }
@@ -184,14 +188,13 @@ void H_dsyrk(char* uplo, char* trans, int* n, int* k, double* alpha, double* A,
         for (int i = 0; i < j + 1; ++i) {
           // Compute value
           temp = 0.0;
-          for (int l = 0; l < *k; ++l)
-            temp += A[nrowa * i + l] * A[nrowa * j + l];
+          for (int l = 0; l < *k; ++l) temp += A[lda * i + l] * A[lda * j + l];
 
           // Store in C
           if (*beta == 0.0)
-            C[nrowc * j + i] = *alpha * temp;
+            C[ldc * j + i] = *alpha * temp;
           else
-            C[nrowc * j + i] = *alpha * temp + *beta * C[nrowc * j + i];
+            C[ldc * j + i] = *alpha * temp + *beta * C[ldc * j + i];
         }
       }
     } else {
@@ -199,14 +202,13 @@ void H_dsyrk(char* uplo, char* trans, int* n, int* k, double* alpha, double* A,
         for (int i = j; i < nrowc; ++i) {
           // Compute value
           temp = 0.0;
-          for (int l = 0; l < *k; ++l)
-            temp += A[nrowa * i + l] * A[nrowa * j + l];
+          for (int l = 0; l < *k; ++l) temp += A[lda * i + l] * A[lda * j + l];
 
           // Store in C
           if (*beta == 0.0)
-            C[nrowc * j + i] = *alpha * temp;
+            C[ldc * j + i] = *alpha * temp;
           else
-            C[nrowc * j + i] = *alpha * temp + *beta * C[nrowc * j + i];
+            C[ldc * j + i] = *alpha * temp + *beta * C[ldc * j + i];
         }
       }
     }

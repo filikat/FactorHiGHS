@@ -3,10 +3,11 @@
 #include <random>
 #include <vector>
 
-#include "Hblas.h"
-
 extern "C" void dsyrk(char* uplo, char* trans, int* n, int* k, double* alpha,
                       double* a, int* lda, double* beta, double* c, int* ldc);
+
+extern "C" void H_dsyrk(char* uplo, char* trans, int* n, int* k, double* alpha,
+                        double* a, int* lda, double* beta, double* c, int* ldc);
 
 void test(char uplo, char trans, int n, int k, double alpha, double* A, int lda,
           double beta, double* C, double* HC, int ldc, double& time0,
@@ -32,7 +33,7 @@ void test(char uplo, char trans, int n, int k, double alpha, double* A, int lda,
   }
   error /= norm;
 
-  printf("Test %c%c:error %8.1e, B %5.3f, H %5.3f, ratio %5.1f", uplo, trans,
+  printf("Test %c%c: error %8.1e, B %5.3f, H %5.3f, ratio %5.1f", uplo, trans,
          error, dur0, dur1, dur1 / dur0);
   if (error > 1e-6) {
     printf("FAILED <===\n");
@@ -42,8 +43,8 @@ void test(char uplo, char trans, int n, int k, double alpha, double* A, int lda,
 }
 
 int main() {
-  int n = 1000;
-  int k = 100;
+  int n = 10000;
+  int k = 1000;
 
   double time0{};
   double time1{};

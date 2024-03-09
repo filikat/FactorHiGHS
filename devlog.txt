@@ -130,12 +130,49 @@ So, for example, doing A^T*A should be faster than doing A*A^T, if A is stored b
 I observe this, but if I reverse the size, the behaviour changes. There are probably multiple factors acting.
 ---
 
+*****
+6 Mar 2024
+I moved the BLAS functions from cpp to c.
+Now I can use restrict on the pointers of the matrices.
+This does not bring any visible benenit though. Still, it's better to keep it.
+---
+I implemented dgemm.
+I tried using loop unrolling on the functions, but it does not change the overall time.
+I had a look at the disassembled object code, and simd instruction are already automatically used with -O3.
+Cache optimization must be responsible for a large part of the performance difference compared to native BLAS.
+I should try blocking the code, as in dpotrf2.
+I finally understood how that works btw. I understood wrong the use of leading dimensions (lda,ldb,ldc) in BLAS.
+I updated the access to the arrays to use lda and blocking the code should be straightoforward.
+I wonder if using indexes like dpotrf2 is actually the best thing for cache efficiency though, especially if the columns of the matrix are not aligned with the cache lines.
+Copying the matrix in a smaller array would surely make the data more compact and thus improve cache efficiency, even though one has to copy everything.
+I should try both approaches.
+---
+I tried splitting the matrix as 2x2 blocks of the same size. 
+I then applied recursion until a base case is reached (where sizes are smaller than 32).
+For dgemm, this bring a benefit for some cases (transa is 'T'), but makes it worse for others (transa is 'N').
+---
+Another important thing to notice is that, to achieve good cache efficiency, the columns of the matrix should be aligned to the cache lines.
+This does not happen unless the size of the marix is a multiple of the cache line size (128B for my mac, or 16 double).
+It may be useful to copy the data into local storage and add padding until the next multiple of 128B.
+I am not sure how much this affects the performance, but I should try the approach with local copies.
+---
+
+*****
+7-8-9 Mar 2024
+I went into the rabbit hole of understanding how the optimized BLAS are implemented. 
+It's very complicated and only makes sense if one writes assembly code.
+I tried to reproduce the technique described by Goto, that should be used in openblas, but it doesn't really give an advantage.
+---
+I think it's better to stop focusing on an implementation of BLAS for now and continue with the factorization.
+We will worry about which BLAS to use later on.
+However, I do need to implement the partial dportf, to do partial factorization of the frontal matrices.
+I also need to check if implementing dpotrf using native BLAS gives the same results as using the native Lapack.
+---
 
 *****
 To do:
 -try to avoid permuting the matrix, by using upper and lower triangular part
 -figure out why the skeleton matrix does not work
--dgemm
 -dpotrf2
 -dpotrf
 -"potrf" in packed format

@@ -3,11 +3,13 @@
 #include <random>
 #include <vector>
 
-#include "Hblas.h"
-
 extern "C" void dtrsm(char* side, char* uplo, char* trans, char* diag, int* m,
                       int* n, double* alpha, double* A, int* lda, double* B,
                       int* ldb);
+
+extern "C" void H_dtrsm(char* side, char* uplo, char* trans, char* diag, int* m,
+                        int* n, double* alpha, double* A, int* lda, double* B,
+                        int* ldb);
 
 void test(char side, char uplo, char trans, char diag, int m, int n,
           double alpha, double* A, int lda, double* B, double* HB, int ldb,
@@ -44,7 +46,7 @@ void test(char side, char uplo, char trans, char diag, int m, int n,
 
 int main() {
   int n = 10000;
-  int m = 100;
+  int m = 1000;
 
   double time0{};
   double time1{};

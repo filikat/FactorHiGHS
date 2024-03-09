@@ -4,3 +4,4 @@ matlab
 obj
 fact
 a.out
+*.o
