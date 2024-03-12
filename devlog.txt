@@ -1,5 +1,5 @@
 *****
-26 Feb 24
+26 Feb 2024
 I start implementing the analyze phase.
 Most of the analyze phase can be taken from Tim Davis' book.
 ---
@@ -30,7 +30,7 @@ After some debugging, everything runs smoothly.
 ---
 
 *****
-27 Feb 24
+27 Feb 2024
 I implemented the post ordering. 
 Pretty straightforward, taken directly from Tim Davis.
 At the moment, after computing the postorder, the elimination tree is relabeled and the matrix is permuted.
@@ -47,7 +47,7 @@ Generating a local copy of the full matrix is not a big deal.
 ---
 
 *****
-28 Feb 24
+28 Feb 2024
 I spent a lot of time trying to use the algorithms in Tim Davis book for row and column counts. They don't work for some reason.
 I will go back to that later. For now I am using the slightly inefficient approach.
 It uses O(|L|) operations instead of O(|A|). Not a big deal, but it could be improved. 
@@ -63,7 +63,7 @@ I need to try and build the matrix directly in cpp and see if it persists. Maybe
 ---
 
 *****
-29 Feb 24
+29 Feb 2024
 I implemented the fundamental supernodes. The algorithm to find them comes directly from Scott&Tuma book. 
 For some matrices the supernodes are quite small, especially when using augmented system. It may be needed to merge them. For now I leave as it is.
 Supernode information is stored as starting node of each supernode (fsn_ptr) and supernodal elimination tree.
@@ -170,9 +170,46 @@ I also need to check if implementing dpotrf using native BLAS gives the same res
 ---
 
 *****
+11 Mar 2024
+I implemented dpotrf and dpotrf2.
+A bit surprisingly, the C implementations that call level 2 and level 3 BLAS are faster than the native lapack library.
+The advantage is around 20%, sometimes a bit more.
+It's a it weird, because the performance of Lapack should come completely from BLAS, so using the same BLAS should yield the same times.
+Anyway, this is a good sign, because it means that I can implement the partial dense factorization, and add regularizaiton, without penalizing the performance.
+If my dpotrf was substantially slower than the native one, it would be a problem to use my own version with regularization.
+I now want to try to see how much faster the packed version is.
+---
+Implementing the packed version has some tricky parts.
+I had to find a way to pack the matrix. I will have to undo this at the end.
+I had to understand how to use the BLAS functions on the packed matrices. Everything is transpose.
+I has to make a local unpacked copy of the diagonal blocks and un-unpack it.
+Something is not working still.
+I will have to go through each step with a small matrix to see what's happening.
+---
+
+*****
+12 Mar 2024
+The packed version now works.
+It is faster than both Lapack and the version that I made of dpotrf. However, the packing and unpacking operations can take a long time.
+For now, I will ignore the packed version and use the normal one. 
+In the future, I need to understand if the matrices can be produced already packed and if the forward/backsolves can be done in the packed format.
+This would bring a decent advantage for large dense matrices.
+---
+I need to make all these code do the partial factorization.
+I tried using a right looking approach in dpotrf, but this slows down the code quite a bit.
+I wonder if it is faster to use a left looking approach, and at the end update the Schur complement just one.
+---
+Yes, using the left looking is quite faster, by a factor 3-3.5 for large matrices.
+I tried to compute the number of operations that are required when doing a partial factorization with respect to the full factorization:
+if only a fraction p\in[0,1] of the columns are eliminated, out of n, then the number of operations is asymptotic to
+(1/3*n^3) * p*(p^2-3p+3)
+where the first part (1/3*n^3) is the cost of the full factorization and p*(p^2-3p+3) is the reduction coefficient.
+The times that I measure using the left and right looking approach seem to more or less follow this rule.
+---
+
+
+
+*****
 To do:
 -try to avoid permuting the matrix, by using upper and lower triangular part
 -figure out why the skeleton matrix does not work
--dpotrf2
--dpotrf
--"potrf" in packed format

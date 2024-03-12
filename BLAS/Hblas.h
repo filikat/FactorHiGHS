@@ -5,10 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 
 #define max(i, j) ((i) >= (j) ? (i) : (j))
+#define min(i, j) ((i) >= (j) ? (j) : (i))
 
-void H_dsyrk(char* uplo, char* trans, int* n, int* k, double* alpha, double* a,
+/*void H_dsyrk(char* uplo, char* trans, int* n, int* k, double* alpha, double* a,
              int* lda, double* beta, double* c, int* ldc);
 
 void H_dtrsm(char* side, char* uplo, char* trans, char* diag, int* m, int* n,
@@ -17,6 +19,9 @@ void H_dtrsm(char* side, char* uplo, char* trans, char* diag, int* m, int* n,
 void H_dgemm(char* transa, char* transb, int* m, int* n, int* k, double* alpha,
              double* A, int* lda, double* B, int* ldb, double* beta, double* C,
              int* ldc);
+
+void H_dpotrf(char* uplo, int* n, double* A, int* ldA, int* info);
+
 
 void H_dgemm_block(char* transa, char* transb, int* m, int* n, int* k,
                    double* alpha, double* A, int* lda, double* B, int* ldb,
@@ -51,5 +56,6 @@ double get_time() {
   clock_gettime(CLOCK_REALTIME, &now);
   return now.tv_sec + now.tv_nsec * 1e-9;
 }
+*/
 
 #endif
