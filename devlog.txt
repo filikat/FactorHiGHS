@@ -207,9 +207,62 @@ where the first part (1/3*n^3) is the cost of the full factorization and p*(p^2-
 The times that I measure using the left and right looking approach seem to more or less follow this rule.
 ---
 
+*****
+13 Mar 2024
+I realized that the left-looking partial factorization can be implemented using two separate arrays for the first k columns and the remaining Schur complement.
+This is because the update of the Schur complement is done once at the very end, with a single BLAS call to dsyrk.
+One can still use the same array for both, simply providing the correct starting location of the Schur complement block and the correct leading dimension.
+I can still use restrict, because there is no aliasing happening between the two arrays.
+Doing like this is useful in managing the frontal matrices.
+The first k columns will be stored until the end, or copied and immediately destroyed. 
+The remaining Schur complement will be kept until the parent is considered and then destroyed.
+The two blocks have different lifespan within the code.
+Storing them in separate arrays should make it easier to deal with this.
+---
+
+*****
+14 Mar 2024
+I added a function to check that the symbolic factorization is correct.
+It creates a dense version of the original matrix and factorizes it using Lapack, with random entries.
+It then checks that the nonzeros happen where the symbolic factorization predicts.
+With random entries, numerical cancellation is highly unlikely.
+If the matrix is too large, the check is not done.
+---
+
+*****
+18 Mar 2024
+I think it's better to avoid overcomplicationg the analyze phase for now.
+I will keep the double permutation of the matrix for now.
+I will keep the slow row and col counts, without using the skeleton matrix.
+If needed, I will come back to these later.
+---
+Added computation of number of operations required, as the sum of the square of the number of nonzero entries in each column.
+Added the print of the summary of the symbolic object.
+---
+
+*****
+19 Mar 2024
+I moved the functions that do the partial factorization into a single file PartialFact.
+I also changed them so that they can do both Cholesky and LDL. 
+The problem with LDL is that there are no BLAS functions with intermediate diagonal scaling.
+To compute A*D*A', for a generic A and a diagonal D: 
+- if D is spd, then A*D*A' = (A * D^1/2) * (D^1/2 * A') and dsyrk can be used;
+- if D is generic, then I have to make a local copy of A, multiply it with D and use dgemm.
+This is slower because it requires intermediate copies, but also because dgemm fill the full matrix, rather than just one of the triangles, like dsyrk.
+Indeed, there is almost a factor 2 of difference when using the indefinite code instead of the positive definite.
+dgemm may be more optimized than dsyrk, but it still does a more complicated operation.
+I need to figure out if there is a faster way of dealing with the indefinite case.
+---
+To make the copies, I used dcopy.
+I read in some forum that this may be less efficient than memcpy sometimes. However, I expect dcopy to be highly optimized, so it shouldn't make any difference if it is properly implemented.
+I will stick to dcopy for now.
+---
+I should also use blocks when building the Schur complement remaining after the partial factorization.
+This would use more BLAS calls, but less memory, as only a smaller copy would be needed.
+However, this may be considerably slower, similarly to how the right looking approach was.
+---
 
 
 *****
 To do:
--try to avoid permuting the matrix, by using upper and lower triangular part
--figure out why the skeleton matrix does not work
+- blocks when building Schur complement

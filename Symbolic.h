@@ -11,6 +11,9 @@ class Symbolic {
   // Number of nonzeros in L
   int nz{};
 
+  // Number of floating point operations required
+  double operations{};
+
   // Number of fundamental supernodes
   int fsn{};
 
@@ -60,6 +63,7 @@ class Symbolic {
   int sn_end(int sn) const;
   int clique_begin(int sn) const;
   int clique_end(int sn) const;
+  void Print() const;
 
   void clique_info(int sn, int& position, int& snsize, int& cliquesize) const;
 };

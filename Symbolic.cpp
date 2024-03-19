@@ -2,6 +2,14 @@
 
 #include <iostream>
 
+void Symbolic::Print() const {
+  printf("Symbolic factorization:\n");
+  printf(" - size %d\n", n);
+  printf(" - nonzero entries %d\n", nz);
+  printf(" - operations required %.0f\n", operations);
+  printf(" - supernodes found %d\n", fsn);
+}
+
 int Symbolic::sn_begin(int sn) const {
   // Return the first node in the supernode sn.
   return fsn_start[sn];

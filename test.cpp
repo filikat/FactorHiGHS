@@ -114,7 +114,7 @@ int computeAThetaAT(const HighsSparseMatrix& matrix,
 }
 
 int main(int argc, char** argv) {
-  if (argc < 2) {
+  if (argc < 3) {
     std::cerr << "Wrong input\n";
     return 1;
   }
@@ -132,7 +132,7 @@ int main(int argc, char** argv) {
   assert(status == HighsStatus::kOk);
   const HighsLp lp = highs.getPresolvedLp();
 
-  int type = 0;
+  int type = atoi(argv[2]);
 
   int nA = lp.a_matrix_.num_col_;
   int mA = lp.a_matrix_.num_row_;
@@ -196,6 +196,7 @@ int main(int argc, char** argv) {
   Symbolic S;
   Analyze An(rows.data(), ptr.data(), n, nz);
   An.Run(S);
+  S.Print();
 
   // ===========================================================================
   // Write to file

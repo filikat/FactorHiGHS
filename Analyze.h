@@ -15,13 +15,14 @@ class Analyze {
   bool ready = false;
 
   // Matrix to be factorized, stored in upper and lower triangular format
-  std::vector<int> rows{};
-  std::vector<int> ptr{};
+  std::vector<int> rowsUpper{};
+  std::vector<int> ptrUpper{};
   std::vector<int> rowsLower{};
   std::vector<int> ptrLower{};
   int n{};
   int nz{};
   int nzL{};
+  double operations{};
 
   // Permutation and inverse permutation from Metis
   std::vector<int> perm{};
@@ -61,11 +62,15 @@ class Analyze {
   void ColPattern();
   void FundamentalSupernodes();
   void RelativeInd();
-  void clear();
+  void Clear();
+  bool Check() const;
 
  public:
   Analyze(const int* row_ind, const int* col_ptr, int size, int nonzeros);
   void Run(Symbolic& S);
 };
+
+// declaration for Lapack dpotrf
+extern "C" void dpotrf(char* uplo, int* n, double* A, int* ldA, int* info);
 
 #endif

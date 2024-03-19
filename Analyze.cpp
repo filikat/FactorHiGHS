@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <random>
 #include <stack>
 
 Analyze::Analyze(const int* row_ind, const int* col_ptr, int size,
@@ -14,8 +15,8 @@ Analyze::Analyze(const int* row_ind, const int* col_ptr, int size,
   // Only the upper triangular part is used.
 
   n = size;
-  rows = std::vector<int>(row_ind, row_ind + nonzeros);
-  ptr = std::vector<int>(col_ptr, col_ptr + n + 1);
+  rowsUpper = std::vector<int>(row_ind, row_ind + nonzeros);
+  ptrUpper = std::vector<int>(col_ptr, col_ptr + n + 1);
 
   // Permute the matrix with identical permutation, to extract upper triangular
   // part, if the input is not upper triangular.
@@ -23,7 +24,7 @@ Analyze::Analyze(const int* row_ind, const int* col_ptr, int size,
   for (int i = 0; i < n; ++i) iperm[i] = i;
   Permute(iperm);
 
-  nz = ptr.back();
+  nz = ptrUpper.back();
   ready = true;
 }
 
@@ -39,8 +40,8 @@ void Analyze::GetPermutation() {
 
   // go through the columns to count nonzeros
   for (int j = 0; j < n; ++j) {
-    for (int el = ptr[j]; el < ptr[j + 1]; ++el) {
-      int i = rows[el];
+    for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
+      int i = rowsUpper[el];
       ++work[j];
 
       // if entry (i,j) is not on the diagonal, it is duplicated on the lower
@@ -58,8 +59,8 @@ void Analyze::GetPermutation() {
   std::vector<int> temp_rows(temp_ptr.back(), 0);
 
   for (int j = 0; j < n; ++j) {
-    for (int el = ptr[j]; el < ptr[j + 1]; ++el) {
-      int i = rows[el];
+    for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
+      int i = rowsUpper[el];
 
       // insert row i in column j
       temp_rows[work[j]++] = i;
@@ -70,18 +71,6 @@ void Analyze::GetPermutation() {
       }
     }
   }
-
-  std::ofstream file;
-  file.open("matlab/metis_ptr.txt");
-  for (int i : temp_ptr) {
-    file << i << '\n';
-  }
-  file.close();
-  file.open("matlab/metis_rows.txt");
-  for (int i : temp_rows) {
-    file << i << '\n';
-  }
-  file.close();
 
   int options[METIS_NOPTIONS];
   METIS_SetDefaultOptions(options);
@@ -103,8 +92,8 @@ void Analyze::Permute(const std::vector<int>& iperm) {
     int col = iperm[j];
 
     // go through elements of column
-    for (int el = ptr[j]; el < ptr[j + 1]; ++el) {
-      int i = rows[el];
+    for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
+      int i = rowsUpper[el];
 
       // ignore potential entries in lower triangular part
       if (i > j) continue;
@@ -132,8 +121,8 @@ void Analyze::Permute(const std::vector<int>& iperm) {
     int col = iperm[j];
 
     // go through elements of column
-    for (int el = ptr[j]; el < ptr[j + 1]; ++el) {
-      int i = rows[el];
+    for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
+      int i = rowsUpper[el];
 
       // ignore potential entries in lower triangular part
       if (i > j) continue;
@@ -150,8 +139,8 @@ void Analyze::Permute(const std::vector<int>& iperm) {
     }
   }
 
-  ptr = std::move(new_ptr);
-  rows = std::move(new_rows);
+  ptrUpper = std::move(new_ptr);
+  rowsUpper = std::move(new_rows);
 }
 
 void Analyze::ETree() {
@@ -171,8 +160,8 @@ void Analyze::ETree() {
     parent[j] = -1;
     ancestor[j] = -1;
 
-    for (int el = ptr[j]; el < ptr[j + 1]; ++el) {
-      for (int i = rows[el]; i != -1 && i < j; i = next) {
+    for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
+      for (int i = rowsUpper[el]; i != -1 && i < j; i = next) {
         // next is used to move up the tree
         next = ancestor[i];
 
@@ -193,7 +182,7 @@ void Analyze::Postorder() {
 
   // Create linked lists of children:
   // head[node] is the first child of node,
-  // next[head[node]] is the second chilf,
+  // next[head[node]] is the second child,
   // next[next[head[node]]] is the third child...
   // until -1 is reached.
   std::vector<int> head(n, -1);
@@ -271,16 +260,16 @@ void Analyze::Transpose(std::vector<int>& rowsT, std::vector<int>& ptrT) const {
   std::vector<int> work(n);
 
   // count the entries in each row into work
-  for (int i = 0; i < ptr.back(); ++i) {
-    ++work[rows[i]];
+  for (int i = 0; i < ptrUpper.back(); ++i) {
+    ++work[rowsUpper[i]];
   }
 
   // sum row sums to obtain pointers
   Counts2Ptr(ptrT, work);
 
   for (int j = 0; j < n; ++j) {
-    for (int el = ptr[j]; el < ptr[j + 1]; ++el) {
-      int i = rows[el];
+    for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
+      int i = rowsUpper[el];
 
       // entry (i,j) becomes entry (j,i)
       int pos = work[i]++;
@@ -292,9 +281,6 @@ void Analyze::Transpose(std::vector<int>& rowsT, std::vector<int>& ptrT) const {
 void Analyze::RowColCount() {
   // Compute the number of nonzero entries for each row and column of the
   // Cholesky factor.
-  // It requires O(|L|) operations.
-  // The method that uses O(|A|) operations does not work for now.
-  // I will come back to it later.
 
   rowcount.resize(n);
   colcount.resize(n);
@@ -306,18 +292,18 @@ void Analyze::RowColCount() {
   for (int i = 0; i < n; ++i) {
     // mark diagonal entry
     mark[i] = i;
-    int rowc = 1;
+    int current_row_count = 1;
     ++colcount[i];
 
     // for all entries in the row of lower triangle
-    for (int el = ptr[i]; el < ptr[i + 1]; ++el) {
-      int j = rows[el];
+    for (int el = ptrUpper[i]; el < ptrUpper[i + 1]; ++el) {
+      int j = rowsUpper[el];
       if (j == i) continue;
 
       // while columns are not yet considered
       while (mark[j] != i) {
         mark[j] = i;
-        ++rowc;
+        ++current_row_count;
         ++colcount[j];
 
         // go up the elimination tree
@@ -325,8 +311,14 @@ void Analyze::RowColCount() {
       }
     }
 
-    rowcount[i] = rowc;
-    nzL += rowc;
+    rowcount[i] = current_row_count;
+  }
+
+  // compute nonzeros of L and number of operations
+  for (int j = 0; j < n; ++j) {
+    nzL += colcount[j];
+    double ccj = (double)colcount[j];
+    operations += ccj * ccj;
   }
 }
 
@@ -354,8 +346,8 @@ void Analyze::ColPattern() {
     rowsL[work[i]++] = i;
 
     // for all entries in the row of lower triangle
-    for (int el = ptr[i]; el < ptr[i + 1]; ++el) {
-      int j = rows[el];
+    for (int el = ptrUpper[i]; el < ptrUpper[i + 1]; ++el) {
+      int j = rowsUpper[el];
       if (j == i) continue;
 
       // while columns are not yet considered
@@ -511,15 +503,16 @@ void Analyze::RelativeInd() {
   }
 }
 
-void Analyze::clear() {
+void Analyze::Clear() {
   ready = false;
-  rows.clear();
-  ptr.clear();
+  rowsUpper.clear();
+  ptrUpper.clear();
   rowsLower.clear();
   ptrLower.clear();
   n = 0;
   nz = 0;
   nzL = 0;
+  operations = 0.0;
   perm.clear();
   iperm.clear();
   parent.clear();
@@ -533,6 +526,75 @@ void Analyze::clear() {
   fsn_start.clear();
   fsn_parent.clear();
   relind.clear();
+}
+
+bool Analyze::Check() const {
+  // Check that the symbolic factorization is correct, by using dense linear
+  // algebra operations.
+  // Return true if check is successful, or if matrix is too large.
+  // To be used for debug.
+
+  if (n > 1000) {
+    printf("==> Matrix is too large for checking\n");
+    return true;
+  }
+
+  std::random_device rd;
+  std::mt19937 rng(rd());
+  std::uniform_real_distribution<double> distr(0.1, 10.0);
+
+  // assemble sparse matrix into dense matrix
+  std::vector<double> M(n * n);
+  for (int col = 0; col < n; ++col) {
+    for (int el = ptrUpper[col]; el < ptrUpper[col + 1]; ++el) {
+      int row = rowsUpper[el];
+
+      // insert random element in position (row,col)
+      M[row + col * n] = distr(rng);
+
+      // guarantee matrix is positive definite
+      if (row == col) {
+        M[row + col * n] += n * 10;
+      }
+    }
+  }
+
+  // use Lapack to factorize the dense matrix
+  char uplo = 'U';
+  int N = n;
+  int info;
+  dpotrf(&uplo, &N, M.data(), &N, &info);
+  if (info != 0) {
+    printf("==> dpotrf failed\n");
+    return false;
+  }
+
+  // Check that expected nonzeros are nonzeros
+  for (int col = 0; col < n; ++col) {
+    for (int el = ptrL[col]; el < ptrL[col + 1]; ++el) {
+      int row = rowsL[el];
+
+      // Check that nonzeros are nonzeros.
+      // Numerical cancellation is highly unlikely with random data in M.
+      if (M[col + row * n] == 0.0) {
+        printf("==> (%d,%d) Found zero, expected nonzero\n", row, col);
+      }
+
+      // set nonzeros to zero
+      M[col + row * n] = 0.0;
+    }
+  }
+
+  // Check that there are no nonzeros outside of expected sparsity pattern
+  for (int col = 0; col < n; ++col) {
+    for (int row = 0; row <= col; ++row) {
+      if (M[row + col * n] != 0.0) {
+        printf("==> (%d,%d) Found nonzero, expected zero\n", row, col);
+      }
+    }
+  }
+
+  return true;
 }
 
 void Analyze::Run(Symbolic& S) {
@@ -550,9 +612,15 @@ void Analyze::Run(Symbolic& S) {
   FundamentalSupernodes();
   RelativeInd();
 
+  if (!Check()) {
+    printf("==> Check failed\n");
+    return;
+  }
+
   // move relevant stuff into S
   S.n = n;
   S.nz = nzL;
+  S.operations = operations;
   S.perm = std::move(perm);
   S.iperm = std::move(iperm);
   S.parent = std::move(parent);
@@ -566,5 +634,5 @@ void Analyze::Run(Symbolic& S) {
   S.relind = std::move(relind);
 
   // clear the remaining data
-  clear();
+  Clear();
 }

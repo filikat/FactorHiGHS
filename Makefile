@@ -25,7 +25,7 @@ CPPFLAGS = -std=c++11 -g -Wno-deprecated
 # includes and libraries
 includes = -I$(highs_path)/build -I$(highs_path)/src/ -I$(metis_path)/include -I$(local_path)/include
 libs_path = -L$(highs_path)/build/lib -L$(metis_path)/build/libmetis -L$(local_path)/lib
-libs = -lhighs -lmetis -lGKlib
+libs = -lhighs -lmetis -lGKlib -llapack
 
 # name of objects
 cpp_objects = $(cpp_sources:%.cpp=$(objdir)/%.o)
