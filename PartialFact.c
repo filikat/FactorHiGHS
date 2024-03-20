@@ -1,6 +1,13 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+
+double get_time() {
+  struct timespec now;
+  clock_gettime(CLOCK_REALTIME, &now);
+  return now.tv_sec + now.tv_nsec * 1e-9;
+}
 
 #define max(i, j) ((i) >= (j) ? (i) : (j))
 #define min(i, j) ((i) >= (j) ? (j) : (i))
@@ -73,61 +80,6 @@ void dtrsm(char* side, char* uplo, char* trans, char* diag, int* m, int* n,
 //
 // ===========================================================================
 
-int PartialFact_pos_large(int n, int k, double* restrict A, int lda,
-                          double* restrict B, int ldb) {
-  // ===========================================================================
-  // Positive definite factorization with blocks.
-  // BLAS calls: dsyrk, dgemm, dtrsm.
-  // ===========================================================================
-
-  // check input
-  if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
-    printf("Invalid input to PartialFact\n");
-    return -1;
-  }
-
-  // quick return
-  if (n == 0) return 0;
-
-  // j is the starting col of the block of columns
-  for (int j = 0; j < k; j += nb) {
-    // jb is the size of the block
-    int jb = min(nb, k - j);
-
-    // sizes for blas calls
-    int N = jb;
-    int K = j;
-    int M = n - j - jb;
-
-    // update diagonal block
-    dsyrk(&LL, &NN, &N, &K, &dmOne, &A[j], &lda, &dOne, &A[j + lda * j], &lda);
-
-    // factorize diagonal block
-    int info = PartialFact_pos_small(N, N, &A[j + lda * j], lda, NULL, 0);
-    if (info != 0) {
-      return info + j - 1;
-    }
-
-    if (j + jb < n) {
-      // update block of columns
-      dgemm(&NN, &TT, &M, &N, &K, &dmOne, &A[j + jb], &lda, &A[j], &lda, &dOne,
-            &A[j + jb + lda * j], &lda);
-
-      // solve block of columns with diagonal block
-      dtrsm(&RR, &LL, &TT, &NN, &M, &N, &dOne, &A[j + lda * j], &lda,
-            &A[j + jb + lda * j], &lda);
-    }
-  }
-
-  // update Schur complement if partial factorization is required
-  if (k < n) {
-    int N = n - k;
-    dsyrk(&LL, &NN, &N, &k, &dmOne, &A[k], &lda, &dOne, B, &ldb);
-  }
-
-  return 0;
-}
-
 int PartialFact_pos_small(int n, int k, double* restrict A, int lda,
                           double* restrict B, int ldb) {
   // ===========================================================================
@@ -178,12 +130,20 @@ int PartialFact_pos_small(int n, int k, double* restrict A, int lda,
   return 0;
 }
 
-int PartialFact_ind_large(int n, int k, double* restrict A, int lda,
+int PartialFact_pos_large(int n, int k, double* restrict A, int lda,
                           double* restrict B, int ldb) {
   // ===========================================================================
-  // Indefinite factorization with blocks.
-  // BLAS calls: dcopy, dscal, dgemm, dtrsm
+  // Positive definite factorization with blocks.
+  // BLAS calls: dsyrk, dgemm, dtrsm.
   // ===========================================================================
+
+  double t0, t1, t2, t3, t4, t5, t6, t7;
+  double t_copy = 0.0;
+  double t_update = 0.0;
+  double t_fact = 0.0;
+  double t_cols = 0.0;
+  double t_schur_copy = 0.0;
+  double t_schur = 0.0;
 
   // check input
   if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
@@ -204,61 +164,49 @@ int PartialFact_ind_large(int n, int k, double* restrict A, int lda,
     int K = j;
     int M = n - j - jb;
 
-    // create temporary copy of block of rows, multiplied by pivots
-    double* temp = malloc(j * jb * sizeof(double));
-    int ldt = jb;
-    for (int i = 0; i < j; ++i) {
-      dcopy(&N, &A[j + i * lda], &iOne, &temp[i * ldt], &iOne);
-      dscal(&N, &A[i + i * lda], &temp[i * ldt], &iOne);
-    }
-
-    // update diagonal block using dgemm
-    dgemm(&NN, &TT, &jb, &jb, &j, &dmOne, &A[j], &lda, temp, &ldt, &dOne,
-          &A[j + lda * j], &lda);
-
+    t0 = get_time();
+    // update diagonal block
+    dsyrk(&LL, &NN, &N, &K, &dmOne, &A[j], &lda, &dOne, &A[j + lda * j], &lda);
+    t1 = get_time();
     // factorize diagonal block
-    int info = PartialFact_ind_small(N, N, &A[j + lda * j], lda, NULL, 0);
+    int info = PartialFact_pos_small(N, N, &A[j + lda * j], lda, NULL, 0);
     if (info != 0) {
       return info + j - 1;
     }
-
+    t2 = get_time();
     if (j + jb < n) {
       // update block of columns
-      dgemm(&NN, &TT, &M, &N, &K, &dmOne, &A[j + jb], &lda, temp, &ldt, &dOne,
+      dgemm(&NN, &TT, &M, &N, &K, &dmOne, &A[j + jb], &lda, &A[j], &lda, &dOne,
             &A[j + jb + lda * j], &lda);
 
-      // solve block of columns with L
-      dtrsm(&RR, &LL, &TT, &UU, &M, &N, &dOne, &A[j + lda * j], &lda,
+      // solve block of columns with diagonal block
+      dtrsm(&RR, &LL, &TT, &NN, &M, &N, &dOne, &A[j + lda * j], &lda,
             &A[j + jb + lda * j], &lda);
-
-      // solve block of columns with D
-      for (int i = 0; i < jb; ++i) {
-        double coeff = 1.0 / A[j + i + (j + i) * lda];
-        dscal(&M, &coeff, &A[j + jb + lda * (j + i)], &iOne);
-      }
     }
-
-    free(temp);
+    t3 = get_time();
+    t_update += t1 - t0;
+    t_fact += t2 - t1;
+    t_cols += t3 - t2;
   }
 
-  // update Schur complement
+  // update Schur complement if partial factorization is required
   if (k < n) {
     int N = n - k;
-
-    // make temporary copy of M(k:n-1,0:k-1), multiplied by pivots
-    double* temp = malloc((n - k) * k * sizeof(double));
-    int ldt = n - k;
-    for (int j = 0; j < k; ++j) {
-      dcopy(&N, &A[k + j * lda], &iOne, &temp[j * ldt], &iOne);
-      dscal(&N, &A[j + j * lda], &temp[j * ldt], &iOne);
-    }
-
-    // update Schur complement using dgemm
-    dgemm(&NN, &TT, &N, &N, &k, &dmOne, &A[k], &lda, temp, &ldt, &dOne, B,
-          &ldb);
-
-    free(temp);
+    t4 = get_time();
+    dsyrk(&LL, &NN, &N, &k, &dmOne, &A[k], &lda, &dOne, B, &ldb);
+    t5 = get_time();
+    t_schur += t5 - t4;
   }
+
+  printf("%%%%%%%%%%%%%%%%%%%%%%\n");
+  printf("Time profile pos large:\n");
+  printf("%15s %12.6f\n", "Time copy", t_copy);
+  printf("%15s %12.6f\n", "Time update", t_update);
+  printf("%15s %12.6f\n", "Time fact", t_fact);
+  printf("%15s %12.6f\n", "Time cols", t_cols);
+  printf("%15s %12.6f\n", "Time schur copy", t_schur_copy);
+  printf("%15s %12.6f\n", "Time schur", t_schur);
+  printf("%%%%%%%%%%%%%%%%%%%%%%\n\n");
 
   return 0;
 }
@@ -328,6 +276,155 @@ int PartialFact_ind_small(int n, int k, double* restrict A, int lda,
 
     free(temp);
   }
+
+  return 0;
+}
+
+int PartialFact_ind_large(int n, int k, double* restrict A, int lda,
+                          double* restrict B, int ldb) {
+  // ===========================================================================
+  // Indefinite factorization with blocks.
+  // BLAS calls: dcopy, dscal, dgemm, dtrsm
+  // ===========================================================================
+
+  double t0, t1, t2, t3, t4, t5, t6, t7;
+  double t_copy = 0.0;
+  double t_update = 0.0;
+  double t_fact = 0.0;
+  double t_cols = 0.0;
+  double t_schur_copy = 0.0;
+  double t_schur = 0.0;
+
+  // check input
+  if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
+    printf("Invalid input to PartialFact\n");
+    return -1;
+  }
+
+  // quick return
+  if (n == 0) return 0;
+
+  // j is the starting col of the block of columns
+  for (int j = 0; j < k; j += nb) {
+    // jb is the size of the block
+    int jb = min(nb, k - j);
+
+    // sizes for blas calls
+    int N = jb;
+    int K = j;
+    int M = n - j - jb;
+
+    t0 = get_time();
+    // create temporary copy of block of rows, multiplied by pivots
+    double* temp = malloc(j * jb * sizeof(double));
+    int ldt = jb;
+    for (int i = 0; i < j; ++i) {
+      dcopy(&N, &A[j + i * lda], &iOne, &temp[i * ldt], &iOne);
+      dscal(&N, &A[i + i * lda], &temp[i * ldt], &iOne);
+    }
+
+    t1 = get_time();
+    // update diagonal block using dgemm
+    dgemm(&NN, &TT, &jb, &jb, &j, &dmOne, &A[j], &lda, temp, &ldt, &dOne,
+          &A[j + lda * j], &lda);
+
+    t2 = get_time();
+    // factorize diagonal block
+    int info = PartialFact_ind_small(N, N, &A[j + lda * j], lda, NULL, 0);
+    if (info != 0) {
+      return info + j - 1;
+    }
+
+    t3 = get_time();
+    if (j + jb < n) {
+      // update block of columns
+      dgemm(&NN, &TT, &M, &N, &K, &dmOne, &A[j + jb], &lda, temp, &ldt, &dOne,
+            &A[j + jb + lda * j], &lda);
+
+      // solve block of columns with L
+      dtrsm(&RR, &LL, &TT, &UU, &M, &N, &dOne, &A[j + lda * j], &lda,
+            &A[j + jb + lda * j], &lda);
+
+      // solve block of columns with D
+      for (int i = 0; i < jb; ++i) {
+        double coeff = 1.0 / A[j + i + (j + i) * lda];
+        dscal(&M, &coeff, &A[j + jb + lda * (j + i)], &iOne);
+      }
+    }
+    t4 = get_time();
+
+    t_copy += t1 - t0;
+    t_update += t2 - t1;
+    t_fact += t3 - t2;
+    t_cols += t4 - t3;
+
+    free(temp);
+  }
+
+  // update Schur complement
+  if (k < n) {
+    int N = n - k;
+
+    t5 = get_time();
+    // count number of positive and negative pivots
+    int pos_pivot = 0;
+    int neg_pivot = 0;
+    for (int i = 0; i < k; ++i) {
+      if (A[i + lda * i] >= 0.0) {
+        ++pos_pivot;
+      } else {
+        ++neg_pivot;
+      }
+    }
+
+    // make temporary copies of positive and negative columns separately
+    double* temp_pos = malloc((n - k) * pos_pivot * sizeof(double));
+    double* temp_neg = malloc((n - k) * neg_pivot * sizeof(double));
+    int ldt = n - k;
+
+    // the copies of the columns are multiplied by sqrt(|Ajj|)
+    int start_pos = 0;
+    int start_neg = 0;
+    for (int j = 0; j < k; ++j) {
+      double Ajj = A[j + lda * j];
+      if (Ajj >= 0.0) {
+        Ajj = sqrt(Ajj);
+        dcopy(&N, &A[k + j * lda], &iOne, &temp_pos[start_pos * ldt], &iOne);
+        dscal(&N, &Ajj, &temp_pos[start_pos * ldt], &iOne);
+        ++start_pos;
+      } else {
+        Ajj = sqrt(-Ajj);
+        dcopy(&N, &A[k + j * lda], &iOne, &temp_neg[start_neg * ldt], &iOne);
+        dscal(&N, &Ajj, &temp_neg[start_neg * ldt], &iOne);
+        ++start_neg;
+      }
+    }
+    t6 = get_time();
+
+    // Update schur complement by subtracting contribution of positive columns
+    // and adding contribution of negative columns.
+    // In this way, I can use dsyrk instead of dgemm and avoid updating the full
+    // square schur complement.
+    dsyrk(&LL, &NN, &N, &pos_pivot, &dmOne, temp_pos, &ldt, &dOne, B, &ldb);
+    dsyrk(&LL, &NN, &N, &neg_pivot, &dOne, temp_neg, &ldt, &dOne, B, &ldb);
+    t7 = get_time();
+
+    t_schur_copy += t6 - t5;
+    t_schur += t7 - t6;
+
+    free(temp_pos);
+    free(temp_neg);
+  }
+
+  printf("%%%%%%%%%%%%%%%%%%%%%%\n");
+  printf("Time profile ind large:\n");
+  printf("%15s %12.6f\n", "Time copy", t_copy);
+  printf("%15s %12.6f\n", "Time update", t_update);
+  printf("%15s %12.6f\n", "Time fact", t_fact);
+  printf("%15s %12.6f\n", "Time cols", t_cols);
+  printf("%15s %12.6f\n", "Time schur copy", t_schur_copy);
+  printf("%15s %12.6f\n", "Time schur", t_schur);
+  printf("%%%%%%%%%%%%%%%%%%%%%%\n\n");
 
   return 0;
 }

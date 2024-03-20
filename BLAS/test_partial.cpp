@@ -26,7 +26,7 @@ void print(double* A, int i, int j, int m, int n, int lda) {
 }
 
 int main() {
-  int n = 10000;
+  int n = 20000;
 
   std::random_device rand_dev;
   std::mt19937 rng(rand_dev());
@@ -37,26 +37,26 @@ int main() {
     A[i] = distr(rng);
   }
   for (int i = 0; i < n; ++i) {
-    A[i + i * n] += 10* n;
+    A[i + i * n] += 50 * n;
   }
   std::vector<double> AA(A);
 
   char uplo = 'l';
   int info;
-  int k = n / 5;
+  int k = n/10;
 
-  //print(A.data(), 0, 0, n, n, n);
+  // print(A.data(), 0, 0, n, n, n);
 
   auto t0 = std::chrono::high_resolution_clock::now();
   PartialFact_ind_large(n, k, A.data(), n, &A[k + n * k], n);
   // PartialFact_pos_large(n, k, A.data(), n, &A[k + n * k], n);
   auto t1 = std::chrono::high_resolution_clock::now();
-  PartialFact_ind_small(n, k, AA.data(), n, &AA[k + n * k], n);
+  PartialFact_pos_large(n, k, AA.data(), n, &AA[k + n * k], n);
   // H_dpotrf(&uplo, &n, AA.data(), &n, &AA[k + n * k], &n, &info, &k);
   auto t2 = std::chrono::high_resolution_clock::now();
 
-  //print(A.data(), 0, 0, n, n, n);
-  //print(AA.data(), 0, 0, n, n, n);
+  // print(A.data(), 0, 0, n, n, n);
+  // print(AA.data(), 0, 0, n, n, n);
 
   double time0{};
   double time1{};

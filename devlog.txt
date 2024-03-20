@@ -248,7 +248,7 @@ The problem with LDL is that there are no BLAS functions with intermediate diago
 To compute A*D*A', for a generic A and a diagonal D: 
 - if D is spd, then A*D*A' = (A * D^1/2) * (D^1/2 * A') and dsyrk can be used;
 - if D is generic, then I have to make a local copy of A, multiply it with D and use dgemm.
-This is slower because it requires intermediate copies, but also because dgemm fill the full matrix, rather than just one of the triangles, like dsyrk.
+This is slower because it requires intermediate copies, but also because dgemm fills the full matrix, rather than just one of the triangles, like dsyrk.
 Indeed, there is almost a factor 2 of difference when using the indefinite code instead of the positive definite.
 dgemm may be more optimized than dsyrk, but it still does a more complicated operation.
 I need to figure out if there is a faster way of dealing with the indefinite case.
@@ -262,7 +262,47 @@ This would use more BLAS calls, but less memory, as only a smaller copy would be
 However, this may be considerably slower, similarly to how the right looking approach was.
 ---
 
+*****
+20 Mar 2024
+I did a time profile of the positive definite and indefinite dense factorizations, to see where the difference is, for a matrix of size 20000, with 10% of columns eliminated.
+
+     Time profile     Indefinite        Pos-definite          Ratio
+        Time copy       0.004962            0.000000            inf
+ Time diag update       0.002041            0.002848           0.72
+   Time diag fact       0.000515            0.000298           1.73
+ Time update cols       0.373991            0.389060           0.96
+  Time schur copy       0.043392            0.000000            inf
+Time update schur       3.969590            1.965485           2.02
+
+The copies required by the indefinite code do not take too much time.
+Updating the diagonal blocks take the same time. Factorizing the diagonal blocks takes twice as much, but this is a very small number anyway.
+Updating the block of columns takes the same time.
+Most of the time lost is in updating the Schur complement.
+I have two ideas to try:
+- using blocks when updating the Schur complement
+- splitting the copies between positive and negative pivots, scaling the columns with sqrt(|Ajj|) and using dsyrk, i.e.,
+  the product A * D * A^T, where D is diagonal with 1 or -1 on the diagonal, can be written as
+    \sum_i D_i A_i A_i^T = \sum_{i: Di=1} A_iA_i^T - \sum_{i: Di=-1} A_iA_i^T.
+  In this way, I can use 2 calle to dsyrk instead of a call to dgemm.
+I think that the factor 2 that arises when updating the Schur complement comes from the fact that dgemm updates the full matrix and not just the triangle.
+Using dsyrk should solve this, taking some extra time for the copies.
+---
+Indeed, splitting into positive and negative and using dsyrk solves the problem. 
+
+     Time profile     Indefinite        Pos-definite          Ratio
+        Time copy       0.005025            0.000000            inf
+ Time diag update       0.002093            0.002313           0.90
+   Time diag fact       0.000510            0.000297           1.72
+ Time update cols       0.376947            0.377971           1.00
+  Time schur copy       0.035899            0.000000            inf
+Time update schur       1.982756            1.980476           1.00
+
+The update of the Schur complement now takes the same time.
+The copies can be expensive, if many columns are eliminated (k=n or close).
+Hopefully, this is not the case with the frontal matrices, as I expect only a small number of columns to be eliminated.
+The update of the diagonal block is cheaper in the indefinite case probably because dgemm is better optimized than dsyrk, and the block is small.
+I don't see a point in optimizing more the code for the factorization of the blocks. It takes twice as much, but this time is negligible.
+---
 
 *****
 To do:
-- blocks when building Schur complement
