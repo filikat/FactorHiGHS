@@ -37,7 +37,7 @@ void PermuteVector(std::vector<int>& v, const std::vector<int>& perm) {
 
 void SubtreeSize(const std::vector<int>& parent, std::vector<int>& sizes) {
   // Compute sizes of subtrees of the tree given by parent
-  
+
   int n = parent.size();
   sizes.assign(n, 1);
 
@@ -45,4 +45,15 @@ void SubtreeSize(const std::vector<int>& parent, std::vector<int>& sizes) {
     int k = parent[i];
     if (k != -1) sizes[k] += sizes[i];
   }
+}
+
+void print(std::ofstream& out_file, const std::vector<int>& v,
+           const std::string s) {
+  char name[80];
+  snprintf(name, 80, "matlab/%s.txt", s.c_str());
+  out_file.open(name);
+  for (int i : v) {
+    out_file << i << '\n';
+  }
+  out_file.close();
 }

@@ -35,6 +35,8 @@ void Analyze::GetPermutation() {
   iperm.resize(n);
 
   // Build temporary full copy of the matrix, to be used for Metis.
+  // NB: Metis adjacency list should not contain the vertex itself, so diagonal
+  // element is skipped.
 
   std::vector<int> work(n, 0);
 
@@ -42,13 +44,15 @@ void Analyze::GetPermutation() {
   for (int j = 0; j < n; ++j) {
     for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
       int i = rowsUpper[el];
+
+      // skip diagonal entries
+      if (i == j) continue;
+
+      // nonzero in column j
       ++work[j];
 
-      // if entry (i,j) is not on the diagonal, it is duplicated on the lower
-      // part of column i
-      if (i < j) {
-        ++work[i];
-      }
+      // duplicated on the lower part of column i
+      ++work[i];
     }
   }
 
@@ -62,13 +66,13 @@ void Analyze::GetPermutation() {
     for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
       int i = rowsUpper[el];
 
+      if (i == j) continue;
+
       // insert row i in column j
       temp_rows[work[j]++] = i;
 
-      if (i < j) {
-        // insert row j in column i
-        temp_rows[work[i]++] = j;
-      }
+      // insert row j in column i
+      temp_rows[work[i]++] = j;
     }
   }
 
@@ -373,7 +377,7 @@ void Analyze::FundamentalSupernodes() {
   // isSN[i] is true if node i is the start of a fundamental supernode
   std::vector<bool> isSN(n, false);
 
-  std::vector<int> prev_nonz(n, 0);
+  std::vector<int> prev_nonz(n, -1);
 
   // compute sizes of subtrees
   std::vector<int> subtreeSizes(n);
@@ -397,9 +401,6 @@ void Analyze::FundamentalSupernodes() {
       prev_nonz[i] = j;
     }
   }
-
-  // guarantee that node 0 is true (for some reason it does not happen)
-  isSN[0] = true;
 
   // create information about fundamental supernodes
   fsn_belong.resize(n);
@@ -439,19 +440,56 @@ void Analyze::FundamentalSupernodes() {
   fsn_parent.back() = -1;
 }
 
-void Analyze::RelativeInd() {
-  // Find the relative indices of the child clique with respect to the parent
-  // indexing.
-  // E.g., supernode 0 has parent supernode 5.
-  // Supernode 0 is made of 1 node and its column is {0,8,9}, i.e., it has
-  // nonzero entries in its clique in rows {8,9}.
-  // Parent supernode is made of nodes {7,8,9} and the full column has nonzeros
-  // in rows {7,8,9,15}.
-  // Then, the relative indices of 0 with respect to its parent 5 are {1,2},
-  // because entry 8 in the clique of sn 0 corresponds to the entry number 1 in
-  // the full column of the parent sn 5...
+void Analyze::RelativeInd_cols() {
+  // Find the relative indices of the original column wrt the frontal matrix of
+  // the corresponding supernode
 
-  relind.resize(fsn);
+  relind_cols.resize(nz);
+
+  // go through the supernodes
+  for (int sn = 0; sn < fsn; ++sn) {
+    const int ptrL_start = ptrL[fsn_start[sn]];
+    const int ptrL_end = ptrL[fsn_start[sn] + 1];
+
+    // go through the columns of the supernode
+    for (int col = fsn_start[sn]; col < fsn_start[sn + 1]; ++col) {
+      // go through original column and supernodal column
+      int ptrA = ptrLower[col];
+      int ptrL = ptrL_start;
+
+      // offset wrt ptrLower[col]
+      int index{};
+
+      // size of the column of the original matrix
+      int col_size = ptrLower[col + 1] - ptrLower[col];
+
+      while (ptrL < ptrL_end) {
+        // if found all the relative indices that are needed, stop
+        if (index == col_size) {
+          break;
+        }
+
+        // check if indices coincide
+        if (rowsL[ptrL] == rowsLower[ptrA]) {
+          // yes: save relative index and move pointers forward
+          relind_cols[ptrLower[col] + index] = ptrL - ptrL_start;
+          ++index;
+          ++ptrL;
+          ++ptrA;
+        } else {
+          // no: move pointer of L forward
+          ++ptrL;
+        }
+      }
+    }
+  }
+}
+
+void Analyze::RelativeInd_clique() {
+  // Find the relative indices of the child clique wrt the frontal matrix of the
+  // parent supernode
+
+  relind_clique.resize(fsn);
 
   for (int sn = 0; sn < fsn; ++sn) {
     // number of nodes in the supernode
@@ -466,7 +504,7 @@ void Analyze::RelativeInd() {
     // size of the clique of the supernode
     int sn_clique_size = sn_column_size - sn_size;
 
-    relind[sn].resize(sn_clique_size);
+    relind_clique[sn].resize(sn_clique_size);
 
     // iterate through the clique of sn
     int ptr_current = ptrL[fsn_start[sn]] + sn_size;
@@ -491,7 +529,7 @@ void Analyze::RelativeInd() {
       // check if indices coincide
       if (rowsL[ptr_current] == rowsL[ptr_parent]) {
         // yes: save relative index and move pointers forward
-        relind[sn][index] = ptr_parent - ptr_parent_start;
+        relind_clique[sn][index] = ptr_parent - ptr_parent_start;
         ++index;
         ++ptr_parent;
         ++ptr_current;
@@ -525,7 +563,8 @@ void Analyze::Clear() {
   fsn_belong.clear();
   fsn_start.clear();
   fsn_parent.clear();
-  relind.clear();
+  relind_cols.clear();
+  relind_clique.clear();
 }
 
 bool Analyze::Check() const {
@@ -534,11 +573,32 @@ bool Analyze::Check() const {
   // Return true if check is successful, or if matrix is too large.
   // To be used for debug.
 
+  int wrong_entries{};
+
+  // Check relative indices cols
+  for (int sn = 0; sn < fsn; ++sn) {
+    const int fsn_col_start = ptrL[fsn_start[sn]];
+
+    for (int col = fsn_start[sn]; col < fsn_start[sn + 1]; ++col) {
+      for (int el = ptrLower[col]; el < ptrLower[col + 1]; ++el) {
+        int row = rowsLower[el];
+
+        if (row != rowsL[fsn_col_start + relind_cols[el]]) {
+          printf("==> Found wrong relind_cols, col %d, row %d, rowsL %d\n", col,
+                 row, rowsL[fsn_col_start + relind_cols[el]]);
+          ++wrong_entries;
+        }
+      }
+    }
+  }
+
+  // Check symbolic factorization
   if (n > 1000) {
-    printf("==> Matrix is too large for checking\n");
+    printf("==> Matrix is too large for dense checking\n");
     return true;
   }
 
+  // initialize random number generator (to avoid numerical cancellation)
   std::random_device rd;
   std::mt19937 rng(rd());
   std::uniform_real_distribution<double> distr(0.1, 10.0);
@@ -552,7 +612,7 @@ bool Analyze::Check() const {
       // insert random element in position (row,col)
       M[row + col * n] = distr(rng);
 
-      // guarantee matrix is positive definite
+      // guarantee matrix is diagonally dominant (thus positive definite)
       if (row == col) {
         M[row + col * n] += n * 10;
       }
@@ -578,6 +638,7 @@ bool Analyze::Check() const {
       // Numerical cancellation is highly unlikely with random data in M.
       if (M[col + row * n] == 0.0) {
         printf("==> (%d,%d) Found zero, expected nonzero\n", row, col);
+        ++wrong_entries;
       }
 
       // set nonzeros to zero
@@ -590,11 +651,12 @@ bool Analyze::Check() const {
     for (int row = 0; row <= col; ++row) {
       if (M[row + col * n] != 0.0) {
         printf("==> (%d,%d) Found nonzero, expected zero\n", row, col);
+        ++wrong_entries;
       }
     }
   }
 
-  return true;
+  return wrong_entries == 0;
 }
 
 void Analyze::Run(Symbolic& S) {
@@ -610,11 +672,13 @@ void Analyze::Run(Symbolic& S) {
   RowColCount();
   ColPattern();
   FundamentalSupernodes();
-  RelativeInd();
+  RelativeInd_cols();
+  RelativeInd_clique();
 
   if (!Check()) {
-    printf("==> Check failed\n");
-    return;
+    printf("\n==> Analyze check failed\n\n");
+  } else {
+    printf("\n==> Analyze check successful\n\n");
   }
 
   // move relevant stuff into S
@@ -631,7 +695,8 @@ void Analyze::Run(Symbolic& S) {
   S.fsn = fsn;
   S.fsn_parent = std::move(fsn_parent);
   S.fsn_start = std::move(fsn_start);
-  S.relind = std::move(relind);
+  S.relind_cols = std::move(relind_cols);
+  S.relind_clique = std::move(relind_clique);
 
   // clear the remaining data
   Clear();

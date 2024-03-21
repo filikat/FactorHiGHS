@@ -6,8 +6,8 @@ void Symbolic::Print() const {
   printf("Symbolic factorization:\n");
   printf(" - size %d\n", n);
   printf(" - nonzero entries %d\n", nz);
-  printf(" - operations required %.0f\n", operations);
   printf(" - supernodes found %d\n", fsn);
+  printf(" - operations count %.0f\n", operations);
 }
 
 int Symbolic::sn_begin(int sn) const {

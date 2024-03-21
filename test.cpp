@@ -6,17 +6,6 @@
 #include "Highs.h"
 #include "io/Filereader.h"
 
-void print(std::ofstream& out_file, const std::vector<int>& v,
-           const std::string s) {
-  char name[80];
-  snprintf(name, 80, "matlab/%s.txt", s.c_str());
-  out_file.open(name);
-  for (int i : v) {
-    out_file << i << '\n';
-  }
-  out_file.close();
-}
-
 int computeAThetaAT(const HighsSparseMatrix& matrix,
                     const std::vector<double>& theta, HighsSparseMatrix& AAT) {
   // Create a row-wise copy of the matrix

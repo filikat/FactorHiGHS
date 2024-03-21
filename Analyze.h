@@ -48,8 +48,11 @@ class Analyze {
   std::vector<int> fsn_start{};
   std::vector<int> fsn_parent{};
 
-  // relative indices for frontal matrices
-  std::vector<std::vector<int>> relind{};
+  // relative indices of original columns wrt L columns
+  std::vector<int> relind_cols{};
+
+  // relative indices of clique wrt parent
+  std::vector<std::vector<int>> relind_clique{};
 
   void GetPermutation();
   void Permute(const std::vector<int>& iperm);
@@ -61,7 +64,8 @@ class Analyze {
   void RowColCount();
   void ColPattern();
   void FundamentalSupernodes();
-  void RelativeInd();
+  void RelativeInd_cols();
+  void RelativeInd_clique();
   void Clear();
   bool Check() const;
 

@@ -305,4 +305,24 @@ I don't see a point in optimizing more the code for the factorization of the blo
 ---
 
 *****
+21 Mar 2024
+I noticed that I also need relative indices to to assemble the original columns into the frontal matrix.
+I now have relind_cols for that and relind_clique to assemble the generated elements.
+In doing so, I apparently broke something and things were not working properly.
+In particular, Metis was giving the usual problems, but worse.
+I finally noticed that Metis assumes that the adjacency list of each vertex does not contain the vertex itself...
+This means that I should not consider diagonal entries when building the full matrix for Metis.
+I fixed this and now everything seems to work properly.
+The old segfault and bus error and whatnot were all due to this. What an idiot.
+---
+I also noticed an error in the way the supernodes are detected. It has to do with Fortran and C indices starting from 1 and 0. 
+It should be fixed now.
+The issue of the first node not being detected correctly also disappeared.
+---
+I added a check for the relative indices of the columns.
+I don't think this makes much sense, because the only way to check is to almost do the same operations as when I compute them.
+I leave it there for now anyway.
+---
+
+*****
 To do:
