@@ -7,7 +7,7 @@
 
 Analyze::Analyze(const int* row_ind, const int* col_ptr, int size,
                  int nonzeros) {
-  // Input the symmetric matrix to be factorized in CSC format.
+  // Input the symmetric matrix to be analyzed in CSC format.
   // row_ind contains the row indices.
   // col_ptr contains the starting points of each column.
   // size is the number of rows/columns.
@@ -25,6 +25,13 @@ Analyze::Analyze(const int* row_ind, const int* col_ptr, int size,
   Permute(iperm);
 
   nz = ptrUpper.back();
+
+  // double transpose to sort columns
+  rowsLower.resize(nz);
+  ptrLower.resize(n + 1);
+  Transpose(ptrUpper, rowsUpper, ptrLower, rowsLower);
+  Transpose(ptrLower, rowsLower, ptrUpper, rowsUpper);
+
   ready = true;
 }
 
@@ -43,7 +50,7 @@ void Analyze::GetPermutation() {
   // go through the columns to count nonzeros
   for (int j = 0; j < n; ++j) {
     for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
-      int i = rowsUpper[el];
+      const int i = rowsUpper[el];
 
       // skip diagonal entries
       if (i == j) continue;
@@ -64,7 +71,7 @@ void Analyze::GetPermutation() {
 
   for (int j = 0; j < n; ++j) {
     for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
-      int i = rowsUpper[el];
+      const int i = rowsUpper[el];
 
       if (i == j) continue;
 
@@ -76,6 +83,7 @@ void Analyze::GetPermutation() {
     }
   }
 
+  // call Metis
   int options[METIS_NOPTIONS];
   METIS_SetDefaultOptions(options);
   int status = METIS_NodeND(&n, temp_ptr.data(), temp_rows.data(), NULL,
@@ -86,26 +94,26 @@ void Analyze::GetPermutation() {
 void Analyze::Permute(const std::vector<int>& iperm) {
   // Symmetric permutation of the upper triangular matrix based on inverse
   // permutation iperm.
-  // The resulting matrix is upper triangular, regardless of the inpur matrix.
+  // The resulting matrix is upper triangular, regardless of the input matrix.
 
   std::vector<int> work(n, 0);
 
   // go through the columns to count the nonzeros
   for (int j = 0; j < n; ++j) {
     // get new index of column
-    int col = iperm[j];
+    const int col = iperm[j];
 
     // go through elements of column
     for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
-      int i = rowsUpper[el];
+      const int i = rowsUpper[el];
 
       // ignore potential entries in lower triangular part
       if (i > j) continue;
 
       // get new index of row
-      int row = iperm[i];
+      const int row = iperm[i];
 
-      // since only upper triangular part is used, column is larger than row
+      // since only upper triangular part is used, col is larger than row
       int actual_col = std::max(row, col);
       ++work[actual_col];
     }
@@ -122,21 +130,21 @@ void Analyze::Permute(const std::vector<int>& iperm) {
   // go through the columns to assign row indices
   for (int j = 0; j < n; ++j) {
     // get new index of column
-    int col = iperm[j];
+    const int col = iperm[j];
 
     // go through elements of column
     for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
-      int i = rowsUpper[el];
+      const int i = rowsUpper[el];
 
       // ignore potential entries in lower triangular part
       if (i > j) continue;
 
       // get new index of row
-      int row = iperm[i];
+      const int row = iperm[i];
 
       // since only upper triangular part is used, column is larger than row
-      int actual_col = std::max(row, col);
-      int actual_row = std::min(row, col);
+      const int actual_col = std::max(row, col);
+      const int actual_row = std::min(row, col);
 
       int pos = work[actual_col]++;
       new_rows[pos] = actual_row;
@@ -184,18 +192,9 @@ void Analyze::Postorder() {
 
   postorder.resize(n);
 
-  // Create linked lists of children:
-  // head[node] is the first child of node,
-  // next[head[node]] is the second child,
-  // next[next[head[node]]] is the third child...
-  // until -1 is reached.
-  std::vector<int> head(n, -1);
-  std::vector<int> next(n);
-  for (int node = n - 1; node >= 0; --node) {
-    if (parent[node] == -1) continue;
-    next[node] = head[parent[node]];
-    head[parent[node]] = node;
-  }
+  // create linked list of children
+  std::vector<int> head, next;
+  ChildrenLinkedList(parent, head, next);
 
   // Execute depth first search only for root node(s)
   int start{};
@@ -221,10 +220,9 @@ void Analyze::Postorder() {
   // Permute matrix based on postorder
   Permute(ipost);
 
-  // create the lower triangular part of the matrix
-  rowsLower.resize(nz);
-  ptrLower.resize(n + 1);
-  Transpose(rowsLower, ptrLower);
+  // double transpose to sort columns and update lower part
+  Transpose(ptrUpper, rowsUpper, ptrLower, rowsLower);
+  Transpose(ptrLower, rowsLower, ptrUpper, rowsUpper);
 
   // Update perm and iperm
   PermuteVector(perm, postorder);
@@ -241,8 +239,8 @@ void Analyze::DFS_post(int node, int& start, std::vector<int>& head,
   stack.push(node);
 
   while (!stack.empty()) {
-    int current = stack.top();
-    int child = head[current];
+    const int current = stack.top();
+    const int child = head[current];
 
     if (child == -1) {
       // no children left to order,
@@ -254,30 +252,6 @@ void Analyze::DFS_post(int node, int& start, std::vector<int>& head,
       // add it to the stack and remove it from the list of children
       stack.push(child);
       head[current] = next[child];
-    }
-  }
-}
-
-void Analyze::Transpose(std::vector<int>& rowsT, std::vector<int>& ptrT) const {
-  // Compute the transpose of the matrix and return it in rowsT and ptrT
-
-  std::vector<int> work(n);
-
-  // count the entries in each row into work
-  for (int i = 0; i < ptrUpper.back(); ++i) {
-    ++work[rowsUpper[i]];
-  }
-
-  // sum row sums to obtain pointers
-  Counts2Ptr(ptrT, work);
-
-  for (int j = 0; j < n; ++j) {
-    for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
-      int i = rowsUpper[el];
-
-      // entry (i,j) becomes entry (j,i)
-      int pos = work[i]++;
-      rowsT[pos] = j;
     }
   }
 }
@@ -385,8 +359,8 @@ void Analyze::FundamentalSupernodes() {
 
   for (int j = 0; j < n; ++j) {
     for (int el = ptrLower[j]; el < ptrLower[j + 1]; ++el) {
-      int i = rowsLower[el];
-      int k = prev_nonz[i];
+      const int i = rowsLower[el];
+      const int k = prev_nonz[i];
 
       // mark as fundamental sn, nodes which are leaf of subtrees
       if (k < j - subtreeSizes[j] + 1) {
@@ -492,17 +466,20 @@ void Analyze::RelativeInd_clique() {
   relind_clique.resize(fsn);
 
   for (int sn = 0; sn < fsn; ++sn) {
+    // if there is no parent, skip supernode
+    if (fsn_parent[sn] == -1) continue;
+
     // number of nodes in the supernode
-    int sn_size = fsn_start[sn + 1] - fsn_start[sn];
+    const int sn_size = fsn_start[sn + 1] - fsn_start[sn];
 
     // column of the first node in the supernode
-    int j = fsn_start[sn];
+    const int j = fsn_start[sn];
 
     // size of the first column of the supernode
-    int sn_column_size = ptrL[j + 1] - ptrL[j];
+    const int sn_column_size = ptrL[j + 1] - ptrL[j];
 
     // size of the clique of the supernode
-    int sn_clique_size = sn_column_size - sn_size;
+    const int sn_clique_size = sn_column_size - sn_size;
 
     relind_clique[sn].resize(sn_clique_size);
 
@@ -665,6 +642,9 @@ void Analyze::Run(Symbolic& S) {
 
   if (!ready) return;
 
+  Clock clock{};
+  clock.start();
+
   GetPermutation();
   Permute(iperm);
   ETree();
@@ -674,6 +654,8 @@ void Analyze::Run(Symbolic& S) {
   FundamentalSupernodes();
   RelativeInd_cols();
   RelativeInd_clique();
+
+  printf("Analyze time %f\n", clock.stop());
 
   if (!Check()) {
     printf("\n==> Analyze check failed\n\n");

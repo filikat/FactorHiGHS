@@ -4,7 +4,6 @@
 #include <vector>
 
 class Symbolic {
- public:
   // Size of the matrix L
   int n{};
 
@@ -75,9 +74,28 @@ class Symbolic {
   int sn_end(int sn) const;
   int clique_begin(int sn) const;
   int clique_end(int sn) const;
-  void Print() const;
 
   void clique_info(int sn, int& position, int& snsize, int& cliquesize) const;
+
+  // print information to screen
+  void Print() const;
+
+  // provide const access to symbolic factorization
+  int Size() const;
+  int Nz() const;
+  int Ops() const;
+  int Fsn() const;
+  const std::vector<int>& Perm() const;
+  const std::vector<int>& Iperm() const;
+  const std::vector<int>& Parent() const;
+  const std::vector<int>& Rowcount() const;
+  const std::vector<int>& Colcount() const;
+  const std::vector<int>& Rows() const;
+  const std::vector<int>& Ptr() const;
+  const std::vector<int>& Fsn_parent() const;
+  const std::vector<int>& Fsn_start() const;
+  const std::vector<int>& Relind_cols() const;
+  const std::vector<std::vector<int>>& Relind_clique() const;
 };
 
 // Explanation of relative indices:

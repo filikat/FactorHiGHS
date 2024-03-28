@@ -198,7 +198,7 @@ int PartialFact_pos_large(int n, int k, double* restrict A, int lda,
     t_schur += t5 - t4;
   }
 
-  printf("%%%%%%%%%%%%%%%%%%%%%%\n");
+  /*printf("%%%%%%%%%%%%%%%%%%%%%%\n");
   printf("Time profile pos large:\n");
   printf("%15s %12.6f\n", "Time copy", t_copy);
   printf("%15s %12.6f\n", "Time update", t_update);
@@ -206,7 +206,7 @@ int PartialFact_pos_large(int n, int k, double* restrict A, int lda,
   printf("%15s %12.6f\n", "Time cols", t_cols);
   printf("%15s %12.6f\n", "Time schur copy", t_schur_copy);
   printf("%15s %12.6f\n", "Time schur", t_schur);
-  printf("%%%%%%%%%%%%%%%%%%%%%%\n\n");
+  printf("%%%%%%%%%%%%%%%%%%%%%%\n\n");*/
 
   return 0;
 }
@@ -284,7 +284,7 @@ int PartialFact_ind_large(int n, int k, double* restrict A, int lda,
                           double* restrict B, int ldb) {
   // ===========================================================================
   // Indefinite factorization with blocks.
-  // BLAS calls: dcopy, dscal, dgemm, dtrsm
+  // BLAS calls: dcopy, dscal, dgemm, dtrsm, dsyrk
   // ===========================================================================
 
   double t0, t1, t2, t3, t4, t5, t6, t7;

@@ -325,4 +325,28 @@ I leave it there for now anyway.
 ---
 
 *****
+22 Mar 2024
+I tested the analyze phase on the whole Netlib collection.
+It works for all problems, both augmented system and normal equations.
+I spotted another bug that was giving problems: I was using fsn_parent when it was -1. 
+I have to remember to always check for roots when using the elimination tree.
+The total times for the analyze phase only are:
+normal equations, 0.49s
+augmented system, 0.84s
+---
+
+*****
+28 Mar 2024
+I added a double transpose to sort the columns.
+It's needed to assemble more efficiently the frontal matrices.
+---
+I started implementing the factorize phase.
+It's a bit of a mess because Analyze takes the upper part and Factorize takes the lower part.
+I may need to change the input to analyze.
+---
+The factorize phase was surprisingly easy to get working.
+I'm not sure if everything is exactly correct, I still need to implement a proper check, but for now it seems to work.
+---
+
+*****
 To do:

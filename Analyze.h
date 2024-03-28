@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include "Aux_analyze.h"
+#include "Auxiliary.h"
 #include "GKlib.h"
 #include "Symbolic.h"
 #include "metis.h"
@@ -13,7 +13,7 @@
 
 class Analyze {
   bool ready = false;
-
+public:
   // Matrix to be factorized, stored in upper and lower triangular format
   std::vector<int> rowsUpper{};
   std::vector<int> ptrUpper{};
@@ -60,7 +60,6 @@ class Analyze {
   void Postorder();
   void DFS_post(int node, int& start, std::vector<int>& head,
                 const std::vector<int>& next);
-  void Transpose(std::vector<int>& rowsT, std::vector<int>& ptrT) const;
   void RowColCount();
   void ColPattern();
   void FundamentalSupernodes();
@@ -70,7 +69,10 @@ class Analyze {
   bool Check() const;
 
  public:
+  // Constructor: matrix must be in upper triangular format
   Analyze(const int* row_ind, const int* col_ptr, int size, int nonzeros);
+
+  // Run analyze phase and save the result in Symbolic object S
   void Run(Symbolic& S);
 };
 

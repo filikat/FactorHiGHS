@@ -3,6 +3,7 @@
 #include <string>
 
 #include "Analyze.h"
+#include "Factorize.h"
 #include "Highs.h"
 #include "io/Filereader.h"
 
@@ -84,7 +85,7 @@ int computeAThetaAT(const HighsSparseMatrix& matrix,
     double dot = std::get<2>(val);
 
     // add dual regularization
-    if (i == j) dot += 0;
+    if (i == j) dot += 1;
 
     AAT.index_[current_positions[i]] = j;
     AAT.value_[current_positions[i]] = dot;
@@ -123,6 +124,8 @@ int main(int argc, char** argv) {
 
   int type = atoi(argv[2]);
 
+  type = 1;
+
   int nA = lp.a_matrix_.num_col_;
   int mA = lp.a_matrix_.num_row_;
   int nzA = lp.a_matrix_.numNz();
@@ -131,8 +134,12 @@ int main(int argc, char** argv) {
   // Build the matrix
   // ===========================================================================
 
-  std::vector<int> ptr;
-  std::vector<int> rows;
+  std::vector<int> ptrUpper;
+  std::vector<int> rowsUpper;
+  std::vector<double> valUpper;
+  std::vector<int> ptrLower;
+  std::vector<int> rowsLower;
+  std::vector<double> valLower;
   int n;
   int nz;
 
@@ -142,13 +149,13 @@ int main(int argc, char** argv) {
     HighsSparseMatrix At = lp.a_matrix_;
     At.ensureRowwise();
 
-    ptr.resize(nA + mA + 1);
-    rows.resize(nA + nzA + mA);
+    ptrUpper.resize(nA + mA + 1);
+    rowsUpper.resize(nA + nzA + mA);
 
     // (1,1) diagonal part
     for (int i = 0; i < nA; ++i) {
-      ptr[i + 1] = i + 1;
-      rows[i] = i;
+      ptrUpper[i + 1] = i + 1;
+      rowsUpper[i] = i;
     }
 
     int next = nA;
@@ -156,12 +163,12 @@ int main(int argc, char** argv) {
     // At part
     for (int i = 0; i < mA; ++i) {
       for (int el = At.start_[i]; el < At.start_[i + 1]; ++el) {
-        rows[next] = At.index_[el];
+        rowsUpper[next] = At.index_[el];
         ++next;
       }
-      rows[next] = nA + i;
+      rowsUpper[next] = nA + i;
       ++next;
-      ptr[nA + 1 + i] = next;
+      ptrUpper[nA + 1 + i] = next;
     }
 
     n = nA + mA;
@@ -174,32 +181,61 @@ int main(int argc, char** argv) {
 
     n = mA;
     nz = AAt.numNz();
-    ptr = std::move(AAt.start_);
-    rows = std::move(AAt.index_);
+    ptrUpper = std::move(AAt.start_);
+    rowsUpper = std::move(AAt.index_);
+    valUpper = std::move(AAt.value_);
     AAt.clear();
   }
+
+  /*std::vector<int> rowsUpper{0,  0,  1,  2,  3,  4,  3,  4,  5,  3,
+                             4,  6,  4,  7,  0,  2,  7,  8,  0,  5,
+                             7,  9,  10, 10, 11, 12, 10, 12, 13, 10,
+                             12, 14, 2,  7,  12, 15, 10, 12, 14, 16};
+  std::vector<int> ptrUpper{0,  1,  3,  4,  5,  6,  9,  12, 14,
+                            18, 22, 23, 25, 26, 29, 32, 36, 40};
+  std::vector<double> valUpper{20, 1,  20, 30, 35, 20, -1, 1,  25, 1,
+                               1,  30, -2, 40, 1,  2,  1,  25, 1,  1,
+                               2,  30, 35, 2,  20, 30, 2,  1,  25, 1,
+                               1,  20, -1, -1, 2,  40, 1,  2,  -2, 30};
+  int n = 17;
+  int nz = 40;
+  std::vector<int> rowsLower(nz);
+  std::vector<int> ptrLower(n + 1);
+  std::vector<double> valLower(nz);*/
 
   // ===========================================================================
   // Symbolic factorization
   // ===========================================================================
   Symbolic S;
-  Analyze An(rows.data(), ptr.data(), n, nz);
+  Analyze An(rowsUpper.data(), ptrUpper.data(), n, nz);
   An.Run(S);
   S.Print();
+
+  // ===========================================================================
+  // Numerical factorization
+  // ===========================================================================
+
+  Factorize F(S, rowsUpper.data(), ptrUpper.data(), valUpper.data(), n, nz);
+
+  F.Run();
 
   // ===========================================================================
   // Write to file
   // ===========================================================================
   std::ofstream out_file;
-  print(out_file, ptr, "ptr");
-  print(out_file, rows, "rows");
-  print(out_file, S.perm, "perm");
-  print(out_file, S.parent, "parent");
-  print(out_file, S.rowcount, "rowcount");
-  print(out_file, S.colcount, "colcount");
-  print(out_file, S.ptr, "ptrL");
-  print(out_file, S.rows, "rowsL");
-  print(out_file, S.fsn_start, "fsn_start");
+  print(out_file, ptrUpper, "ptr");
+  print(out_file, rowsUpper, "rows");
+  print(out_file, valUpper, "vals");
+  print(out_file, S.Perm(), "perm");
+  print(out_file, S.Parent(), "parent");
+  print(out_file, S.Rowcount(), "rowcount");
+  print(out_file, S.Colcount(), "colcount");
+  print(out_file, S.Ptr(), "ptrL");
+  print(out_file, S.Rows(), "rowsL");
+  print(out_file, S.Fsn_start(), "fsn_start");
+  print(out_file, F.rowsA, "rowsF");
+  print(out_file, F.ptrA, "ptrF");
+  print(out_file, F.valA, "valF");
 
   return 0;
 }

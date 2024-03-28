@@ -4,10 +4,28 @@
 
 void Symbolic::Print() const {
   printf("Symbolic factorization:\n");
-  printf(" - size %d\n", n);
-  printf(" - nonzero entries %d\n", nz);
-  printf(" - supernodes found %d\n", fsn);
-  printf(" - operations count %.0f\n", operations);
+  printf(" - size              %d\n", n);
+  printf(" - nonzero entries   %.2e\n", (double)nz);
+  printf(" - supernodes found  %d\n", fsn);
+  printf(" - operations count  %.2e\n", operations);
+}
+
+int Symbolic::Size() const { return n; }
+int Symbolic::Nz() const { return nz; }
+int Symbolic::Ops() const { return operations; }
+int Symbolic::Fsn() const { return fsn; }
+const std::vector<int>& Symbolic::Perm() const { return perm; }
+const std::vector<int>& Symbolic::Iperm() const { return iperm; }
+const std::vector<int>& Symbolic::Parent() const { return parent; }
+const std::vector<int>& Symbolic::Rowcount() const { return rowcount; }
+const std::vector<int>& Symbolic::Colcount() const { return colcount; }
+const std::vector<int>& Symbolic::Rows() const { return rows; }
+const std::vector<int>& Symbolic::Ptr() const { return ptr; }
+const std::vector<int>& Symbolic::Fsn_parent() const { return fsn_parent; }
+const std::vector<int>& Symbolic::Fsn_start() const { return fsn_start; }
+const std::vector<int>& Symbolic::Relind_cols() const { return relind_cols; }
+const std::vector<std::vector<int>>& Symbolic::Relind_clique() const {
+  return relind_clique;
 }
 
 int Symbolic::sn_begin(int sn) const {
