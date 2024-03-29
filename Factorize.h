@@ -24,11 +24,18 @@ class Factorize {
   std::vector<int> nextChildren{};
 
   // generated elements
-  std::vector<std::vector<double>> SchurContribution{};
+  std::vector<double*> SchurContribution{};
+
+  double time_prepare{};
+  double time_assemble_original{};
+  double time_assemble_children_F{};
+  double time_assemble_children_C{};
+  double time_factorize{};
 
  public:
   void Permute(const std::vector<int>& iperm);
   void ProcessSupernode(int sn);
+  bool Check() const;
 
  public:
   Factorize(const Symbolic& S_input, const int* rowsA_input,

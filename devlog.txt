@@ -349,4 +349,34 @@ I'm not sure if everything is exactly correct, I still need to implement a prope
 ---
 
 *****
+29 Mar 2024
+I changed the frontal matrix from std::vector<double> to double*. 
+It gives me a better control over the allocation and deallocation of memory.
+There is also no need of any more complicated functionality, so no need for the vector overhead.
+Schur contribution of children is now freed after being used.
+---
+I changed the input to Analyze to be lower triangular, so that both analyze and factorize phases take as input the lower part.
+I am not sure if the columns need to be sorted at the beginning of Analyze. They surely need to be when I compute the relative indices using the lower part, but maybe I can skip it for the upper part.
+Anyway, for now the columns are sorted with a double transpose.
+---
+I also changed the input to the constructor to take std::vector, so that I can skip an initial copy.
+The code is not meant to be general purpose anyway, so taking the pointer as input does not make much sense.
+---
+I added a proper Check function.
+It computes the factorization using Lapack dpotrf and computes the Frobenius norm of the error, divided by the Frobenius norm of the Lapack factor.
+I set a threshold of 1e-12 and is seems to work for all problems.
+Interesting that Matlab gives a slightly different (worse) error. Probably it uses Cholmod, that is supernodal, and it sums contributions in a different order.
+---
+I did some time profiling. qap15 is large enough to see where the time is lost (as usual I initially forgot to switch to -O3...)
+Most of the time is lost in assemblying the frontal matrix, rather than factorizing it.
+Quite a bit of time is used to initialize Frontal and Clique to zero. Even changing to std::fill or even memset, the time remains high.
+Very little time is used to assemble the original matrix A.
+Most of the time is used for the children supernodes.
+This is 3-4 times the time taken by the dense factorization.
+---
+It actually is the assembly of the children into Clique that is slow, because Clique is usually larger and has more contributions than Frontal.
+It is interesting that the time for dense factorization is smaller (roughly half with qap15) than the time to initialize to zero the frontal matrix.
+---
+
+*****
 To do:

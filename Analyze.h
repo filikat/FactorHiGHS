@@ -13,7 +13,8 @@
 
 class Analyze {
   bool ready = false;
-public:
+
+ public:
   // Matrix to be factorized, stored in upper and lower triangular format
   std::vector<int> rowsUpper{};
   std::vector<int> ptrUpper{};
@@ -70,13 +71,11 @@ public:
 
  public:
   // Constructor: matrix must be in upper triangular format
-  Analyze(const int* row_ind, const int* col_ptr, int size, int nonzeros);
+  Analyze(const std::vector<int>& rows_input,
+          const std::vector<int>& ptr_input);
 
   // Run analyze phase and save the result in Symbolic object S
   void Run(Symbolic& S);
 };
-
-// declaration for Lapack dpotrf
-extern "C" void dpotrf(char* uplo, int* n, double* A, int* ldA, int* info);
 
 #endif

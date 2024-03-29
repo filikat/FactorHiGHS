@@ -8,6 +8,8 @@ void Symbolic::Print() const {
   printf(" - nonzero entries   %.2e\n", (double)nz);
   printf(" - supernodes found  %d\n", fsn);
   printf(" - operations count  %.2e\n", operations);
+  int largest_front = *std::max_element(colcount.begin(), colcount.end());
+  printf(" - largest front     %d\n", largest_front);
 }
 
 int Symbolic::Size() const { return n; }

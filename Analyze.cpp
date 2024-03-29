@@ -5,18 +5,22 @@
 #include <random>
 #include <stack>
 
-Analyze::Analyze(const int* row_ind, const int* col_ptr, int size,
-                 int nonzeros) {
+Analyze::Analyze(const std::vector<int>& rows_input,
+                 const std::vector<int>& ptr_input) {
   // Input the symmetric matrix to be analyzed in CSC format.
   // row_ind contains the row indices.
   // col_ptr contains the starting points of each column.
   // size is the number of rows/columns.
   // nonzeros is the number of nonzero entries.
-  // Only the upper triangular part is used.
+  // Only the lower triangular part is used.
 
-  n = size;
-  rowsUpper = std::vector<int>(row_ind, row_ind + nonzeros);
-  ptrUpper = std::vector<int>(col_ptr, col_ptr + n + 1);
+  n = ptr_input.size() - 1;
+  nz = rows_input.size();
+
+  // Create upper triangular part
+  rowsUpper.resize(nz);
+  ptrUpper.resize(n + 1);
+  Transpose(ptr_input, rows_input, ptrUpper, rowsUpper);
 
   // Permute the matrix with identical permutation, to extract upper triangular
   // part, if the input is not upper triangular.
@@ -24,11 +28,15 @@ Analyze::Analyze(const int* row_ind, const int* col_ptr, int size,
   for (int i = 0; i < n; ++i) iperm[i] = i;
   Permute(iperm);
 
+  // actual number of nonzeros of only upper triangular part
   nz = ptrUpper.back();
 
+  // number of nonzeros potentially changed after Permute.
+  rowsUpper.resize(nz);
+
   // double transpose to sort columns
-  rowsLower.resize(nz);
   ptrLower.resize(n + 1);
+  rowsLower.resize(nz);
   Transpose(ptrUpper, rowsUpper, ptrLower, rowsLower);
   Transpose(ptrLower, rowsLower, ptrUpper, rowsUpper);
 
@@ -220,7 +228,7 @@ void Analyze::Postorder() {
   // Permute matrix based on postorder
   Permute(ipost);
 
-  // double transpose to sort columns and update lower part
+  // double transpose to sort columns and compute lower part
   Transpose(ptrUpper, rowsUpper, ptrLower, rowsLower);
   Transpose(ptrLower, rowsLower, ptrUpper, rowsUpper);
 
@@ -570,7 +578,7 @@ bool Analyze::Check() const {
   }
 
   // Check symbolic factorization
-  if (n > 1000) {
+  if (n > 5000) {
     printf("==> Matrix is too large for dense checking\n");
     return true;
   }
@@ -655,7 +663,7 @@ void Analyze::Run(Symbolic& S) {
   RelativeInd_cols();
   RelativeInd_clique();
 
-  printf("Analyze time %f\n", clock.stop());
+  printf("\nAnalyze time %f\n", clock.stop());
 
   if (!Check()) {
     printf("\n==> Analyze check failed\n\n");

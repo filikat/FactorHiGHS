@@ -9,7 +9,6 @@ Factorize::Factorize(const Symbolic& S_input, const int* rowsA_input,
   // Input the symmetric matrix to be factirized in CSC format and the symbolic
   // factorization coming from Analyze.
   // Only the lower triangular part of the matrix is used.
-  // Columns are assumed to be sorted.
 
   if (n_input != S.Size()) {
     printf(
@@ -40,7 +39,7 @@ Factorize::Factorize(const Symbolic& S_input, const int* rowsA_input,
   ChildrenLinkedList(S.Fsn_parent(), firstChildren, nextChildren);
 
   // allocate space for list of generated elements
-  SchurContribution.resize(S.Fsn(), {});
+  SchurContribution.resize(S.Fsn(), nullptr);
 }
 
 void Factorize::Permute(const std::vector<int>& iperm) {
@@ -113,7 +112,9 @@ void Factorize::Permute(const std::vector<int>& iperm) {
 void Factorize::ProcessSupernode(int sn) {
   // Assemble frontal matrix for supernode sn, perform partial factorization and
   // store the result.
+  Clock clock;
 
+  clock.start();
   // =================================================
   // Supernode information
   // =================================================
@@ -135,10 +136,14 @@ void Factorize::ProcessSupernode(int sn) {
   // undergo Cholesky elimination.
   // Clique is ldc x ldc and stores the remaining (ldf - sn_size) columns
   // (without the top part), that do not undergo Cholesky elimination.
-  std::vector<double> Frontal(ldf * sn_size, 0.0);
-  std::vector<double>& Clique = SchurContribution[sn];
-  Clique.resize(ldc * ldc, 0.0);
+  // Both are initialized with zeros.
+  double* Frontal = new double[ldf * sn_size]();
+  double*& Clique = SchurContribution[sn];
+  Clique = new double[ldc * ldc]();
 
+  time_prepare += clock.stop();
+
+  clock.start();
   // =================================================
   // Assemble original matrix A into Frontal
   // =================================================
@@ -155,18 +160,25 @@ void Factorize::ProcessSupernode(int sn) {
       Frontal[i + j * ldf] = valA[el];
     }
   }
+  time_assemble_original += clock.stop();
 
   // =================================================
   // Assemble frontal matrices of children
   // =================================================
   int child = firstChildren[sn];
   while (child != -1) {
-    std::vector<double>& C = SchurContribution[child];
-    if (C.empty()) {
+    // Schur contribution of the current child
+    double*& C = SchurContribution[child];
+    if (!C) {
       printf("Error with child supernode\n");
       return;
     }
-    int nc = sqrt(C.size());
+
+    // determine size of clique of child
+    int child_begin = S.Fsn_start()[child];
+    int child_end = S.Fsn_start()[child + 1];
+    int child_size = child_end - child_begin;
+    int nc = S.Ptr()[child_begin + 1] - S.Ptr()[child_begin] - child_size;
 
     // go through the columns of the contribution of the child
     for (int col = 0; col < nc; ++col) {
@@ -174,6 +186,7 @@ void Factorize::ProcessSupernode(int sn) {
       int j = S.Relind_clique()[child][col];
 
       if (j < sn_size) {
+        clock.start();
         // assemble into Columns
 
         // go through the rows of the contribution of the child
@@ -183,7 +196,9 @@ void Factorize::ProcessSupernode(int sn) {
 
           Frontal[i + ldf * j] += C[row + nc * col];
         }
+        time_assemble_children_F += clock.stop();
       } else {
+        clock.start();
         // assemble into Clique
 
         // adjust relative index to access Clique
@@ -196,16 +211,26 @@ void Factorize::ProcessSupernode(int sn) {
 
           Clique[i + ldc * j] += C[row + nc * col];
         }
+        time_assemble_children_C += clock.stop();
       }
     }
 
+    // Schur contribution of the child is no longer needed
+    delete C;
+
+    // move on to the next child
     child = nextChildren[child];
   }
 
+  // time_assemble_children += clock.stop();
+
+  clock.start();
   // =================================================
   // Partial factorization
   // =================================================
-  PartialFact_pos_large(ldf, sn_size, Frontal.data(), ldf, Clique.data(), ldc);
+  PartialFact_pos_large(ldf, sn_size, Frontal, ldf, Clique, ldc);
+
+  time_factorize += clock.stop();
 
   for (int j = 0; j < sn_size; ++j) {
     int col = sn_begin + j;
@@ -221,10 +246,98 @@ void Factorize::ProcessSupernode(int sn) {
 void Factorize::Run() {
   valL.resize(S.Nz());
 
+  Clock clock;
+  clock.start();
+
   for (int sn = 0; sn < S.Fsn(); ++sn) {
     ProcessSupernode(sn);
   }
 
+  printf("\nFactorize time %f\n", clock.stop());
+  printf("\tPrepare: %f\n", time_prepare);
+  printf("\tAssembly A: %f\n", time_assemble_original);
+  printf("\tAssembly children into Frontal: %f\n", time_assemble_children_F);
+  printf("\tAssembly children into Clique: %f\n", time_assemble_children_C);
+  printf("\tFactorize: %f\n", time_factorize);
+
+  Check();
+
   std::ofstream out_file;
   print(out_file, valL, "valL");
+}
+
+bool Factorize::Check() const {
+  // Check that the numerical factorization is correct, by using dense linear
+  // algebra operations.
+  // Return true if check is successful, or if matrix is too large.
+  // To be used for debug.
+
+  if (n > 5000) {
+    printf("\n==> Matrix is too large for dense checking\n\n");
+    return true;
+  }
+
+  // assemble sparse matrix into dense matrix
+  std::vector<double> M(n * n);
+  for (int col = 0; col < n; ++col) {
+    for (int el = ptrA[col]; el < ptrA[col + 1]; ++el) {
+      int row = rowsA[el];
+
+      // insert element in position (row,col)
+      M[row + col * n] = valA[el];
+    }
+  }
+
+  // use Lapack to factorize the dense matrix
+  char uplo = 'L';
+  int N = n;
+  int info;
+  dpotrf(&uplo, &N, M.data(), &N, &info);
+  if (info != 0) {
+    printf("\n==> dpotrf failed\n\n");
+    return false;
+  }
+
+  // assemble sparse factor into dense factor
+  std::vector<double> L(n * n);
+  for (int col = 0; col < n; ++col) {
+    for (int el = S.Ptr()[col]; el < S.Ptr()[col + 1]; ++el) {
+      int row = S.Rows()[el];
+
+      // insert element in position (row,col)
+      L[row + col * n] = valL[el];
+    }
+  }
+
+  // Check that sparse factorization agrees with dense one.
+  // This is done by computing the Frobenius norm of the difference between the
+  // dense and sparse factors, divided by the Frobenius norm of the dense
+  // factor.
+
+  double FrobeniusDense{};
+  double FrobeniusDiff{};
+
+  for (int col = 0; col < n; ++col) {
+    for (int row = 0; row < n; ++row) {
+      double valSparse = L[row + n * col];
+      double valDense = M[row + col * n];
+      double diff = valSparse - valDense;
+
+      FrobeniusDense += valDense * valDense;
+      FrobeniusDiff += diff * diff;
+    }
+  }
+
+  FrobeniusDense = sqrt(FrobeniusDense);
+  FrobeniusDiff = sqrt(FrobeniusDiff);
+  double relError = FrobeniusDiff / FrobeniusDense;
+
+  printf("\nFactorize Frobenius error %e\n", relError);
+  if (relError < 1e-12) {
+    printf("==> Factorize check successful\n\n");
+    return true;
+  } else {
+    printf("==> Factorize check failed\n\n");
+    return false;
+  }
 }
