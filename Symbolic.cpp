@@ -29,6 +29,9 @@ const std::vector<int>& Symbolic::Relind_cols() const { return relind_cols; }
 const std::vector<std::vector<int>>& Symbolic::Relind_clique() const {
   return relind_clique;
 }
+const std::vector<std::vector<int>>& Symbolic::ConsecutiveSums() const {
+  return consecutiveSums;
+}
 
 int Symbolic::sn_begin(int sn) const {
   // Return the first node in the supernode sn.

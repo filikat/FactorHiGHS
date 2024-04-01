@@ -190,11 +190,20 @@ void Factorize::ProcessSupernode(int sn) {
         // assemble into Columns
 
         // go through the rows of the contribution of the child
-        for (int row = col; row < nc; ++row) {
+        int row = col;
+        while (row < nc) {
           // relative index of the entry in the matrix Frontal
           int i = S.Relind_clique()[child][row];
 
-          Frontal[i + ldf * j] += C[row + nc * col];
+          // how many entries to sum
+          int consecutive = S.ConsecutiveSums()[child][row];
+
+          // use daxpy for summing consecutive entries
+          int iOne = 1;
+          double dOne = 1.0;
+          daxpy(&consecutive, &dOne, &C[row + nc * col], &iOne,
+                &Frontal[i + ldf * j], &iOne);
+          row += consecutive;
         }
         time_assemble_children_F += clock.stop();
       } else {
@@ -205,24 +214,32 @@ void Factorize::ProcessSupernode(int sn) {
         j -= sn_size;
 
         // go through the rows of the contribution of the child
-        for (int row = col; row < nc; ++row) {
+        int row = col;
+        while (row < nc) {
           // relative index of the entry in the matrix Clique
           int i = S.Relind_clique()[child][row] - sn_size;
 
-          Clique[i + ldc * j] += C[row + nc * col];
+          // how many entries to sum
+          int consecutive = S.ConsecutiveSums()[child][row];
+
+          // use daxpy for summing consecutive entries
+          int iOne = 1;
+          double dOne = 1.0;
+          daxpy(&consecutive, &dOne, &C[row + nc * col], &iOne,
+                &Clique[i + ldc * j], &iOne);
+          row += consecutive;
         }
+
         time_assemble_children_C += clock.stop();
       }
     }
 
     // Schur contribution of the child is no longer needed
-    delete C;
+    delete[] C;
 
     // move on to the next child
     child = nextChildren[child];
   }
-
-  // time_assemble_children += clock.stop();
 
   clock.start();
   // =================================================
@@ -241,29 +258,8 @@ void Factorize::ProcessSupernode(int sn) {
       ++i;
     }
   }
-}
 
-void Factorize::Run() {
-  valL.resize(S.Nz());
-
-  Clock clock;
-  clock.start();
-
-  for (int sn = 0; sn < S.Fsn(); ++sn) {
-    ProcessSupernode(sn);
-  }
-
-  printf("\nFactorize time %f\n", clock.stop());
-  printf("\tPrepare: %f\n", time_prepare);
-  printf("\tAssembly A: %f\n", time_assemble_original);
-  printf("\tAssembly children into Frontal: %f\n", time_assemble_children_F);
-  printf("\tAssembly children into Clique: %f\n", time_assemble_children_C);
-  printf("\tFactorize: %f\n", time_factorize);
-
-  Check();
-
-  std::ofstream out_file;
-  print(out_file, valL, "valL");
+  delete[] Frontal;
 }
 
 bool Factorize::Check() const {
@@ -334,10 +330,43 @@ bool Factorize::Check() const {
 
   printf("\nFactorize Frobenius error %e\n", relError);
   if (relError < 1e-12) {
-    printf("==> Factorize check successful\n\n");
+    printf("\n==> Factorize check successful\n\n");
     return true;
   } else {
-    printf("==> Factorize check failed\n\n");
+    printf("\n==> Factorize check failed\n\n");
     return false;
   }
+}
+
+void Factorize::Run() {
+  valL.resize(S.Nz());
+
+  Clock clock;
+  clock.start();
+
+  for (int sn = 0; sn < S.Fsn(); ++sn) {
+    ProcessSupernode(sn);
+  }
+
+  double time_total = clock.stop();
+
+  printf("\n----------------------------------------------------\n");
+  printf("\t\tFactorize\n");
+  printf("----------------------------------------------------\n");
+  printf("\nFactorize time          \t%f\n", time_total);
+  printf("\tPrepare:                %f (%4.1f%%)\n", time_prepare,
+         time_prepare / time_total * 100);
+  printf("\tAssembly original:      %f (%4.1f%%)\n", time_assemble_original,
+         time_assemble_original / time_total * 100);
+  printf("\tAssembly into Frontal:  %f (%4.1f%%)\n", time_assemble_children_F,
+         time_assemble_children_F / time_total * 100);
+  printf("\tAssembly into Clique:   %f (%4.1f%%)\n", time_assemble_children_C,
+         time_assemble_children_C / time_total * 100);
+  printf("\tFactorize:              %f (%4.1f%%)\n", time_factorize,
+         time_factorize / time_total * 100);
+
+  Check();
+
+  std::ofstream out_file;
+  print(out_file, valL, "valL");
 }

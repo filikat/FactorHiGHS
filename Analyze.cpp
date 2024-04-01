@@ -472,6 +472,7 @@ void Analyze::RelativeInd_clique() {
   // parent supernode
 
   relind_clique.resize(fsn);
+  consecutiveSums.resize(fsn);
 
   for (int sn = 0; sn < fsn; ++sn) {
     // if there is no parent, skip supernode
@@ -523,6 +524,25 @@ void Analyze::RelativeInd_clique() {
         ++ptr_parent;
       }
     }
+
+    // Difference between consecutive relative indices.
+    // Useful to detect chains of consecutive indices.
+    consecutiveSums[sn].resize(sn_clique_size);
+    for (int i = 0; i < sn_clique_size - 1; ++i) {
+      consecutiveSums[sn][i] = relind_clique[sn][i + 1] - relind_clique[sn][i];
+    }
+
+    // Number of consecutive sums that can be done in one blas call.
+    consecutiveSums[sn].back() = 1;
+    for (int i = sn_clique_size - 2; i >= 0; --i) {
+      if (consecutiveSums[sn][i] > 1) {
+        consecutiveSums[sn][i] = 1;
+      } else if (consecutiveSums[sn][i] == 1) {
+        consecutiveSums[sn][i] = consecutiveSums[sn][i + 1] + 1;
+      } else {
+        printf("Error in consecutiveSums\n");
+      }
+    }
   }
 }
 
@@ -550,6 +570,7 @@ void Analyze::Clear() {
   fsn_parent.clear();
   relind_cols.clear();
   relind_clique.clear();
+  consecutiveSums.clear();
 }
 
 bool Analyze::Check() const {
@@ -579,7 +600,7 @@ bool Analyze::Check() const {
 
   // Check symbolic factorization
   if (n > 5000) {
-    printf("==> Matrix is too large for dense checking\n");
+    printf("\n==> Matrix is too large for dense checking\n\n");
     return true;
   }
 
@@ -610,7 +631,7 @@ bool Analyze::Check() const {
   int info;
   dpotrf(&uplo, &N, M.data(), &N, &info);
   if (info != 0) {
-    printf("==> dpotrf failed\n");
+    printf("\n==> dpotrf failed\n\n");
     return false;
   }
 
@@ -641,7 +662,13 @@ bool Analyze::Check() const {
     }
   }
 
-  return wrong_entries == 0;
+  if (wrong_entries == 0) {
+    printf("\n==> Analyze check successful\n\n");
+    return true;
+  } else {
+    printf("\n==> Analyze check failed\n\n");
+    return false;
+  }
 }
 
 void Analyze::Run(Symbolic& S) {
@@ -650,26 +677,58 @@ void Analyze::Run(Symbolic& S) {
 
   if (!ready) return;
 
-  Clock clock{};
-  clock.start();
+  Clock clock0{};
+  clock0.start();
 
+  Clock clock{};
+
+  clock.start();
   GetPermutation();
+  time_metis = clock.stop();
+
+  clock.start();
   Permute(iperm);
   ETree();
   Postorder();
+  time_tree = clock.stop();
+
+  clock.start();
   RowColCount();
+  time_count = clock.stop();
+
+  clock.start();
   ColPattern();
+  time_pattern = clock.stop();
+
+  clock.start();
   FundamentalSupernodes();
+  time_fsn = clock.stop();
+
+  clock.start();
   RelativeInd_cols();
   RelativeInd_clique();
+  time_relind = clock.stop();
 
-  printf("\nAnalyze time %f\n", clock.stop());
+  double time_total = clock0.stop();
 
-  if (!Check()) {
-    printf("\n==> Analyze check failed\n\n");
-  } else {
-    printf("\n==> Analyze check successful\n\n");
-  }
+  printf("\n----------------------------------------------------\n");
+  printf("\t\tAnalyze\n");
+  printf("----------------------------------------------------\n");
+  printf("Analyze time            \t%f\n", time_total);
+  printf("\tMetis:                  %f (%4.1f%%)\n", time_metis,
+         time_metis / time_total * 100);
+  printf("\tTree:                   %f (%4.1f%%)\n", time_tree,
+         time_tree / time_total * 100);
+  printf("\tCounts:                 %f (%4.1f%%)\n", time_count,
+         time_count / time_total * 100);
+  printf("\tSparsity pattern:       %f (%4.1f%%)\n", time_pattern,
+         time_pattern / time_total * 100);
+  printf("\tSupernodes:             %f (%4.1f%%)\n", time_fsn,
+         time_fsn / time_total * 100);
+  printf("\tRelative indices:       %f (%4.1f%%)\n", time_relind,
+         time_relind / time_total * 100);
+
+  Check();
 
   // move relevant stuff into S
   S.n = n;
@@ -687,6 +746,7 @@ void Analyze::Run(Symbolic& S) {
   S.fsn_start = std::move(fsn_start);
   S.relind_cols = std::move(relind_cols);
   S.relind_clique = std::move(relind_clique);
+  S.consecutiveSums = std::move(consecutiveSums);
 
   // clear the remaining data
   Clear();

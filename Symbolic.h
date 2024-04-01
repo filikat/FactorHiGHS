@@ -67,6 +67,16 @@ class Symbolic {
   //   supernode fsn_parent[i].
   std::vector<std::vector<int>> relind_clique{};
 
+  // Number of consecutive sums that can be done with one BLAS call.
+  // - consecutiveSums[i] contains information about the assembly of supernode i
+  //   into the frontal matrix of its parent.
+  // - consecutiveSums[i][j] = k implies that, when summing contributions from
+  //   row j of the clique of supernodes i into the frontal matrix of its
+  //   parent, k consecutive indices are found. This means that instead of doing
+  //   k individual sums, we can use one single call to daxpy, with k entries
+  //   and increment equal to one.
+  std::vector<std::vector<int>> consecutiveSums{};
+
   friend class Analyze;
 
  public:
@@ -96,6 +106,7 @@ class Symbolic {
   const std::vector<int>& Fsn_start() const;
   const std::vector<int>& Relind_cols() const;
   const std::vector<std::vector<int>>& Relind_clique() const;
+  const std::vector<std::vector<int>>& ConsecutiveSums() const;
 };
 
 // Explanation of relative indices:
@@ -165,5 +176,17 @@ class Symbolic {
 // relind_clique[i] contains the relative position of the indices of the clique
 // of supernode i {7,15} with respect to Rp {7,8,9,14,15,17,19}, i.e.,
 // relind_clique[i] = {0,4}.
+
+// Explanation of consecutive sums:
+// if relind_clique[i] = {2,5,8,9,10,11,12,14}, there are (up to) 8 entries that
+// need to be summed for each column of the clique.
+// However, 5 of these indices are consecutive {8,9,10,11,12}. Summing these
+// consecutive entries can be done using daxpy with increment equal to one,
+// which is more efficient that summing one by one.
+// consecutiveSums[i] would contain {1,1,5,4,3,2,1,1}, which means that, if we
+// start from a given row, we can find out how many consecutive copies can be
+// done.
+// E.g., starting from row 4, consecutiveSums[i][4] = 3, which means that the
+// next 3 indices need not be summed by hand, but they can be done using daxpy.
 
 #endif

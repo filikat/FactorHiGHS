@@ -45,4 +45,7 @@ class Factorize {
   void Run();
 };
 
+extern "C" void daxpy(int* n, double* alpha, double* dx, int* incx, double* dy,
+                      int* incy);
+
 #endif

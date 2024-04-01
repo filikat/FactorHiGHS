@@ -379,4 +379,17 @@ It is interesting that the time for dense factorization is smaller (roughly half
 ---
 
 *****
+1 Apr 2024
+The assemble of children into the frontal matrix now exploits consecutive indices and daxpy.
+This reduces considerably the time to assemble the children (by 50% for qap15).
+It requires some more memory and some more preliminary computation in Analyze.
+---
+I improved the time profile of both Analyze and Factorize, and the way in which it is printed.
+---
+
+*****
 To do:
+- include MA86 to compare times
+- change col counts to skeleton matrix
+
+- amalgamate supernodes

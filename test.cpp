@@ -220,5 +220,13 @@ int main(int argc, char** argv) {
   print(out_file, F.ptrA, "ptrF");
   print(out_file, F.valA, "valF");
 
+  out_file.open("matlab/relind.txt");
+  for (int i = 0; i < S.Fsn(); ++i) {
+    for (int j : S.Relind_clique()[i]) {
+      out_file << j << '\n';
+    }
+  }
+  out_file.close();
+
   return 0;
 }

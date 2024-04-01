@@ -55,6 +55,16 @@ class Analyze {
   // relative indices of clique wrt parent
   std::vector<std::vector<int>> relind_clique{};
 
+  // information about consecutive indices in relind_clique
+  std::vector<std::vector<int>> consecutiveSums{};
+
+  double time_metis{};
+  double time_tree{};
+  double time_count{};
+  double time_pattern{};
+  double time_fsn{};
+  double time_relind{};
+
   void GetPermutation();
   void Permute(const std::vector<int>& iperm);
   void ETree();
