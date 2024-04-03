@@ -186,6 +186,18 @@ int main(int argc, char** argv) {
     AAt.clear();
   }
 
+  /*int n = 17;
+  int nz = 40;
+  std::vector<int> rowsLower{0,  1,  8,  9,  1,  2,  8,  15, 3,  5,
+                             6,  4,  5,  6,  7,  5,  9,  6,  7,  8,
+                             9,  15, 8,  9,  10, 11, 13, 14, 16, 11,
+                             12, 13, 14, 15, 16, 13, 14, 16, 15, 16};
+  std::vector<int> ptrLower{0,  4,  5,  8,  11, 15, 17, 18, 22,
+                            23, 24, 29, 30, 35, 36, 38, 39, 40};
+  std::vector<double> valLower{
+      20, 1, 1,  1,  20, 20, 1, 1, 20, 1,  1,  20, 1, 1, 1, 20, 1,  20, 20, 1,
+      1,  1, 20, 20, 20, 1,  1, 1, 1,  20, 20, 1,  1, 1, 1, 20, 20, 1,  20, 20};*/
+
   // ===========================================================================
   // Symbolic factorization
   // ===========================================================================
@@ -201,7 +213,7 @@ int main(int argc, char** argv) {
   Factorize F(S, rowsLower.data(), ptrLower.data(), valLower.data(), n, nz);
 
   F.Run();
-  return 0;
+  
   // ===========================================================================
   // Write to file
   // ===========================================================================
@@ -210,23 +222,9 @@ int main(int argc, char** argv) {
   print(out_file, rowsLower, "rows");
   print(out_file, valLower, "vals");
   print(out_file, S.Perm(), "perm");
-  print(out_file, S.Parent(), "parent");
-  print(out_file, S.Rowcount(), "rowcount");
-  print(out_file, S.Colcount(), "colcount");
-  print(out_file, S.Ptr(), "ptrL");
-  print(out_file, S.Rows(), "rowsL");
-  print(out_file, S.Fsn_start(), "fsn_start");
-  print(out_file, F.rowsA, "rowsF");
-  print(out_file, F.ptrA, "ptrF");
-  print(out_file, F.valA, "valF");
+  print(out_file, S.Sn_start(), "sn_start");
+  print(out_file,S.Sn_parent(),"sn_parent");
 
-  out_file.open("matlab/relind.txt");
-  for (int i = 0; i < S.Fsn(); ++i) {
-    for (int j : S.Relind_clique()[i]) {
-      out_file << j << '\n';
-    }
-  }
-  out_file.close();
 
   return 0;
 }

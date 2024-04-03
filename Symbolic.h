@@ -13,36 +13,33 @@ class Symbolic {
   // Number of floating point operations required
   double operations{};
 
-  // Number of fundamental supernodes
-  int fsn{};
+  // Number of supernodes
+  int sn{};
+
+  // Number of artificial nonzero entries introduced to merge supernodes
+  int artificialNz{};
+
+  // size of the largest frontal matrix and largest sn
+  int largestFront{};
+  int largestSn{};
 
   // Permutation and inverse permutation
   std::vector<int> perm{};
   std::vector<int> iperm{};
 
-  // Elimination tree (postordered):
-  // - parent[i] gives the parent of node i in the elimination tree
-  std::vector<int> parent{};
-
-  // Row and column counts:
-  // - rowcount[i] gives the number of nonzero entries in row i of L
-  // - colcount[i] gives the number of nonzero entries in column i of L
-  std::vector<int> rowcount{};
-  std::vector<int> colcount{};
-
-  // Sparsity pattern of L in CSC format
+  // Sparsity pattern of each supernode of L
   std::vector<int> rows{};
   std::vector<int> ptr{};
 
   // Supernodal elimination tree:
-  // - fsn_parent[i] gives the parent of supernode i in the supernodal
+  // - sn_parent[i] gives the parent of supernode i in the supernodal
   //   elimination tree
-  std::vector<int> fsn_parent{};
+  std::vector<int> sn_parent{};
 
   // Supernode initial node:
-  // - fsn_start[i] gives the first node in supernode i.
-  //   Supernode i is made of nodes from fsn_start[i] to fsn_start[i+1]-1
-  std::vector<int> fsn_start{};
+  // - sn_start[i] gives the first node in supernode i.
+  //   Supernode i is made of nodes from sn_start[i] to sn_start[i+1]-1
+  std::vector<int> sn_start{};
 
   // Relative indices of original columns wrt columns of L.
   // - relind_cols[i] contains the relative indices of entry i, with respect to
@@ -62,9 +59,9 @@ class Symbolic {
   //   parent supernode.
   // - relind_clique[i][j] = k implies that the row in position j in the clique
   //   of supernode i corresponds to the row in position k in the frontal matrix
-  //   of supernode fsn_parent[i].
+  //   of supernode sn_parent[i].
   //   This is useful when summing the generated elements from supernode i into
-  //   supernode fsn_parent[i].
+  //   supernode sn_parent[i].
   std::vector<std::vector<int>> relind_clique{};
 
   // Number of consecutive sums that can be done with one BLAS call.
@@ -80,13 +77,6 @@ class Symbolic {
   friend class Analyze;
 
  public:
-  int sn_begin(int sn) const;
-  int sn_end(int sn) const;
-  int clique_begin(int sn) const;
-  int clique_end(int sn) const;
-
-  void clique_info(int sn, int& position, int& snsize, int& cliquesize) const;
-
   // print information to screen
   void Print() const;
 
@@ -94,26 +84,24 @@ class Symbolic {
   int Size() const;
   int Nz() const;
   int Ops() const;
-  int Fsn() const;
+  int Sn() const;
+  int Rows(int i) const;
+  int Ptr(int i) const;
+  int Sn_start(int i) const;
+  int Relind_cols(int i) const;
+  int Relind_clique(int i, int j) const;
+  int ConsecutiveSums(int i, int j) const;
   const std::vector<int>& Perm() const;
   const std::vector<int>& Iperm() const;
-  const std::vector<int>& Parent() const;
-  const std::vector<int>& Rowcount() const;
-  const std::vector<int>& Colcount() const;
-  const std::vector<int>& Rows() const;
-  const std::vector<int>& Ptr() const;
-  const std::vector<int>& Fsn_parent() const;
-  const std::vector<int>& Fsn_start() const;
-  const std::vector<int>& Relind_cols() const;
-  const std::vector<std::vector<int>>& Relind_clique() const;
-  const std::vector<std::vector<int>>& ConsecutiveSums() const;
+  const std::vector<int>& Sn_parent() const;
+  const std::vector<int>& Sn_start() const;
 };
 
 // Explanation of relative indices:
 // Each supernode i corresponds to a frontal matrix Fi.
 // The indices of the rows of Fi are called Ri.
 // Ri contains the indices of the supernode
-//  {fsn_start[i],...,fsn_start[i+1]-1}
+//  {sn_start[i],...,sn_start[i+1]-1}
 // and then the indices of the clique, or generated element
 // (i.e., the entries of the Schur complement that are modified).
 //
@@ -146,7 +134,7 @@ class Symbolic {
 // ...
 // 15     x x 0
 //
-// The parent of supernode i is fsn_parent[i] = p.
+// The parent of supernode i is sn_parent[i] = p.
 // Supernode p has the following structure:
 //
 //        7 8 9

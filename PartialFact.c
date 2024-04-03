@@ -17,6 +17,7 @@ const int nb = 64;
 
 // variables for BLAS calls
 double dOne = 1.0;
+double dZero = 0.0;
 double dmOne = -1.0;
 int iOne = 1;
 char LL = 'L';
@@ -46,6 +47,8 @@ void dtrsm(char* side, char* uplo, char* trans, char* diag, int* m, int* n,
 // A is used to access the first k columns, i.e., M(0:n-1,0:k-1).
 // B is used to access the remaining lower triangle, i.e., M(k:n-1,k:n-1).
 //
+// NB: the content of B is discarded.
+//
 // For indefinite matrices:
 // - 2x2 pivoting is not performed. If a zero pivot is found, the code stops.
 // - the elements of D are stored as diagonal entries of A; the unit diagonal
@@ -66,7 +69,7 @@ void dtrsm(char* side, char* uplo, char* trans, char* diag, int* m, int* n,
 // - lda    : Leading dimension of A. It must be at least n. It can be larger
 //            if A is stored as a block of a larger matrix.
 // - B      : Array of size (ldb * (n-k)). To be accessed by columns.
-//            On input, it contains the remaining (n-k) columns of M.
+//            On input, any data is discarded.
 //            On output, it contains the Schur complement.
 //            It can be null if k >= n.
 // - ldb    : Leading dimension of B. It must be at least (n-k), if k < n. It
@@ -124,7 +127,7 @@ int PartialFact_pos_small(int n, int k, double* restrict A, int lda,
   // update Schur complement
   if (k < n) {
     int N = n - k;
-    dsyrk(&LL, &NN, &N, &k, &dmOne, &A[k], &lda, &dOne, B, &ldb);
+    dsyrk(&LL, &NN, &N, &k, &dmOne, &A[k], &lda, &dZero, B, &ldb);
   }
 
   return 0;
@@ -193,7 +196,7 @@ int PartialFact_pos_large(int n, int k, double* restrict A, int lda,
   if (k < n) {
     int N = n - k;
     t4 = get_time();
-    dsyrk(&LL, &NN, &N, &k, &dmOne, &A[k], &lda, &dOne, B, &ldb);
+    dsyrk(&LL, &NN, &N, &k, &dmOne, &A[k], &lda, &dZero, B, &ldb);
     t5 = get_time();
     t_schur += t5 - t4;
   }
@@ -272,7 +275,7 @@ int PartialFact_ind_small(int n, int k, double* restrict A, int lda,
     }
 
     // update Schur complement using dgemm
-    dgemm(&NN, &TT, &N, &N, &k, &dmOne, &A[k], &lda, temp, &N, &dOne, B, &ldb);
+    dgemm(&NN, &TT, &N, &N, &k, &dmOne, &A[k], &lda, temp, &N, &dZero, B, &ldb);
 
     free(temp);
   }
@@ -405,8 +408,8 @@ int PartialFact_ind_large(int n, int k, double* restrict A, int lda,
     // and adding contribution of negative columns.
     // In this way, I can use dsyrk instead of dgemm and avoid updating the full
     // square schur complement.
-    dsyrk(&LL, &NN, &N, &pos_pivot, &dmOne, temp_pos, &ldt, &dOne, B, &ldb);
-    dsyrk(&LL, &NN, &N, &neg_pivot, &dOne, temp_neg, &ldt, &dOne, B, &ldb);
+    dsyrk(&LL, &NN, &N, &pos_pivot, &dmOne, temp_pos, &ldt, &dZero, B, &ldb);
+    dsyrk(&LL, &NN, &N, &neg_pivot, &dOne, temp_neg, &ldt, &dZero, B, &ldb);
     t7 = get_time();
 
     t_schur_copy += t6 - t5;

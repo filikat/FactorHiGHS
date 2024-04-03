@@ -1,5 +1,7 @@
 #include "Auxiliary.h"
 
+#include <stack>
+
 void Counts2Ptr(std::vector<int>& ptr, std::vector<int>& w) {
   // Given the column counts in the vector w (of size n),
   // compute the column pointers in the vector ptr (of size n+1),
@@ -113,12 +115,39 @@ void ChildrenLinkedList(const std::vector<int>& parent, std::vector<int>& head,
   // until -1 is reached.
 
   int n = parent.size();
-  head.resize(n, -1);
-  next.resize(n, -1);
+  head.assign(n, -1);
+  next.assign(n, -1);
   for (int node = n - 1; node >= 0; --node) {
     if (parent[node] == -1) continue;
     next[node] = head[parent[node]];
     head[parent[node]] = node;
+  }
+}
+
+void DFS_post(int node, int& start, std::vector<int>& head,
+              const std::vector<int>& next, std::vector<int>& order) {
+  // Perform depth first search starting from root node and order the nodes
+  // starting from the value start. head and next contain the linked list of
+  // children.
+
+  std::stack<int> stack;
+  stack.push(node);
+
+  while (!stack.empty()) {
+    const int current = stack.top();
+    const int child = head[current];
+
+    if (child == -1) {
+      // no children left to order,
+      // remove from the stack and order
+      stack.pop();
+      order[start++] = current;
+    } else {
+      // at least one child left to order,
+      // add it to the stack and remove it from the list of children
+      stack.push(child);
+      head[current] = next[child];
+    }
   }
 }
 

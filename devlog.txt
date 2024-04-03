@@ -388,8 +388,47 @@ I improved the time profile of both Analyze and Factorize, and the way in which 
 ---
 
 *****
+2 Apr 2024
+I implemented the merging of supernodes.
+I create a new permutation (because children of a supernode may be shuffled), I update fsn_start and fsn_parent.
+I need to understand how to merge the columns of the supernode to obtain a representative column.
+I also need to perform the symbolic factorization only on supernodes and not on all the columns.
+---
+I think I managed to generated the sparsity pattern only for the supernode.
+I also generated the relative indices and they seem to be right (still have to do a proper check).
+---
+
+*****
+3 Apr 2024
+I adjusted Factorize to use the supernodal pattern.
+A little bit of trouble with Check, but I figured it out.
+I did some tests on qap15 with different values of max_artificial_nz.
+The assembly time becomes considerably smaller. 
+The factorize time also becomes smaller, I guess because it does fewer calls to BLAS and each call involves a larger matrix, and this is more efficient.
+The prepare also becomes smaller, I guess because even if it needs to allocate and initialize a slightly larger portion of memory, it comes into big continuous chunks rather that small ones.
+
+max_art_nz    sn found    Prepare     Assembly clique     dense factorization
+    0           1643       0.50           0.51                    0.37
+   16           1399       0.30           0.33                    0.30
+   64            759       0.21           0.23                    0.25
+  128            581       0.17           0.20                    0.22
+  256            421       0.14           0.18                    0.19
+
+Quite impressive results!
+It took a lot of effort to implement the relaxed supernodes, but it makes a gigantiv difference.
+---
+Great revelation!!
+I don't need to initialize Clique to zero!
+I have to initialize Frontal to zero and assemble the contributions there, because they are needed for the partial factorization.
+But the contributions to Clique can be summed later, provided that the partial factorization ignores the previous content of Clique (just use beta = 0 in call to dsyrk).
+This reduces the prepare time by almost two orders of magnitude, to about 0.005 for qap15.
+---
+I slightly changed hot Symbolic is accessed, to have a less cumbersone code.
+---
+
+
+
+*****
 To do:
 - include MA86 to compare times
 - change col counts to skeleton matrix
-
-- amalgamate supernodes

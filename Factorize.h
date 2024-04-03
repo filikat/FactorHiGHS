@@ -17,8 +17,6 @@ class Factorize {
   // symbolic factorization
   const Symbolic& S;
 
-  std::vector<double> valL{};
-
   // children in supernodal elimination tree
   std::vector<int> firstChildren{};
   std::vector<int> nextChildren{};
@@ -26,16 +24,21 @@ class Factorize {
   // generated elements
   std::vector<double*> SchurContribution{};
 
+  // columns of L, stored as dense supernodes
+  std::vector<double*> SnColumns{};
+
   double time_prepare{};
   double time_assemble_original{};
   double time_assemble_children_F{};
   double time_assemble_children_C{};
   double time_factorize{};
+  double time_total{};
 
  public:
   void Permute(const std::vector<int>& iperm);
   void ProcessSupernode(int sn);
   bool Check() const;
+  void PrintTimes() const;
 
  public:
   Factorize(const Symbolic& S_input, const int* rowsA_input,

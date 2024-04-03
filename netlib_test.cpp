@@ -3,6 +3,7 @@
 #include <string>
 
 #include "Analyze.h"
+#include "Factorize.h"
 #include "Highs.h"
 #include "io/Filereader.h"
 
@@ -135,37 +136,42 @@ int main(int argc, char** argv) {
     // Build the matrix
     // ===========================================================================
 
-    std::vector<int> ptr;
-    std::vector<int> rows;
+    std::vector<int> ptrLower;
+    std::vector<int> rowsLower;
+    std::vector<double> valLower;
     int n;
     int nz;
 
     if (type == 0) {
-      // Augmented system
+      // Augmented system, lower triangular
 
-      HighsSparseMatrix At = lp.a_matrix_;
-      At.ensureRowwise();
+      const HighsSparseMatrix& A = lp.a_matrix_;
 
-      ptr.resize(nA + mA + 1);
-      rows.resize(nA + nzA + mA);
+      ptrLower.resize(nA + mA + 1);
+      rowsLower.resize(nA + nzA + mA);
+      valLower.resize(nA + nzA + mA);
 
-      // (1,1) diagonal part
+      int next = 0;
+
       for (int i = 0; i < nA; ++i) {
-        ptr[i + 1] = i + 1;
-        rows[i] = i;
+        // diagonal element
+        rowsLower[next] = i;
+        valLower[next++] = mA * 1000;
+
+        // column of A
+        for (int el = A.start_[i]; el < A.start_[i + 1]; ++el) {
+          rowsLower[next] = A.index_[el] + nA;
+          valLower[next++] = A.value_[el];
+        }
+
+        ptrLower[i + 1] = next;
       }
 
-      int next = nA;
-
-      // At part
+      // 2,2 block
       for (int i = 0; i < mA; ++i) {
-        for (int el = At.start_[i]; el < At.start_[i + 1]; ++el) {
-          rows[next] = At.index_[el];
-          ++next;
-        }
-        rows[next] = nA + i;
-        ++next;
-        ptr[nA + 1 + i] = next;
+        rowsLower[next] = nA + i;
+        valLower[next++] = nA * 1000;
+        ptrLower[nA + i + 1] = ptrLower[nA + i] + 1;
       }
 
       n = nA + mA;
@@ -178,8 +184,9 @@ int main(int argc, char** argv) {
 
       n = mA;
       nz = AAt.numNz();
-      ptr = std::move(AAt.start_);
-      rows = std::move(AAt.index_);
+      ptrLower = std::move(AAt.start_);
+      rowsLower = std::move(AAt.index_);
+      valLower = std::move(AAt.value_);
       AAt.clear();
     }
 
@@ -189,10 +196,13 @@ int main(int argc, char** argv) {
     Clock clock;
     clock.start();
     Symbolic S;
-    Analyze An(rows.data(), ptr.data(), n, nz);
+    Analyze An(rowsLower, ptrLower);
     An.Run(S);
+
+    Factorize F(S, rowsLower.data(), ptrLower.data(), valLower.data(), n, nz);
+    F.Run();
+
     total_time += clock.stop();
-    S.Print();
   }
 
   printf("\nTotal time %f\n", total_time);

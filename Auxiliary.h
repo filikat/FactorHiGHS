@@ -17,6 +17,8 @@ void Transpose(const std::vector<int>& ptr, const std::vector<int>& rows,
                std::vector<int>& rowsT, std::vector<double>& valT);
 void ChildrenLinkedList(const std::vector<int>& parent, std::vector<int>& head,
                         std::vector<int>& next);
+void DFS_post(int node, int& start, std::vector<int>& head,
+              const std::vector<int>& next, std::vector<int>& order);
 
 template <typename T>
 void print(std::ofstream& out_file, const std::vector<T>& v,

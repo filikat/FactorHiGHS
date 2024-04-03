@@ -8,9 +8,11 @@
 #include "Symbolic.h"
 #include "metis.h"
 
+// parameter for supernode amalgamation
+const int max_artificial_nz = 128;
+
 // Class to perform the analyze phase of the factorization.
 // The final symbolic factorization is stored in an object of type Symbolic.
-
 class Analyze {
   bool ready = false;
 
@@ -39,15 +41,18 @@ class Analyze {
   std::vector<int> colcount{};
   std::vector<int> rowcount{};
 
-  // sparsity pattern of L
-  std::vector<int> rowsL{};
-  std::vector<int> ptrL{};
+  // sparsity pattern of supernodes of L
+  std::vector<int> rowsLsn{};
+  std::vector<int> ptrLsn{};
+
+  std::vector<int> sn_indices{};
 
   // fundamental supernodes information
-  int fsn{};
-  std::vector<int> fsn_belong{};
-  std::vector<int> fsn_start{};
-  std::vector<int> fsn_parent{};
+  int sn_count{};
+  int artificialNz{};
+  std::vector<int> sn_belong{};
+  std::vector<int> sn_start{};
+  std::vector<int> sn_parent{};
 
   // relative indices of original columns wrt L columns
   std::vector<int> relind_cols{};
@@ -58,26 +63,29 @@ class Analyze {
   // information about consecutive indices in relind_clique
   std::vector<std::vector<int>> consecutiveSums{};
 
+  // times
   double time_metis{};
   double time_tree{};
   double time_count{};
   double time_pattern{};
-  double time_fsn{};
+  double time_sn{};
   double time_relind{};
+  double time_total{};
 
   void GetPermutation();
   void Permute(const std::vector<int>& iperm);
   void ETree();
   void Postorder();
-  void DFS_post(int node, int& start, std::vector<int>& head,
-                const std::vector<int>& next);
   void RowColCount();
-  void ColPattern();
   void FundamentalSupernodes();
+  void RelaxSupernodes();
+  void SnPattern();
   void RelativeInd_cols();
   void RelativeInd_clique();
   void Clear();
   bool Check() const;
+
+  void PrintTimes() const;
 
  public:
   // Constructor: matrix must be in upper triangular format
