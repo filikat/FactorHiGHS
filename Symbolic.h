@@ -91,6 +91,7 @@ class Symbolic {
   int Relind_cols(int i) const;
   int Relind_clique(int i, int j) const;
   int ConsecutiveSums(int i, int j) const;
+  const std::vector<int>& Ptr() const;
   const std::vector<int>& Perm() const;
   const std::vector<int>& Iperm() const;
   const std::vector<int>& Sn_parent() const;

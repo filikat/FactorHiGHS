@@ -426,9 +426,48 @@ This reduces the prepare time by almost two orders of magnitude, to about 0.005 
 I slightly changed hot Symbolic is accessed, to have a less cumbersone code.
 ---
 
+*****
+4 Apr 2024
+Changed the way that the Netlib tests are done.
+For some reason, the previous way was giving strange errors.
+Now the results are printed to an external files, so that it is easy to compare how much time is used for each of the phases.
+---
+Using -fsanitize=address I found a buffer overflow that I didn't notice. Of course, it was the usual problem the parent being -1.
+It also finds some memory leaks, but I cannot figure out where.
+One looks to be inside of metis and its size is fixed, it does not depend on the problem.
+The others are puzzling, but very small.
+---
+I plotted the time for each supernode, compared to the supernode size and the frontal matrix size.
+There is clearly a correlation with the supernode size. But the times are very clearly correlated with the frontal matrix size. Nothing too surprosing really.
+I still have to understand if I should impose a maximum size to the supernodes. This could easily be done by splitting the large ones in FundamentalSupernodes, right after they are found, and then not merging them if they would produce a large supernode.
+---
+I need to implement the solve phase, which should be easy enough.
+Then I need to compare the result with MA86.
+I am curios to see how the speed compares.
+---
+
+*****
+5 Apr 2024
+I implemented the solve phase.
+Quite easy, no big deal.
+---
+I included MA86.
+Some issues to make it work.
+MC68 is giving some strange error, but for now I can ignore it and use the same permutation for both codes.
+After linking openmp properly, everything works.
+---
+I tried on random right-hand sides and the relative error is around 1e-16.
+There was an issue with the fact that MA86 accepts only the lower triangle. It does not extract it.
+This may have beed the reason Matlab was giving a larger error as well.
+No need to check with Matlab anymore now. I use it just for plotting.
+The times are weird. For some problems my (serial) code is faster than MA86.
+But MA86 uses 8 cores, while mine only 1.
+Something is strange. I need to try with MA57, which is multifrontal.
+---
+
 
 
 *****
 To do:
-- include MA86 to compare times
 - change col counts to skeleton matrix
+- postorder of supernodal tree, to optimize stack size

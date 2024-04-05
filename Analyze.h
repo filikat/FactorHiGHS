@@ -9,7 +9,7 @@
 #include "metis.h"
 
 // parameter for supernode amalgamation
-const int max_artificial_nz = 128;
+const int max_artificial_nz = 1024;
 
 // Class to perform the analyze phase of the factorization.
 // The final symbolic factorization is stored in an object of type Symbolic.
@@ -63,15 +63,6 @@ class Analyze {
   // information about consecutive indices in relind_clique
   std::vector<std::vector<int>> consecutiveSums{};
 
-  // times
-  double time_metis{};
-  double time_tree{};
-  double time_count{};
-  double time_pattern{};
-  double time_sn{};
-  double time_relind{};
-  double time_total{};
-
   void GetPermutation();
   void Permute(const std::vector<int>& iperm);
   void ETree();
@@ -94,6 +85,15 @@ class Analyze {
 
   // Run analyze phase and save the result in Symbolic object S
   void Run(Symbolic& S);
+
+  // times
+  double time_metis{};
+  double time_tree{};
+  double time_count{};
+  double time_pattern{};
+  double time_sn{};
+  double time_relind{};
+  double time_total{};
 };
 
 #endif

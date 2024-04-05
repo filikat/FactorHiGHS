@@ -27,6 +27,7 @@ int Symbolic::ConsecutiveSums(int i, int j) const {
   return consecutiveSums[i][j];
 }
 
+const std::vector<int>& Symbolic::Ptr() const { return ptr; }
 const std::vector<int>& Symbolic::Perm() const { return perm; }
 const std::vector<int>& Symbolic::Iperm() const { return iperm; }
 const std::vector<int>& Symbolic::Sn_parent() const { return sn_parent; }

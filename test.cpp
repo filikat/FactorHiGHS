@@ -1,11 +1,29 @@
 #include <fstream>
 #include <iostream>
+#include <random>
+#include <regex>
 #include <string>
 
 #include "Analyze.h"
 #include "Factorize.h"
 #include "Highs.h"
+#include "hsl_ma86_wrapper.h"
 #include "io/Filereader.h"
+
+struct MA86Data {
+  void* keep;
+  ma86_control_d control;
+  ma86_info_d info;
+  mc68_control control_perm;
+  mc68_info info_perm;
+  std::vector<int> order;
+  void clear() {
+    // Free the memory allocated for MA86
+    if (this->keep) {
+      wrapper_ma86_finalise(&this->keep, &this->control);
+    }
+  }
+};
 
 int computeAThetaAT(const HighsSparseMatrix& matrix,
                     const std::vector<double>& theta, HighsSparseMatrix& AAT) {
@@ -114,8 +132,8 @@ int main(int argc, char** argv) {
   // ===========================================================================
 
   // Read LP using Highs MPS read
-  Highs highs;
   std::string model_file = argv[1];
+  Highs highs;
   HighsStatus status = highs.readModel(model_file);
   assert(status == HighsStatus::kOk);
   status = highs.presolve();
@@ -173,17 +191,26 @@ int main(int argc, char** argv) {
     n = nA + mA;
     nz = nA + nzA + mA;
   } else {
-    // Normal equations
+    // Normal equations, full matrix
     std::vector<double> theta;
     HighsSparseMatrix AAt;
     int status = computeAThetaAT(lp.a_matrix_, theta, AAt);
 
+    // extract lower triangle
     n = mA;
-    nz = AAt.numNz();
-    ptrLower = std::move(AAt.start_);
-    rowsLower = std::move(AAt.index_);
-    valLower = std::move(AAt.value_);
-    AAt.clear();
+    for (int col = 0; col < n; ++col) {
+      ptrLower.push_back(valLower.size());
+      for (int el = AAt.start_[col]; el < AAt.start_[col + 1]; el++) {
+        int row = AAt.index_[el];
+        if (row >= col) {
+          valLower.push_back(AAt.value_[el]);
+          rowsLower.push_back(row);
+        }
+      }
+    }
+    ptrLower.push_back(valLower.size());
+
+    nz = ptrLower.back();
   }
 
   /*int n = 17;
@@ -196,7 +223,8 @@ int main(int argc, char** argv) {
                             23, 24, 29, 30, 35, 36, 38, 39, 40};
   std::vector<double> valLower{
       20, 1, 1,  1,  20, 20, 1, 1, 20, 1,  1,  20, 1, 1, 1, 20, 1,  20, 20, 1,
-      1,  1, 20, 20, 20, 1,  1, 1, 1,  20, 20, 1,  1, 1, 1, 20, 20, 1,  20, 20};*/
+      1,  1, 20, 20, 20, 1,  1, 1, 1,  20, 20, 1,  1, 1, 1, 20, 20, 1,  20,
+  20};*/
 
   // ===========================================================================
   // Symbolic factorization
@@ -209,22 +237,126 @@ int main(int argc, char** argv) {
   // ===========================================================================
   // Numerical factorization
   // ===========================================================================
-
+  Numeric Num;
   Factorize F(S, rowsLower.data(), ptrLower.data(), valLower.data(), n, nz);
+  F.Run(Num);
 
-  F.Run();
-  
+  // ===========================================================================
+  // Solve
+  // ===========================================================================
+
+  std::random_device rd;
+  std::mt19937 rng(rd());
+  std::uniform_real_distribution<double> distr(-10.0, 10.0);
+
+  // initialize random rhs
+  std::vector<double> rhs(n);
+  for (int i = 0; i < n; ++i) rhs[i] = distr(rng);
+
+  // solve
+  std::vector<double> sol(rhs);
+  Num.Solve(sol);
+
+  // ===========================================================================
+  // Factorize with MA86
+  // ===========================================================================
+
+  std::vector<double> solMa86(rhs);
+
+  MA86Data ma86_data;
+  // ma86_data.clear();
+
+  ma86_data.order = S.Perm();
+
+  /*ma86_data.order.resize(n);
+  wrapper_mc68_default_control(&ma86_data.control_perm);
+  // choose ordering heuristic
+  // 1 - amd
+  // 2 - md from MA27
+  // 3 - do not use!
+  // 4 - order from MA47
+  int ord = 1;
+  wrapper_mc68_order(ord, n, ptrLower.data(), rowsLower.data(),
+                     ma86_data.order.data(), &ma86_data.control_perm,
+                     &ma86_data.info_perm);
+  if (ma86_data.info_perm.flag < 0) std::cerr << "Error with mc68\n";*/
+
+  Clock clock;
+
+  clock.start();
+  wrapper_ma86_default_control(&ma86_data.control);
+  wrapper_ma86_analyse(n, ptrLower.data(), rowsLower.data(),
+                       ma86_data.order.data(), &ma86_data.keep,
+                       &ma86_data.control, &ma86_data.info);
+  if (ma86_data.info.flag < 0) std::cerr << "Error with ma86 analyze\n";
+  double ma86_time_analyze = clock.stop();
+
+  clock.start();
+  wrapper_ma86_factor(n, ptrLower.data(), rowsLower.data(), valLower.data(),
+                      ma86_data.order.data(), &ma86_data.keep,
+                      &ma86_data.control, &ma86_data.info);
+  if (ma86_data.info.flag < 0) std::cerr << "Error with ma86 factor\n";
+  double ma86_time_factorize = clock.stop();
+
+  wrapper_ma86_solve(0, 1, n, solMa86.data(), ma86_data.order.data(),
+                     &ma86_data.keep, &ma86_data.control, &ma86_data.info);
+
+  double errorNorm2{};
+  double rhsNorm2{};
+  for (int i = 0; i < n; ++i) {
+    errorNorm2 += (solMa86[i] - sol[i]) * (solMa86[i] - sol[i]);
+    rhsNorm2 += rhs[i] * rhs[i];
+  }
+  errorNorm2 = sqrt(errorNorm2);
+  rhsNorm2 = sqrt(rhsNorm2);
+
+  printf("Relative error compared to MA86: %e\n", errorNorm2 / rhsNorm2);
+  printf("MA86 time analyze: %f\n", ma86_time_analyze);
+  printf("MA86 time factorize: %f\n", ma86_time_factorize);
+
   // ===========================================================================
   // Write to file
   // ===========================================================================
-  std::ofstream out_file;
+
+  /*std::ofstream out_file;
   print(out_file, ptrLower, "ptr");
   print(out_file, rowsLower, "rows");
   print(out_file, valLower, "vals");
   print(out_file, S.Perm(), "perm");
   print(out_file, S.Sn_start(), "sn_start");
-  print(out_file,S.Sn_parent(),"sn_parent");
+  print(out_file, S.Sn_parent(), "sn_parent");
+  print(out_file, S.Ptr(), "ptrsn");
+  print(out_file, F.time_per_Sn, "time_per_sn");*/
 
+  // extract problem name witout mps from path
+  std::string pb_name{};
+  std::regex rgx("([^/]+)\\.mps");
+  std::smatch match;
+  std::regex_search(model_file, match, rgx);
+  pb_name = match[1];
+
+  // print results
+  FILE* file = fopen("results.txt", "a");
+
+  fprintf(
+      file, "%15s  |  %12.1e %10.1f %10.1f %10.1f %10.1f %10.1f %10.1f  |  ",
+      pb_name.c_str(), An.time_total, An.time_metis / An.time_total * 100,
+      An.time_tree / An.time_total * 100, An.time_count / An.time_total * 100,
+      An.time_sn / An.time_total * 100, An.time_pattern / An.time_total * 100,
+      An.time_relind / An.time_total * 100);
+
+  fprintf(file, "%12.1e %10.1f %10.1f %10.1f %10.1f %10.1f  |  ", F.time_total,
+          F.time_prepare / F.time_total * 100,
+          F.time_assemble_original / F.time_total * 100,
+          F.time_assemble_children_C / F.time_total * 100,
+          F.time_assemble_children_F / F.time_total * 100,
+          F.time_factorize / F.time_total * 100);
+
+  fprintf(file, "%12.1e %12.1e %12.1e", errorNorm2 / rhsNorm2,
+          ma86_time_analyze, ma86_time_factorize);
+
+  fprintf(file, "\n");
+  fclose(file);
 
   return 0;
 }

@@ -2,6 +2,7 @@
 #define FACTORIZE_H
 
 #include "Auxiliary.h"
+#include "Numeric.h"
 #include "PartialFact.h"
 #include "Symbolic.h"
 
@@ -25,14 +26,7 @@ class Factorize {
   std::vector<double*> SchurContribution{};
 
   // columns of L, stored as dense supernodes
-  std::vector<double*> SnColumns{};
-
-  double time_prepare{};
-  double time_assemble_original{};
-  double time_assemble_children_F{};
-  double time_assemble_children_C{};
-  double time_factorize{};
-  double time_total{};
+  std::vector<std::vector<double>> SnColumns{};
 
  public:
   void Permute(const std::vector<int>& iperm);
@@ -45,7 +39,17 @@ class Factorize {
             const int* ptrA_input, const double* valA_input, int n_input,
             int nz_input);
 
-  void Run();
+  void Run(Numeric& Num);
+
+  std::vector<double> time_per_Sn{};
+
+  double time_prepare{};
+  double time_assemble_original{};
+  double time_assemble_children_F{};
+  double time_assemble_children_C{};
+  double time_factorize{};
+  double time_total{};
+  mutable double check_error{};
 };
 
 extern "C" void daxpy(int* n, double* alpha, double* dx, int* incx, double* dy,

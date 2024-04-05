@@ -40,7 +40,7 @@ Factorize::Factorize(const Symbolic& S_input, const int* rowsA_input,
 
   // allocate space for list of generated elements and columns of L
   SchurContribution.resize(S.Sn(), nullptr);
-  SnColumns.resize(S.Sn(), nullptr);
+  SnColumns.resize(S.Sn());
 }
 
 void Factorize::Permute(const std::vector<int>& iperm) {
@@ -137,11 +137,11 @@ void Factorize::ProcessSupernode(int sn) {
   // undergo Cholesky elimination.
   // Clique is ldc x ldc and stores the remaining (ldf - sn_size) columns
   // (without the top part), that do not undergo Cholesky elimination.
-  double*& Frontal = SnColumns[sn];
+  std::vector<double>& Frontal = SnColumns[sn];
   double*& Clique = SchurContribution[sn];
 
   // Frontal is initialized to zero
-  Frontal = new double[ldf * sn_size]();
+  Frontal.resize(ldf * sn_size, 0.0);
 
   // Clique need not be initialized to zero, provided that the assembly is done
   // properly
@@ -231,7 +231,7 @@ void Factorize::ProcessSupernode(int sn) {
   // Partial factorization
   // ===================================================
   clock.start();
-  PartialFact_pos_large(ldf, sn_size, Frontal, ldf, Clique, ldc);
+  PartialFact_pos_large(ldf, sn_size, Frontal.data(), ldf, Clique, ldc);
   time_factorize += clock.stop();
 
   // ===================================================
@@ -375,10 +375,10 @@ bool Factorize::Check() const {
 
   FrobeniusDense = sqrt(FrobeniusDense);
   FrobeniusDiff = sqrt(FrobeniusDiff);
-  double relError = FrobeniusDiff / FrobeniusDense;
+  check_error = FrobeniusDiff / FrobeniusDense;
 
-  printf("\nFactorize Frobenius error %e\n", relError);
-  if (relError < 1e-12) {
+  printf("\nFactorize Frobenius error %e\n", check_error);
+  if (check_error < 1e-12) {
     printf("\n==> Factorize check successful\n\n");
     return true;
   } else {
@@ -404,12 +404,18 @@ void Factorize::PrintTimes() const {
          time_factorize / time_total * 100);
 }
 
-void Factorize::Run() {
+void Factorize::Run(Numeric& Num) {
   Clock clock;
   clock.start();
 
+  time_per_Sn.resize(S.Sn());
+
+  Clock clockSn;
+
   for (int sn = 0; sn < S.Sn(); ++sn) {
+    clockSn.start();
     ProcessSupernode(sn);
+    time_per_Sn[sn] = clockSn.stop();
   }
 
   time_total = clock.stop();
@@ -417,4 +423,8 @@ void Factorize::Run() {
   PrintTimes();
 
   Check();
+
+  // move factorization to numerical object
+  Num.SnColumns = std::move(SnColumns);
+  Num.S = &S;
 }

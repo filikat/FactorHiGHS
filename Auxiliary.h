@@ -8,7 +8,6 @@
 
 void Counts2Ptr(std::vector<int>& ptr, std::vector<int>& w);
 void InversePerm(const std::vector<int>& perm, std::vector<int>& iperm);
-void PermuteVector(std::vector<int>& v, const std::vector<int>& perm);
 void SubtreeSize(const std::vector<int>& parent, std::vector<int>& sizes);
 void Transpose(const std::vector<int>& ptr, const std::vector<int>& rows,
                std::vector<int>& ptrT, std::vector<int>& rowsT);
@@ -19,6 +18,16 @@ void ChildrenLinkedList(const std::vector<int>& parent, std::vector<int>& head,
                         std::vector<int>& next);
 void DFS_post(int node, int& start, std::vector<int>& head,
               const std::vector<int>& next, std::vector<int>& order);
+
+template <typename T>
+void PermuteVector(std::vector<T>& v, const std::vector<int>& perm) {
+  // Permute vector v according to permutation perm.
+  std::vector<T> new_v(v.size());
+  for (int i = 0; i < v.size(); ++i) {
+    new_v[i] = v[perm[i]];
+  }
+  v = std::move(new_v);
+}
 
 template <typename T>
 void print(std::ofstream& out_file, const std::vector<T>& v,

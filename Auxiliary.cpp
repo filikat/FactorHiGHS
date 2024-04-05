@@ -27,16 +27,6 @@ void InversePerm(const std::vector<int>& perm, std::vector<int>& iperm) {
   }
 }
 
-void PermuteVector(std::vector<int>& v, const std::vector<int>& perm) {
-  // Permute vector v according to permutation perm.
-
-  std::vector<int> new_v(v.size());
-  for (int i = 0; i < v.size(); ++i) {
-    new_v[i] = v[perm[i]];
-  }
-  v = std::move(new_v);
-}
-
 void SubtreeSize(const std::vector<int>& parent, std::vector<int>& sizes) {
   // Compute sizes of subtrees of the tree given by parent
 

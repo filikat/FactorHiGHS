@@ -643,7 +643,7 @@ void Analyze::SnPattern() {
       int snj = sn_belong[j];
 
       // while supernodes are not yet considered
-      while (mark[snj] != i && snj != -1) {
+      while (snj != -1 && mark[snj] != i) {
         // we may end up too far
         if (sn_start[snj] > i) break;
 
