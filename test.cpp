@@ -122,8 +122,8 @@ int computeAThetaAT(const HighsSparseMatrix& matrix,
 }
 
 int main(int argc, char** argv) {
-  if (argc < 3) {
-    std::cerr << "Wrong input\n";
+  if (argc < 4) {
+    std::cerr << "Wrong input: ./fact pb normEq(0-1) MA86(0-1)\n";
     return 1;
   }
 
@@ -260,73 +260,62 @@ int main(int argc, char** argv) {
   // ===========================================================================
   // Factorize with MA86
   // ===========================================================================
-
-  std::vector<double> solMa86(rhs);
-
-  MA86Data ma86_data;
-  // ma86_data.clear();
-
-  ma86_data.order = S.Perm();
-
-  /*ma86_data.order.resize(n);
-  wrapper_mc68_default_control(&ma86_data.control_perm);
-  // choose ordering heuristic
-  // 1 - amd
-  // 2 - md from MA27
-  // 3 - do not use!
-  // 4 - order from MA47
-  int ord = 1;
-  wrapper_mc68_order(ord, n, ptrLower.data(), rowsLower.data(),
-                     ma86_data.order.data(), &ma86_data.control_perm,
-                     &ma86_data.info_perm);
-  if (ma86_data.info_perm.flag < 0) std::cerr << "Error with mc68\n";*/
-
-  Clock clock;
-
-  clock.start();
-  wrapper_ma86_default_control(&ma86_data.control);
-  wrapper_ma86_analyse(n, ptrLower.data(), rowsLower.data(),
-                       ma86_data.order.data(), &ma86_data.keep,
-                       &ma86_data.control, &ma86_data.info);
-  if (ma86_data.info.flag < 0) std::cerr << "Error with ma86 analyze\n";
-  double ma86_time_analyze = clock.stop();
-
-  clock.start();
-  wrapper_ma86_factor(n, ptrLower.data(), rowsLower.data(), valLower.data(),
-                      ma86_data.order.data(), &ma86_data.keep,
-                      &ma86_data.control, &ma86_data.info);
-  if (ma86_data.info.flag < 0) std::cerr << "Error with ma86 factor\n";
-  double ma86_time_factorize = clock.stop();
-
-  wrapper_ma86_solve(0, 1, n, solMa86.data(), ma86_data.order.data(),
-                     &ma86_data.keep, &ma86_data.control, &ma86_data.info);
-
   double errorNorm2{};
   double rhsNorm2{};
-  for (int i = 0; i < n; ++i) {
-    errorNorm2 += (solMa86[i] - sol[i]) * (solMa86[i] - sol[i]);
-    rhsNorm2 += rhs[i] * rhs[i];
+  double ma86_time_analyze{};
+  double ma86_time_factorize{};
+  if (atoi(argv[3]) == 1) {
+    std::vector<double> solMa86(rhs);
+
+    MA86Data ma86_data;
+    // ma86_data.clear();
+
+    ma86_data.order = S.Perm();
+
+    Clock clock;
+
+    clock.start();
+    wrapper_ma86_default_control(&ma86_data.control);
+    wrapper_ma86_analyse(n, ptrLower.data(), rowsLower.data(),
+                         ma86_data.order.data(), &ma86_data.keep,
+                         &ma86_data.control, &ma86_data.info);
+    if (ma86_data.info.flag < 0) std::cerr << "Error with ma86 analyze\n";
+    ma86_time_analyze = clock.stop();
+
+    clock.start();
+    wrapper_ma86_factor(n, ptrLower.data(), rowsLower.data(), valLower.data(),
+                        ma86_data.order.data(), &ma86_data.keep,
+                        &ma86_data.control, &ma86_data.info);
+    if (ma86_data.info.flag < 0) std::cerr << "Error with ma86 factor\n";
+    ma86_time_factorize = clock.stop();
+
+    wrapper_ma86_solve(0, 1, n, solMa86.data(), ma86_data.order.data(),
+                       &ma86_data.keep, &ma86_data.control, &ma86_data.info);
+
+    for (int i = 0; i < n; ++i) {
+      errorNorm2 += (solMa86[i] - sol[i]) * (solMa86[i] - sol[i]);
+      rhsNorm2 += rhs[i] * rhs[i];
+    }
+    errorNorm2 = sqrt(errorNorm2);
+    rhsNorm2 = sqrt(rhsNorm2);
+
+    printf("Relative error compared to MA86: %e\n", errorNorm2 / rhsNorm2);
+    printf("MA86 time analyze: %f\n", ma86_time_analyze);
+    printf("MA86 time factorize: %f\n", ma86_time_factorize);
   }
-  errorNorm2 = sqrt(errorNorm2);
-  rhsNorm2 = sqrt(rhsNorm2);
-
-  printf("Relative error compared to MA86: %e\n", errorNorm2 / rhsNorm2);
-  printf("MA86 time analyze: %f\n", ma86_time_analyze);
-  printf("MA86 time factorize: %f\n", ma86_time_factorize);
-
   // ===========================================================================
   // Write to file
   // ===========================================================================
 
-  /*std::ofstream out_file;
-  print(out_file, ptrLower, "ptr");
-  print(out_file, rowsLower, "rows");
-  print(out_file, valLower, "vals");
-  print(out_file, S.Perm(), "perm");
+  std::ofstream out_file;
+  // print(out_file, ptrLower, "ptr");
+  // print(out_file, rowsLower, "rows");
+  // print(out_file, valLower, "vals");
+  // print(out_file, S.Perm(), "perm");
   print(out_file, S.Sn_start(), "sn_start");
   print(out_file, S.Sn_parent(), "sn_parent");
   print(out_file, S.Ptr(), "ptrsn");
-  print(out_file, F.time_per_Sn, "time_per_sn");*/
+  print(out_file, F.time_per_Sn, "time_per_sn");
 
   // extract problem name witout mps from path
   std::string pb_name{};
@@ -352,8 +341,10 @@ int main(int argc, char** argv) {
           F.time_assemble_children_F / F.time_total * 100,
           F.time_factorize / F.time_total * 100);
 
-  fprintf(file, "%12.1e %12.1e %12.1e", errorNorm2 / rhsNorm2,
-          ma86_time_analyze, ma86_time_factorize);
+  if (atoi(argv[3])) {
+    fprintf(file, "%12.1e %12.1e %12.1e", errorNorm2 / rhsNorm2,
+            ma86_time_analyze, ma86_time_factorize);
+  }
 
   fprintf(file, "\n");
   fclose(file);

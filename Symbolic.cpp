@@ -4,19 +4,24 @@
 
 void Symbolic::Print() const {
   printf("Symbolic factorization:\n");
-  printf(" - size                %d\n", n);
-  printf(" - nonzero entries     %.2e\n", (double)nz);
-  printf(" - supernodes found    %d\n", sn);
-  printf(" - artificial nonzeros %d (%2.1f%%)\n", artificialNz,
+  printf(" - size                 %d\n", n);
+  printf(" - nonzero entries      %.2e\n", (double)nz);
+  printf(" - fill in              %.2f\n", fillin);
+  printf(" - supernodes found     %d\n", sn);
+  printf(" - largest supernode    %d\n", largestSn);
+  printf(" - largest front        %d\n", largestFront);
+  printf(" - dense operations     %.2e\n", operations);
+  printf(" - assembly operations  %.2e\n", assemblyOp);
+  printf(" - artificial nonzeros  %d (%2.1f%%)\n", artificialNz,
          (double)artificialNz / nz * 100);
-  printf(" - operations count    %.2e\n", operations);
-  printf(" - largest front       %d\n", largestFront);
-  printf(" - largest supernode   %d\n", largestSn);
+  printf(" - artificial ops       %.2e (%2.1f%%)\n", artificialOp,
+         (double)artificialOp / operations * 100);
 }
 
 int Symbolic::Size() const { return n; }
 int Symbolic::Nz() const { return nz; }
-int Symbolic::Ops() const { return operations; }
+double Symbolic::Ops() const { return operations; }
+double Symbolic::AssemblyOps() const { return assemblyOp; }
 int Symbolic::Sn() const { return sn; }
 int Symbolic::Rows(int i) const { return rows[i]; }
 int Symbolic::Ptr(int i) const { return ptr[i]; }

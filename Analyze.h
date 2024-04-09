@@ -8,8 +8,9 @@
 #include "Symbolic.h"
 #include "metis.h"
 
-// parameter for supernode amalgamation
+// parameters for supernode amalgamation
 const int max_artificial_nz = 1024;
+const int small_sn_thresh = 16;
 
 // Class to perform the analyze phase of the factorization.
 // The final symbolic factorization is stored in an object of type Symbolic.
@@ -26,6 +27,8 @@ class Analyze {
   int nz{};
   int nzL{};
   double operations{};
+  double operations_norelax{};
+  double operations_assembly{};
 
   // Permutation and inverse permutation from Metis
   std::vector<int> perm{};
@@ -54,6 +57,11 @@ class Analyze {
   std::vector<int> sn_start{};
   std::vector<int> sn_parent{};
 
+  // temporary storage for relaxing supernodes
+  std::vector<int> fake_nonzeros{};
+  std::vector<int> mergedInto{};
+  int merged_sn{};
+
   // relative indices of original columns wrt L columns
   std::vector<int> relind_cols{};
 
@@ -68,8 +76,15 @@ class Analyze {
   void ETree();
   void Postorder();
   void RowColCount();
+  void ColCount();
+  void Edge(int j, int i, const std::vector<int>& first,
+            std::vector<int>& maxfirst, std::vector<int>& delta,
+            std::vector<int>& prevleaf, std::vector<int>& ancestor) const;
   void FundamentalSupernodes();
   void RelaxSupernodes();
+  void AfterRelaxSn();
+  void RelaxSupernodes_2();
+  void RelaxSupernodes_3();
   void SnPattern();
   void RelativeInd_cols();
   void RelativeInd_clique();

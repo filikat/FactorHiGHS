@@ -415,7 +415,7 @@ max_art_nz    sn found    Prepare     Assembly clique     dense factorization
   256            421       0.14           0.18                    0.19
 
 Quite impressive results!
-It took a lot of effort to implement the relaxed supernodes, but it makes a gigantiv difference.
+It took a lot of effort to implement the relaxed supernodes, but it makes a gigantic difference.
 ---
 Great revelation!!
 I don't need to initialize Clique to zero!
@@ -423,7 +423,7 @@ I have to initialize Frontal to zero and assemble the contributions there, becau
 But the contributions to Clique can be summed later, provided that the partial factorization ignores the previous content of Clique (just use beta = 0 in call to dsyrk).
 This reduces the prepare time by almost two orders of magnitude, to about 0.005 for qap15.
 ---
-I slightly changed hot Symbolic is accessed, to have a less cumbersone code.
+I slightly changed how Symbolic is accessed, to have a less cumbersone code.
 ---
 
 *****
@@ -465,9 +465,37 @@ But MA86 uses 8 cores, while mine only 1.
 Something is strange. I need to try with MA57, which is multifrontal.
 ---
 
+*****
+8 Apr 2024
+I tried different techniques to merge supernodes. 
+I would like to find a way that does not depent on a specific parameter that may need to be adjusted for a given matrix.
+I tried to merge based on the percentage of fake nonzeros out of the total number of nonzeros in the merged supernode.
+I tried also based on the percentage of extra operations required wrt the operations required without relaxation.
+I have an idea ot trying whatever strategy iteratively: try once, if extra operations are less than 1% of the total operations, try again with higher threshold.
+Continue until you fall within 1% and 2%. If you go over 2%, then reject and try with smaller threshold.
+Something like this.
+I also think that it is better to choose what to merge based on number of extra operations rather than number of extra nonzeros.
+---
+It may be useful to merge supernodes if they are too small.
+I added a rule to merge a parent with its smallest child, if both are smaller than a threshold.
+This is what is used in the HSL codes. However, it does create more fake nonzeros.
+I am not sure of whether I should keep the basic strategies (together maybe), or try to find a better one.
+---
+I understood why MA86 is slower. It does pivoting. I should try with MA87.
+Then, MA97 is multifrontal rather than supernodal and I can set it so that it does not do pivoting.
+I should include both of these in my comparison.
+---
+
+*****
+9 Apr 2024
+I slightly changed the functions to merge supernodes, so that it is easier to try new strategies.
+I managed to get the skeleton matrix for the column counts to work.
+It was taking quite a bit of time for large matrices, now it takes a very small amount.
+I slightly changed how Symbolic prints the summary.
+---
 
 
 *****
 To do:
-- change col counts to skeleton matrix
 - postorder of supernodal tree, to optimize stack size
+- include ma87, ma97

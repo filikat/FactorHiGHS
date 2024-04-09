@@ -9,15 +9,18 @@ class Symbolic {
 
   // Number of nonzeros in L
   int nz{};
+  double fillin{};
 
-  // Number of floating point operations required
+  // Number of dense operations and assembly operations
   double operations{};
+  double assemblyOp{};
 
   // Number of supernodes
   int sn{};
 
   // Number of artificial nonzero entries introduced to merge supernodes
   int artificialNz{};
+  double artificialOp{};
 
   // size of the largest frontal matrix and largest sn
   int largestFront{};
@@ -83,7 +86,8 @@ class Symbolic {
   // provide const access to symbolic factorization
   int Size() const;
   int Nz() const;
-  int Ops() const;
+  double Ops() const;
+  double AssemblyOps() const;
   int Sn() const;
   int Rows(int i) const;
   int Ptr(int i) const;
