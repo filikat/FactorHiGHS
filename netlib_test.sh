@@ -7,5 +7,5 @@ do
     echo "Running $line"
     echo "====================="
     
-    ./fact "../../Netlib/data/$line" 1
+    ./fact "../../Netlib/data/$line" 1 1
 done < "../../Netlib/netlib_names.txt"

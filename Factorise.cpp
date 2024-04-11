@@ -1,18 +1,18 @@
-#include "Factorize.h"
+#include "Factorise.h"
 
 #include <fstream>
 
-Factorize::Factorize(const Symbolic& S_input, const int* rowsA_input,
+Factorise::Factorise(const Symbolic& S_input, const int* rowsA_input,
                      const int* ptrA_input, const double* valA_input,
                      int n_input, int nz_input)
     : S{S_input} {
   // Input the symmetric matrix to be factirized in CSC format and the symbolic
-  // factorization coming from Analyze.
+  // factorisation coming from Analyze.
   // Only the lower triangular part of the matrix is used.
 
   if (n_input != S.Size()) {
     printf(
-        "Matrix provided to Factorize has size incompatible with symbolic "
+        "Matrix provided to Factorise has size incompatible with symbolic "
         "object.\n");
     return;
   }
@@ -43,7 +43,7 @@ Factorize::Factorize(const Symbolic& S_input, const int* rowsA_input,
   SnColumns.resize(S.Sn());
 }
 
-void Factorize::Permute(const std::vector<int>& iperm) {
+void Factorise::Permute(const std::vector<int>& iperm) {
   // Symmetric permutation of the lower triangular matrix A based on inverse
   // permutation iperm.
   // The resulting matrix is lower triangular, regardless of the input matrix.
@@ -110,8 +110,8 @@ void Factorize::Permute(const std::vector<int>& iperm) {
   valA = std::move(new_val);
 }
 
-void Factorize::ProcessSupernode(int sn) {
-  // Assemble frontal matrix for supernode sn, perform partial factorization and
+void Factorise::ProcessSupernode(int sn) {
+  // Assemble frontal matrix for supernode sn, perform partial factorisation and
   // store the result.
   Clock clock;
 
@@ -218,7 +218,7 @@ void Factorize::ProcessSupernode(int sn) {
       }
 
       // If j >= sn_size, we would assemble into Clique.
-      // This is delayed until after the partial factorization, to avoid having
+      // This is delayed until after the partial factorisation, to avoid having
       // to initialize Clique to zero.
     }
 
@@ -228,11 +228,11 @@ void Factorize::ProcessSupernode(int sn) {
   time_assemble_children_F += clock.stop();
 
   // ===================================================
-  // Partial factorization
+  // Partial factorisation
   // ===================================================
   clock.start();
   PartialFact_pos_large(ldf, sn_size, Frontal.data(), ldf, Clique, ldc);
-  time_factorize += clock.stop();
+  time_factorise += clock.stop();
 
   // ===================================================
   // Assemble frontal matrices of children into Clique
@@ -287,7 +287,7 @@ void Factorize::ProcessSupernode(int sn) {
       }
 
       // j < sn_size was already done before, because it was needed before the
-      // partial factorization. Assembling into the Clique instead can be done
+      // partial factorisation. Assembling into the Clique instead can be done
       // after.
     }
 
@@ -300,14 +300,14 @@ void Factorize::ProcessSupernode(int sn) {
   time_assemble_children_C += clock.stop();
 }
 
-bool Factorize::Check() const {
-  // Check that the numerical factorization is correct, by using dense linear
+bool Factorise::Check() const {
+  // Check that the numerical factorisation is correct, by using dense linear
   // algebra operations.
   // Return true if check is successful, or if matrix is too large.
   // To be used for debug.
 
   if (n > 5000) {
-    printf("\n==> Matrix is too large for dense checking\n\n");
+    printf("\n==> Matrix is too large for dense check\n\n");
     return true;
   }
 
@@ -322,7 +322,7 @@ bool Factorize::Check() const {
     }
   }
 
-  // use Lapack to factorize the dense matrix
+  // use Lapack to factorise the dense matrix
   char uplo = 'L';
   int N = n;
   int info;
@@ -354,7 +354,7 @@ bool Factorize::Check() const {
     }
   }
 
-  // Check that sparse factorization agrees with dense one.
+  // Check that sparse factorisation agrees with dense one.
   // This is done by computing the Frobenius norm of the difference between the
   // dense and sparse factors, divided by the Frobenius norm of the dense
   // factor.
@@ -377,21 +377,21 @@ bool Factorize::Check() const {
   FrobeniusDiff = sqrt(FrobeniusDiff);
   check_error = FrobeniusDiff / FrobeniusDense;
 
-  printf("\nFactorize Frobenius error %e\n", check_error);
+  printf("\nFactorise Frobenius error %e\n", check_error);
   if (check_error < 1e-12) {
-    printf("\n==> Factorize check successful\n\n");
+    printf("\n==> Factorise check successful\n\n");
     return true;
   } else {
-    printf("\n==> Factorize check failed\n\n");
+    printf("\n==> Factorise check failed\n\n");
     return false;
   }
 }
 
-void Factorize::PrintTimes() const {
+void Factorise::PrintTimes() const {
   printf("\n----------------------------------------------------\n");
-  printf("\t\tFactorize\n");
+  printf("\t\tFactorise\n");
   printf("----------------------------------------------------\n");
-  printf("\nFactorize time          \t%f\n", time_total);
+  printf("\nFactorise time          \t%f\n", time_total);
   printf("\tPrepare:                %f (%4.1f%%)\n", time_prepare,
          time_prepare / time_total * 100);
   printf("\tAssembly original:      %f (%4.1f%%)\n", time_assemble_original,
@@ -400,11 +400,11 @@ void Factorize::PrintTimes() const {
          time_assemble_children_F / time_total * 100);
   printf("\tAssembly into Clique:   %f (%4.1f%%)\n", time_assemble_children_C,
          time_assemble_children_C / time_total * 100);
-  printf("\tFactorize:              %f (%4.1f%%)\n", time_factorize,
-         time_factorize / time_total * 100);
+  printf("\tDense factorisation:    %f (%4.1f%%)\n", time_factorise,
+         time_factorise / time_total * 100);
 }
 
-void Factorize::Run(Numeric& Num) {
+void Factorise::Run(Numeric& Num) {
   Clock clock;
   clock.start();
 
@@ -424,7 +424,7 @@ void Factorize::Run(Numeric& Num) {
 
   Check();
 
-  // move factorization to numerical object
+  // move factorisation to numerical object
   Num.SnColumns = std::move(SnColumns);
   Num.S = &S;
 }

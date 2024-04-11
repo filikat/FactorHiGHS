@@ -77,7 +77,7 @@ class Symbolic {
   //   and increment equal to one.
   std::vector<std::vector<int>> consecutiveSums{};
 
-  friend class Analyze;
+  friend class Analyse;
 
  public:
   // print information to screen

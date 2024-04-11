@@ -3,19 +3,19 @@
 #include <iostream>
 
 void Symbolic::Print() const {
-  printf("Symbolic factorization:\n");
+  printf("Symbolic factorisation:\n");
   printf(" - size                 %d\n", n);
   printf(" - nonzero entries      %.2e\n", (double)nz);
   printf(" - fill in              %.2f\n", fillin);
-  printf(" - supernodes found     %d\n", sn);
+  printf(" - supernodes           %d\n", sn);
   printf(" - largest supernode    %d\n", largestSn);
   printf(" - largest front        %d\n", largestFront);
   printf(" - dense operations     %.2e\n", operations);
   printf(" - assembly operations  %.2e\n", assemblyOp);
-  printf(" - artificial nonzeros  %d (%2.1f%%)\n", artificialNz,
+  printf(" - artificial nonzeros  %.2e (%2.1f%%)\n", (double)artificialNz,
          (double)artificialNz / nz * 100);
   printf(" - artificial ops       %.2e (%2.1f%%)\n", artificialOp,
-         (double)artificialOp / operations * 100);
+         artificialOp / operations * 100);
 }
 
 int Symbolic::Size() const { return n; }

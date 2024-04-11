@@ -4,25 +4,47 @@
 #include <regex>
 #include <string>
 
-#include "Analyze.h"
-#include "Factorize.h"
+#include "Analyse.h"
+#include "Factorise.h"
 #include "Highs.h"
-#include "hsl_ma86_wrapper.h"
+#include "hsl_wrapper.h"
 #include "io/Filereader.h"
 
 struct MA86Data {
   void* keep;
   ma86_control_d control;
   ma86_info_d info;
-  mc68_control control_perm;
-  mc68_info info_perm;
   std::vector<int> order;
-  void clear() {
-    // Free the memory allocated for MA86
-    if (this->keep) {
-      wrapper_ma86_finalise(&this->keep, &this->control);
-    }
-  }
+};
+
+struct MA87Data {
+  void* keep;
+  ma87_control_d control;
+  ma87_info_d info;
+  std::vector<int> order;
+};
+
+struct MA97Data {
+  void* akeep;
+  void* fkeep;
+  ma97_control_d control;
+  ma97_info_d info;
+  std::vector<int> order;
+};
+
+struct MA57Data {
+  void* factors;
+  ma57_control_d control;
+  ma57_ainfo_d ainfo;
+  ma57_finfo_d finfo;
+  ma57_sinfo_d sinfo;
+  std::vector<int> order;
+};
+
+struct MC68Data {
+  mc68_control control;
+  mc68_info info;
+  std::vector<int> order;
 };
 
 int computeAThetaAT(const HighsSparseMatrix& matrix,
@@ -122,8 +144,8 @@ int computeAThetaAT(const HighsSparseMatrix& matrix,
 }
 
 int main(int argc, char** argv) {
-  if (argc < 4) {
-    std::cerr << "Wrong input: ./fact pb normEq(0-1) MA86(0-1)\n";
+  if (argc < 5) {
+    std::cerr << "Wrong input: ./fact pb normEq(0-1) HSL(0-1) Metis(0-1)\n";
     return 1;
   }
 
@@ -213,6 +235,7 @@ int main(int argc, char** argv) {
     nz = ptrLower.back();
   }
 
+  // Test matrix
   /*int n = 17;
   int nz = 40;
   std::vector<int> rowsLower{0,  1,  8,  9,  1,  2,  8,  15, 3,  5,
@@ -227,18 +250,35 @@ int main(int argc, char** argv) {
   20};*/
 
   // ===========================================================================
-  // Symbolic factorization
+  // AMD ordering with MC68
+  // ===========================================================================
+  std::vector<int> order_to_use{};
+  if (atoi(argv[4]) == 0) {
+    MC68Data mc68_data;
+    mc68_data.order = std::vector<int>(n);
+    wrapper_mc68_default_control(&mc68_data.control);
+    wrapper_mc68_order(1, n, ptrLower.data(), rowsLower.data(),
+                       mc68_data.order.data(), &mc68_data.control,
+                       &mc68_data.info);
+    if (mc68_data.info.flag < 0) std::cerr << "Error with mc68 ordering\n";
+    order_to_use = mc68_data.order;
+  }
+
+  // ===========================================================================
+  // Symbolic factorisation
   // ===========================================================================
   Symbolic S;
-  Analyze An(rowsLower, ptrLower);
+  Analyse An(rowsLower, ptrLower, order_to_use);
   An.Run(S);
   S.Print();
 
+  if (atoi(argv[4]) == 1) order_to_use = An.metis_order;
+
   // ===========================================================================
-  // Numerical factorization
+  // Numerical factorisation
   // ===========================================================================
   Numeric Num;
-  Factorize F(S, rowsLower.data(), ptrLower.data(), valLower.data(), n, nz);
+  Factorise F(S, rowsLower.data(), ptrLower.data(), valLower.data(), n, nz);
   F.Run(Num);
 
   // ===========================================================================
@@ -251,58 +291,232 @@ int main(int argc, char** argv) {
 
   // initialize random rhs
   std::vector<double> rhs(n);
-  for (int i = 0; i < n; ++i) rhs[i] = distr(rng);
+  double rhsNorm2{};
+  for (int i = 0; i < n; ++i) {
+    rhs[i] = distr(rng);
+    rhsNorm2 += rhs[i] * rhs[i];
+  }
+  rhsNorm2 = sqrt(rhsNorm2);
 
   // solve
   std::vector<double> sol(rhs);
   Num.Solve(sol);
 
   // ===========================================================================
-  // Factorize with MA86
+  // Factorise with MA86
   // ===========================================================================
-  double errorNorm2{};
-  double rhsNorm2{};
-  double ma86_time_analyze{};
-  double ma86_time_factorize{};
+  double ma86_errorNorm2{};
+  double ma86_solNorm2{};
+  double ma86_time_analyse{};
+  double ma86_time_factorise{};
   if (atoi(argv[3]) == 1) {
     std::vector<double> solMa86(rhs);
 
     MA86Data ma86_data;
-    // ma86_data.clear();
-
-    ma86_data.order = S.Perm();
 
     Clock clock;
 
     clock.start();
     wrapper_ma86_default_control(&ma86_data.control);
+    ma86_data.order = order_to_use;
     wrapper_ma86_analyse(n, ptrLower.data(), rowsLower.data(),
                          ma86_data.order.data(), &ma86_data.keep,
                          &ma86_data.control, &ma86_data.info);
-    if (ma86_data.info.flag < 0) std::cerr << "Error with ma86 analyze\n";
-    ma86_time_analyze = clock.stop();
+    if (ma86_data.info.flag < 0) std::cerr << "Error with ma86 analyse\n";
+    ma86_time_analyse = clock.stop();
 
     clock.start();
     wrapper_ma86_factor(n, ptrLower.data(), rowsLower.data(), valLower.data(),
                         ma86_data.order.data(), &ma86_data.keep,
                         &ma86_data.control, &ma86_data.info);
     if (ma86_data.info.flag < 0) std::cerr << "Error with ma86 factor\n";
-    ma86_time_factorize = clock.stop();
+    ma86_time_factorise = clock.stop();
 
     wrapper_ma86_solve(0, 1, n, solMa86.data(), ma86_data.order.data(),
                        &ma86_data.keep, &ma86_data.control, &ma86_data.info);
 
     for (int i = 0; i < n; ++i) {
-      errorNorm2 += (solMa86[i] - sol[i]) * (solMa86[i] - sol[i]);
-      rhsNorm2 += rhs[i] * rhs[i];
+      ma86_errorNorm2 += (solMa86[i] - sol[i]) * (solMa86[i] - sol[i]);
+      ma86_solNorm2 += solMa86[i] * solMa86[i];
     }
-    errorNorm2 = sqrt(errorNorm2);
-    rhsNorm2 = sqrt(rhsNorm2);
+    ma86_errorNorm2 = sqrt(ma86_errorNorm2);
+    ma86_solNorm2 = sqrt(ma86_solNorm2);
 
-    printf("Relative error compared to MA86: %e\n", errorNorm2 / rhsNorm2);
-    printf("MA86 time analyze: %f\n", ma86_time_analyze);
-    printf("MA86 time factorize: %f\n", ma86_time_factorize);
+    printf("\nRelative error compared to MA86:    %.2e",
+           ma86_errorNorm2 / ma86_solNorm2);
+    if (ma86_errorNorm2 / ma86_solNorm2 > 1e-6)
+      printf(" <================================");
+    printf("\n");
+    printf("MA86 time analyse:                  %.2e\n", ma86_time_analyse);
+    printf("MA86 time factorise:                %.2e\n", ma86_time_factorise);
   }
+
+  // ===========================================================================
+  // Factorise with MA87
+  // ===========================================================================
+  double ma87_errorNorm2{};
+  double ma87_solNorm2{};
+  double ma87_time_analyse{};
+  double ma87_time_factorise{};
+  if (atoi(argv[3]) == 1) {
+    std::vector<double> solMa87(rhs);
+
+    MA87Data ma87_data;
+
+    Clock clock;
+
+    clock.start();
+    wrapper_ma87_default_control(&ma87_data.control);
+    ma87_data.order = order_to_use;
+    wrapper_ma87_analyse(n, ptrLower.data(), rowsLower.data(),
+                         ma87_data.order.data(), &ma87_data.keep,
+                         &ma87_data.control, &ma87_data.info);
+    if (ma87_data.info.flag < 0) std::cerr << "Error with ma87 analyse\n";
+    ma87_time_analyse = clock.stop();
+
+    clock.start();
+    wrapper_ma87_factor(n, ptrLower.data(), rowsLower.data(), valLower.data(),
+                        ma87_data.order.data(), &ma87_data.keep,
+                        &ma87_data.control, &ma87_data.info);
+    if (ma87_data.info.flag < 0) std::cerr << "Error with ma87 factor\n";
+    ma87_time_factorise = clock.stop();
+
+    wrapper_ma87_solve(0, 1, n, solMa87.data(), ma87_data.order.data(),
+                       &ma87_data.keep, &ma87_data.control, &ma87_data.info);
+
+    for (int i = 0; i < n; ++i) {
+      ma87_errorNorm2 += (solMa87[i] - sol[i]) * (solMa87[i] - sol[i]);
+      ma87_solNorm2 += solMa87[i] * solMa87[i];
+    }
+    ma87_errorNorm2 = sqrt(ma87_errorNorm2);
+    ma87_solNorm2 = sqrt(ma87_solNorm2);
+
+    printf("\nRelative error compared to MA87:    %.2e",
+           ma87_errorNorm2 / ma87_solNorm2);
+    if (ma87_errorNorm2 / ma87_solNorm2 > 1e-6)
+      printf(" <================================");
+    printf("\n");
+    printf("MA87 time analyse:                  %.2e\n", ma87_time_analyse);
+    printf("MA87 time factorise:                %.2e\n", ma87_time_factorise);
+  }
+
+  // ===========================================================================
+  // Factorise with MA97
+  // ===========================================================================
+  double ma97_errorNorm2{};
+  double ma97_solNorm2{};
+  double ma97_time_analyse{};
+  double ma97_time_factorise{};
+  if (atoi(argv[3]) == 1) {
+    std::vector<double> solMa97(rhs);
+
+    MA97Data ma97_data;
+
+    Clock clock;
+
+    clock.start();
+    wrapper_ma97_default_control(&ma97_data.control);
+
+    // switch off reordering
+    ma97_data.control.ordering = 0;
+    ma97_data.order = order_to_use;
+
+    wrapper_ma97_analyse(n, ptrLower.data(), rowsLower.data(),
+                         ma97_data.order.data(), &ma97_data.akeep,
+                         &ma97_data.control, &ma97_data.info);
+    if (ma97_data.info.flag < 0) std::cerr << "Error with ma97 analyse\n";
+    ma97_time_analyse = clock.stop();
+
+    clock.start();
+    wrapper_ma97_factor(n, ptrLower.data(), rowsLower.data(), valLower.data(),
+                        &ma97_data.akeep, &ma97_data.fkeep, &ma97_data.control,
+                        &ma97_data.info);
+    if (ma97_data.info.flag < 0) std::cerr << "Error with ma97 factor\n";
+    ma97_time_factorise = clock.stop();
+
+    wrapper_ma97_solve(0, 1, n, solMa97.data(), &ma97_data.akeep,
+                       &ma97_data.fkeep, &ma97_data.control, &ma97_data.info);
+
+    for (int i = 0; i < n; ++i) {
+      ma97_errorNorm2 += (solMa97[i] - sol[i]) * (solMa97[i] - sol[i]);
+      ma97_solNorm2 += solMa97[i] * solMa97[i];
+    }
+    ma97_errorNorm2 = sqrt(ma97_errorNorm2);
+    ma97_solNorm2 = sqrt(ma97_solNorm2);
+
+    printf("\nRelative error compared to MA97:    %.2e",
+           ma97_errorNorm2 / ma97_solNorm2);
+    if (ma97_errorNorm2 / ma97_solNorm2 > 1e-6)
+      printf(" <================================");
+    printf("\n");
+    printf("MA97 time analyse:                  %.2e\n", ma97_time_analyse);
+    printf("MA97 time factorise:                %.2e\n", ma97_time_factorise);
+  }
+
+  // ===========================================================================
+  // Factorise with MA57
+  // ===========================================================================
+  double ma57_errorNorm2{};
+  double ma57_solNorm2{};
+  double ma57_time_analyse{};
+  double ma57_time_factorise{};
+  if (atoi(argv[3]) == 1) {
+    std::vector<double> solMa57(rhs);
+
+    // ma57 input is in triplet form
+    std::vector<int> colsLower(nz);
+    for (int col = 0; col < n; ++col) {
+      for (int el = ptrLower[col]; el < ptrLower[col + 1]; ++el) {
+        colsLower[el] = col;
+      }
+    }
+
+    MA57Data ma57_data;
+
+    Clock clock;
+
+    clock.start();
+    wrapper_ma57_default_control(&ma57_data.control);
+
+    // switch off pivoting
+    ma57_data.control.pivoting = 3;
+
+    ma57_data.control.ordering = 2;
+
+    wrapper_ma57_init_factors(&ma57_data.factors);
+    wrapper_ma57_analyse(n, nz, rowsLower.data(), colsLower.data(),
+                         &ma57_data.factors, &ma57_data.control,
+                         &ma57_data.ainfo, ma57_data.order.data());
+    if (ma57_data.ainfo.flag < 0) std::cerr << "Error with ma57 analyse\n";
+    ma57_time_analyse = clock.stop();
+
+    clock.start();
+    wrapper_ma57_factorize(n, nz, rowsLower.data(), colsLower.data(),
+                           valLower.data(), &ma57_data.factors,
+                           &ma57_data.control, &ma57_data.finfo);
+    if (ma57_data.finfo.flag < 0) std::cerr << "Error with ma57 factor\n";
+    ma57_time_factorise = clock.stop();
+
+    wrapper_ma57_solve(n, nz, rowsLower.data(), colsLower.data(),
+                       valLower.data(), &ma57_data.factors, solMa57.data(),
+                       &ma57_data.control, &ma57_data.sinfo);
+
+    for (int i = 0; i < n; ++i) {
+      ma57_errorNorm2 += (solMa57[i] - sol[i]) * (solMa57[i] - sol[i]);
+      ma57_solNorm2 += solMa57[i] * solMa57[i];
+    }
+    ma57_errorNorm2 = sqrt(ma57_errorNorm2);
+    ma57_solNorm2 = sqrt(ma57_solNorm2);
+
+    printf("\nRelative error compared to MA57:    %.2e",
+           ma57_errorNorm2 / ma57_solNorm2);
+    if (ma57_errorNorm2 / ma57_solNorm2 > 1e-6)
+      printf(" <================================");
+    printf("\n");
+    printf("MA57 time analyse:                  %.2e\n", ma57_time_analyse);
+    printf("MA57 time factorise:                %.2e\n", ma57_time_factorise);
+  }
+
   // ===========================================================================
   // Write to file
   // ===========================================================================
@@ -339,15 +553,18 @@ int main(int argc, char** argv) {
           F.time_assemble_original / F.time_total * 100,
           F.time_assemble_children_C / F.time_total * 100,
           F.time_assemble_children_F / F.time_total * 100,
-          F.time_factorize / F.time_total * 100);
-
-  if (atoi(argv[3])) {
-    fprintf(file, "%12.1e %12.1e %12.1e", errorNorm2 / rhsNorm2,
-            ma86_time_analyze, ma86_time_factorize);
-  }
+          F.time_factorise / F.time_total * 100);
 
   fprintf(file, "\n");
   fclose(file);
+
+  if (atoi(argv[3])) {
+    file = fopen("results_hsl.txt", "a");
+    fprintf(file, " %12.5e %12.5e %12.5e %12.5e %12.5e\n", F.time_total,
+            ma86_time_factorise, ma87_time_factorise, ma97_time_factorise,
+            ma57_time_factorise);
+    fclose(file);
+  }
 
   return 0;
 }

@@ -6,16 +6,16 @@
 #include "PartialFact.h"
 #include "Symbolic.h"
 
-class Factorize {
+class Factorise {
  public:
-  // matrix to factorize
+  // matrix to factorise
   std::vector<int> rowsA{};
   std::vector<int> ptrA{};
   std::vector<double> valA{};
   int n{};
   int nzA{};
 
-  // symbolic factorization
+  // symbolic factorisation
   const Symbolic& S;
 
   // children in supernodal elimination tree
@@ -35,7 +35,7 @@ class Factorize {
   void PrintTimes() const;
 
  public:
-  Factorize(const Symbolic& S_input, const int* rowsA_input,
+  Factorise(const Symbolic& S_input, const int* rowsA_input,
             const int* ptrA_input, const double* valA_input, int n_input,
             int nz_input);
 
@@ -47,7 +47,7 @@ class Factorize {
   double time_assemble_original{};
   double time_assemble_children_F{};
   double time_assemble_children_C{};
-  double time_factorize{};
+  double time_factorise{};
   double time_total{};
   mutable double check_error{};
 };

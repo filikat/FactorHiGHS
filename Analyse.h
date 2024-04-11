@@ -1,5 +1,5 @@
-#ifndef ANALYZE_H
-#define ANALYZE_H
+#ifndef ANALYSE_H
+#define ANALYSE_H
 
 #include <vector>
 
@@ -12,9 +12,9 @@
 const int max_artificial_nz = 1024;
 const int small_sn_thresh = 16;
 
-// Class to perform the analyze phase of the factorization.
+// Class to perform the analyse phase of the factorization.
 // The final symbolic factorization is stored in an object of type Symbolic.
-class Analyze {
+class Analyse {
   bool ready = false;
 
  public:
@@ -95,10 +95,10 @@ class Analyze {
 
  public:
   // Constructor: matrix must be in upper triangular format
-  Analyze(const std::vector<int>& rows_input,
-          const std::vector<int>& ptr_input);
+  Analyse(const std::vector<int>& rows_input, const std::vector<int>& ptr_input,
+          const std::vector<int>& order = {});
 
-  // Run analyze phase and save the result in Symbolic object S
+  // Run analyse phase and save the result in Symbolic object S
   void Run(Symbolic& S);
 
   // times
@@ -109,6 +109,8 @@ class Analyze {
   double time_sn{};
   double time_relind{};
   double time_total{};
+
+  std::vector<int> metis_order{};
 };
 
 #endif

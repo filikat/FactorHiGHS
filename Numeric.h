@@ -10,7 +10,7 @@ class Numeric {
   std::vector<std::vector<double>> SnColumns{};
   const Symbolic* S;
 
-  friend class Factorize;
+  friend class Factorise;
 
  public:
   // Forward solve with single right hand side

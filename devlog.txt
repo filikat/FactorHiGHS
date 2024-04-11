@@ -494,8 +494,24 @@ It was taking quite a bit of time for large matrices, now it takes a very small 
 I slightly changed how Symbolic prints the summary.
 ---
 
+*****
+10 Apr 2024
+I included ma87 and ma97. I also requested ma57.
+They still seem slow. The relative error is small, but maybe I should try with more ill conditioned theta.
+---
+
+*****
+11 Apr 2024
+I included ma57.
+It looks quite a bit slower than the others.
+The documentation also says that it is not parallel.
+---
+If I use an amd ordering for the Netlib problems, the time of ma86 is the best, twice faster than my code (run on a single thread).
+Also for larger, problems, the hsl codes seem to go better with amd from mc68. Strange, because if Metis 4 was available they would use it to find a nested dissection.
+If I use Metis ordering for all of them, my code remains the fastest.
+At least until I found the next thing that I am doing wrong...
+---
 
 *****
 To do:
 - postorder of supernodal tree, to optimize stack size
-- include ma87, ma97

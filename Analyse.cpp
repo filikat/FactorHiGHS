@@ -1,13 +1,14 @@
-#include "Analyze.h"
+#include "Analyse.h"
 
 #include <fstream>
 #include <iostream>
 #include <random>
 #include <stack>
 
-Analyze::Analyze(const std::vector<int>& rows_input,
-                 const std::vector<int>& ptr_input) {
-  // Input the symmetric matrix to be analyzed in CSC format.
+Analyse::Analyse(const std::vector<int>& rows_input,
+                 const std::vector<int>& ptr_input,
+                 const std::vector<int>& order) {
+  // Input the symmetric matrix to be analysed in CSC format.
   // row_ind contains the row indices.
   // col_ptr contains the starting points of each column.
   // size is the number of rows/columns.
@@ -24,9 +25,9 @@ Analyze::Analyze(const std::vector<int>& rows_input,
 
   // Permute the matrix with identical permutation, to extract upper triangular
   // part, if the input is not upper triangular.
-  std::vector<int> iperm(n);
-  for (int i = 0; i < n; ++i) iperm[i] = i;
-  Permute(iperm);
+  std::vector<int> id_perm(n);
+  for (int i = 0; i < n; ++i) id_perm[i] = i;
+  Permute(id_perm);
 
   // actual number of nonzeros of only upper triangular part
   nz = ptrUpper.back();
@@ -40,11 +41,23 @@ Analyze::Analyze(const std::vector<int>& rows_input,
   Transpose(ptrUpper, rowsUpper, ptrLower, rowsLower);
   Transpose(ptrLower, rowsLower, ptrUpper, rowsUpper);
 
+  if (!order.empty()) {
+    // permutation provided by user
+    perm = order;
+    iperm.resize(n);
+    InversePerm(perm, iperm);
+  }
+
   ready = true;
 }
 
-void Analyze::GetPermutation() {
+void Analyse::GetPermutation() {
   // Use Metis to compute a nested dissection permutation of the original matrix
+
+  if (!perm.empty()) {
+    // permutation already provided by user
+    return;
+  }
 
   perm.resize(n);
   iperm.resize(n);
@@ -97,9 +110,11 @@ void Analyze::GetPermutation() {
   int status = METIS_NodeND(&n, temp_ptr.data(), temp_rows.data(), NULL,
                             options, perm.data(), iperm.data());
   assert(status == METIS_OK);
+
+  metis_order = perm;
 }
 
-void Analyze::Permute(const std::vector<int>& iperm) {
+void Analyse::Permute(const std::vector<int>& iperm) {
   // Symmetric permutation of the upper triangular matrix based on inverse
   // permutation iperm.
   // The resulting matrix is upper triangular, regardless of the input matrix.
@@ -163,7 +178,7 @@ void Analyze::Permute(const std::vector<int>& iperm) {
   rowsUpper = std::move(new_rows);
 }
 
-void Analyze::ETree() {
+void Analyse::ETree() {
   // Find elimination tree.
   // It works only for upper triangular matrices.
   // The tree is stored in the vector parent:
@@ -195,7 +210,7 @@ void Analyze::ETree() {
   }
 }
 
-void Analyze::Postorder() {
+void Analyse::Postorder() {
   // Find a postordering of the elimination tree using depth first search
 
   postorder.resize(n);
@@ -237,7 +252,7 @@ void Analyze::Postorder() {
   InversePerm(perm, iperm);
 }
 
-void Analyze::RowColCount() {
+void Analyse::RowColCount() {
   // Slow column count
 
   rowcount.resize(n);
@@ -280,7 +295,7 @@ void Analyze::RowColCount() {
   }
 }
 
-void Analyze::ColCount() {
+void Analyse::ColCount() {
   // Columns count using skeleton matrix.
   // Taken from Tim Davis "Direct Methods for Sparse Linear Systems".
 
@@ -334,7 +349,7 @@ void Analyze::ColCount() {
   }
 }
 
-void Analyze::Edge(int j, int i, const std::vector<int>& first,
+void Analyse::Edge(int j, int i, const std::vector<int>& first,
                    std::vector<int>& maxfirst, std::vector<int>& delta,
                    std::vector<int>& prevleaf,
                    std::vector<int>& ancestor) const {
@@ -377,7 +392,7 @@ void Analyze::Edge(int j, int i, const std::vector<int>& first,
   prevleaf[i] = j;
 }
 
-void Analyze::FundamentalSupernodes() {
+void Analyse::FundamentalSupernodes() {
   // Find fundamental supernodes.
 
   // isSN[i] is true if node i is the start of a fundamental supernode
@@ -446,7 +461,7 @@ void Analyze::FundamentalSupernodes() {
   sn_parent.back() = -1;
 }
 
-void Analyze::RelaxSupernodes() {
+void Analyse::RelaxSupernodes() {
   // =================================================
   // build information about supernodes
   // =================================================
@@ -586,7 +601,7 @@ void Analyze::RelaxSupernodes() {
   }
 }
 
-void Analyze::AfterRelaxSn() {
+void Analyse::AfterRelaxSn() {
   // number of new supernodes
   int new_sn_count = sn_count - merged_sn;
 
@@ -759,7 +774,7 @@ void Analyze::AfterRelaxSn() {
   InversePerm(perm, iperm);
 }
 
-void Analyze::RelaxSupernodes_2() {
+void Analyse::RelaxSupernodes_2() {
   // based on percentage of extra operations compared with no relaxation
 
   // =================================================
@@ -871,7 +886,7 @@ void Analyze::RelaxSupernodes_2() {
   }
 }
 
-void Analyze::RelaxSupernodes_3() {
+void Analyse::RelaxSupernodes_3() {
   // based on percentage of fake nonzeros out of total nz of supernode
 
   // =================================================
@@ -972,7 +987,7 @@ void Analyze::RelaxSupernodes_3() {
   }
 }
 
-void Analyze::SnPattern() {
+void Analyse::SnPattern() {
   // number of total indices needed
   int indices{};
 
@@ -1017,7 +1032,7 @@ void Analyze::SnPattern() {
   }
 }
 
-void Analyze::RelativeInd_cols() {
+void Analyse::RelativeInd_cols() {
   // Find the relative indices of the original column wrt the frontal matrix of
   // the corresponding supernode
 
@@ -1062,7 +1077,7 @@ void Analyze::RelativeInd_cols() {
   }
 }
 
-void Analyze::RelativeInd_clique() {
+void Analyse::RelativeInd_clique() {
   // Find the relative indices of the child clique wrt the frontal matrix of the
   // parent supernode
 
@@ -1144,7 +1159,7 @@ void Analyze::RelativeInd_clique() {
   }
 }
 
-void Analyze::Clear() {
+void Analyse::Clear() {
   ready = false;
   rowsUpper.clear();
   ptrUpper.clear();
@@ -1171,7 +1186,7 @@ void Analyze::Clear() {
   consecutiveSums.clear();
 }
 
-bool Analyze::Check() const {
+bool Analyse::Check() const {
   // Check that the symbolic factorization is correct, by using dense linear
   // algebra operations.
   // Return true if check is successful, or if matrix is too large.
@@ -1179,7 +1194,7 @@ bool Analyze::Check() const {
 
   // Check symbolic factorization
   if (n > 5000) {
-    printf("\n==> Matrix is too large for dense checking\n\n");
+    printf("\n==> Matrix is too large for dense check\n\n");
     return true;
   }
 
@@ -1246,19 +1261,19 @@ bool Analyze::Check() const {
   }
 
   if (wrong_entries == 0 && zeros_found == artificialNz) {
-    printf("\n==> Analyze check successful\n\n");
+    printf("\n==> Analyse check successful\n\n");
     return true;
   } else {
-    printf("\n==> Analyze check failed\n\n");
+    printf("\n==> Analyse check failed\n\n");
     return false;
   }
 }
 
-void Analyze::PrintTimes() const {
+void Analyse::PrintTimes() const {
   printf("\n----------------------------------------------------\n");
-  printf("\t\tAnalyze\n");
+  printf("\t\tAnalyse\n");
   printf("----------------------------------------------------\n");
-  printf("Analyze time            \t%f\n", time_total);
+  printf("Analyse time            \t%f\n", time_total);
   printf("\tMetis:                  %f (%4.1f%%)\n", time_metis,
          time_metis / time_total * 100);
   printf("\tTree:                   %f (%4.1f%%)\n", time_tree,
@@ -1273,9 +1288,9 @@ void Analyze::PrintTimes() const {
          time_relind / time_total * 100);
 }
 
-void Analyze::Run(Symbolic& S) {
-  // Perform analyze phase and store the result into the symbolic object S.
-  // After Run returns, the current Analyze object is cleared.
+void Analyse::Run(Symbolic& S) {
+  // Perform analyse phase and store the result into the symbolic object S.
+  // After Run returns, the current Analyse object is cleared.
 
   if (!ready) return;
 

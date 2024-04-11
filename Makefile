@@ -5,15 +5,15 @@ metis_path = $(HOME)/Documents/METIS
 local_path = $(HOME)/local
 
 cpp_sources = \
-	Analyze.cpp \
+	Analyse.cpp \
 	Auxiliary.cpp \
-	Factorize.cpp \
+	Factorise.cpp \
 	Numeric.cpp \
 	Symbolic.cpp \
 	test.cpp
 
 c_sources = \
-	hsl_ma86_wrapper.c \
+	hsl_wrapper.c \
 	PartialFact.c 
 
 # binary file name
@@ -33,7 +33,7 @@ CFLAGS = -O3 #-fsanitize=address
 # includes and libraries
 includes = -I$(highs_path)/build -I$(highs_path)/src/ -I$(metis_path)/include -I$(local_path)/include
 libs_path = -L$(highs_path)/build/lib -L$(metis_path)/build/libmetis -L$(local_path)/lib
-libs = -lhighs -lmetis -lGKlib -llapack -lblas -lhsl_ma86 -lhsl_mc68 -lfakemetis
+libs = -lhighs -lmetis -lGKlib -llapack -lblas -lhsl_ma86 -lhsl_ma87 -lhsl_ma97 -lhsl_ma57 -lhsl_mc68 -lfakemetis
 
 # mess to link openmp on mac
 OPENMP_FLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp
