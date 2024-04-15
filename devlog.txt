@@ -513,5 +513,39 @@ At least until I found the next thing that I am doing wrong...
 ---
 
 *****
+12 Apr 2024
+I run some tests forcing all code to use Metis or amd (apart from ma57, which has no option to receive an ordering from the user, but it still find an amd ordering internally).
+The results are weird.
+First of all, the hsl codes modify the ordering that I provide in some way during analyse.
+This modification sometimes seems to break things.
+In particular if I provide the Metis ordering, things go very weird.
+The number of nonzeros returned in info is also different from the one that I can observe in Matlab if I use the same (modified) ordering.
+---
+An example with nug08 (all run in serial, pivoting switch off):
+
+             |------------- AMD ------------| |------------ Metis -----------|  
+code          factor time       reported nnz|  factor time       reported nnz
+ProtoFact         30                1.5e8   |       2                4.5e7
+MA86               8                1.0e8   |      20                1.5e8
+MA87               6.5              1.0e8   |      19                1.5e8
+MA97              16                1.0e8   |      99                1.5e8
+MA57              30                  -     |      30                  -
+
+The behaviour seems to be opposite: with metis my code is very fast and hsl is very slow. With amd my code is very slow and hsl is fast.
+However, the best time is from my code with Metis. Probably because it has a smaller number of nonzeros.
+Indeed, all this strange behaviour could be related only to the number of nonzeros and number of operations performed.
+It would be a good thing, because it would mean that my code is on par with hsl (on 1 thread) and the difference is made only by which ordering is used.
+Maybe I should install Metis 4 to see if it makes a difference.
+---
+I am not sure if I understood how Jennifer merges supernodes. If I just merge child-parent when they are too small, there are a huge number of fake nonzeros that are created.
+It seems better to go with Ashcraft-Grimes type of merging.
+Especially when using the augmented system structure, where there are fewer true supernodes, merging must be done carefully or there are plenty of fake nonzeros added.
+---
+I slightly changed the second criterion to merge supernodes.
+It used to merge the smallest child with the parent, if they were both below a threshold.
+Now, among all the children below the threshold, it select the one which produces the smallest number of nonzeros, and merges it. 
+---
+
+*****
 To do:
 - postorder of supernodal tree, to optimize stack size

@@ -141,6 +141,48 @@ void DFS_post(int node, int& start, std::vector<int>& head,
   }
 }
 
+void ProcessEdge(int j, int i, const std::vector<int>& first,
+                 std::vector<int>& maxfirst, std::vector<int>& delta,
+                 std::vector<int>& prevleaf, std::vector<int>& ancestor) {
+  // Process edge of skeleton matrix.
+  // Taken from Tim Davis "Direct Methods for Sparse Linear Systems".
+
+  // j not a leaf of ith row subtree
+  if (i <= j || first[j] <= maxfirst[i]) {
+    return;
+  }
+
+  // max first[j] so far
+  maxfirst[i] = first[j];
+
+  // previous leaf of ith row subtree
+  int jprev = prevleaf[i];
+
+  // A(i,j) is in the skeleton matrix
+  delta[j]++;
+
+  if (jprev != -1) {
+    // find least common ancestor of jprev and j
+    int q = jprev;
+    while (q != ancestor[q]) {
+      q = ancestor[q];
+    }
+
+    // path compression
+    int sparent;
+    for (int s = jprev; s != q; s = sparent) {
+      sparent = ancestor[s];
+      ancestor[s] = q;
+    }
+
+    // consider overlap
+    delta[q]--;
+  }
+
+  // previous leaf of ith subtree set to j
+  prevleaf[i] = j;
+}
+
 void Clock::start() { t0 = std::chrono::high_resolution_clock::now(); }
 double Clock::stop() {
   auto t1 = std::chrono::high_resolution_clock::now();

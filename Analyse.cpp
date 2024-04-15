@@ -327,7 +327,8 @@ void Analyse::ColCount() {
 
     // process edges of matrix
     for (int el = ptrLower[j]; el < ptrLower[j + 1]; ++el) {
-      Edge(j, rowsLower[el], first, maxfirst, colcount, prevleaf, ancestor);
+      ProcessEdge(j, rowsLower[el], first, maxfirst, colcount, prevleaf,
+                  ancestor);
     }
 
     if (parent[j] != -1) ancestor[j] = parent[j];
@@ -347,49 +348,6 @@ void Analyse::ColCount() {
     nzL += colcount[j];
     operations_norelax += (double)(colcount[j] - 1) * (colcount[j] - 1);
   }
-}
-
-void Analyse::Edge(int j, int i, const std::vector<int>& first,
-                   std::vector<int>& maxfirst, std::vector<int>& delta,
-                   std::vector<int>& prevleaf,
-                   std::vector<int>& ancestor) const {
-  // Process edge of skeleton matrix.
-  // Taken from Tim Davis "Direct Methods for Sparse Linear Systems".
-
-  // j not a leaf of ith row subtree
-  if (i <= j || first[j] <= maxfirst[i]) {
-    return;
-  }
-
-  // max first[j] so far
-  maxfirst[i] = first[j];
-
-  // previous leaf of ith row subtree
-  int jprev = prevleaf[i];
-
-  // A(i,j) is in the skeleton matrix
-  delta[j]++;
-
-  if (jprev != -1) {
-    // find least common ancestor of jprev and j
-    int q = jprev;
-    while (q != ancestor[q]) {
-      q = ancestor[q];
-    }
-
-    // path compression
-    int sparent;
-    for (int s = jprev; s != q; s = sparent) {
-      sparent = ancestor[s];
-      ancestor[s] = q;
-    }
-
-    // consider overlap
-    delta[q]--;
-  }
-
-  // previous leaf of ith subtree set to j
-  prevleaf[i] = j;
 }
 
 void Analyse::FundamentalSupernodes() {
@@ -462,6 +420,14 @@ void Analyse::FundamentalSupernodes() {
 }
 
 void Analyse::RelaxSupernodes() {
+  // Merge supernodes based on:
+  // -criterion 1: child which produces smallest number of fake nonzeros is
+  //               merged if resulting sn has fewer than max_artificial_nz fake
+  //               nonzeros.
+  // -criterion 2: among the children for which size_child < small_sn_thresh
+  //               and size_parent < small_sn_thresh, the one that produces
+  //               fewest nonzeros is merged.
+
   // =================================================
   // build information about supernodes
   // =================================================
@@ -494,13 +460,14 @@ void Analyse::RelaxSupernodes() {
       int child = firstChild[sn];
 
       // info for first criterion
-      int smallest_fakenz = INT_MAX;
-      int size_smallest_fakenz = 0;
-      int child_smallest_fakenz = -1;
+      int nz_fakenz = INT_MAX;
+      int size_fakenz = 0;
+      int child_fakenz = -1;
 
       // info for second criterion
-      int size_smallest_child = INT_MAX;
-      int child_smallest_size = 0;
+      int size_small = 0;
+      int nz_small = INT_MAX;
+      int child_small = -1;
 
       while (child != -1) {
         // how many zero rows would become nonzero
@@ -514,83 +481,82 @@ void Analyse::RelaxSupernodes() {
 
         // Save child with smallest number of artificial zeros created.
         // Ties are broken based on size of child.
-        if (totalArtNz < smallest_fakenz ||
-            (totalArtNz == smallest_fakenz &&
-             size_smallest_fakenz < sn_size[child])) {
-          smallest_fakenz = totalArtNz;
-          size_smallest_fakenz = sn_size[child];
-          child_smallest_fakenz = child;
+        if (totalArtNz < nz_fakenz ||
+            (totalArtNz == nz_fakenz &&
+             size_fakenz < sn_size[child])) {
+          nz_fakenz = totalArtNz;
+          size_fakenz = sn_size[child];
+          child_fakenz = child;
         }
 
-        // save child with smallest size
-        if (sn_size[child] < size_smallest_child) {
-          size_smallest_child = sn_size[child];
-          child_smallest_size = child;
+        // save children that can be merged based on criterion 2, which produces
+        // the smallest number of fake nonzeros.
+        // Ties broken with largest child
+        if ((sn_size[sn] < small_sn_thresh &&
+             sn_size[child] < small_sn_thresh) &&
+            (totalArtNz < nz_small ||
+             (totalArtNz == nz_small && size_small < sn_size[child]))) {
+          nz_small = totalArtNz;
+          size_small = sn_size[child];
+          child_small = child;
         }
 
         child = nextChild[child];
       }
 
-      if (smallest_fakenz <= max_artificial_nz) {
+      if (nz_fakenz <= max_artificial_nz) {
         // merging creates fewer nonzeros than the maximum allowed
 
         // update information of parent
-        sn_size[sn] += size_smallest_fakenz;
-        fake_nonzeros[sn] = smallest_fakenz;
+        sn_size[sn] += size_fakenz;
+        fake_nonzeros[sn] = nz_fakenz;
 
         // count number of merged supernodes
         ++merged_sn;
 
         // save information about merging of supernodes
-        mergedInto[child_smallest_fakenz] = sn;
-        merged_sons.push_back(child_smallest_fakenz);
+        mergedInto[child_fakenz] = sn;
+        merged_sons.push_back(child_fakenz);
 
         // remove child from linked list of children
         child = firstChild[sn];
-        if (child == child_smallest_fakenz) {
+        if (child == child_fakenz) {
           // child_smallest is the first child
-          firstChild[sn] = nextChild[child_smallest_fakenz];
+          firstChild[sn] = nextChild[child_fakenz];
         } else {
-          while (nextChild[child] != child_smallest_fakenz) {
+          while (nextChild[child] != child_fakenz) {
             child = nextChild[child];
           }
           // now child is the previous child of child_smallest
-          nextChild[child] = nextChild[child_smallest_fakenz];
+          nextChild[child] = nextChild[child_fakenz];
         }
 
-      } else if (size_smallest_child < small_sn_thresh &&
-                 sn_size[sn] < small_sn_thresh) {
-        // both parent and smallest child are small enough to be merged
-
-        // how many nonzeros are introduced
-        int rowsFilled =
-            sn_size[sn] + clique_size[sn] - clique_size[child_smallest_size];
-        int nzAdded = rowsFilled * sn_size[child_smallest_size];
-        int totalArtNz =
-            nzAdded + fake_nonzeros[sn] + fake_nonzeros[child_smallest_size];
+      } else if (child_small > -1) {
+        // both parent and smallest child are small enough to be merged and this
+        // child produces the smallest fake nonzeros
 
         // update information of parent
-        sn_size[sn] += size_smallest_child;
-        fake_nonzeros[sn] = totalArtNz;
+        sn_size[sn] += size_small;
+        fake_nonzeros[sn] = nz_small;
 
         // count number of merged supernodes
         ++merged_sn;
 
         // save information about merging of supernodes
-        mergedInto[child_smallest_size] = sn;
-        merged_sons.push_back(child_smallest_size);
+        mergedInto[child_small] = sn;
+        merged_sons.push_back(child_small);
 
         // remove child from linked list of children
         child = firstChild[sn];
-        if (child == child_smallest_size) {
+        if (child == child_small) {
           // child_smallest is the first child
-          firstChild[sn] = nextChild[child_smallest_size];
+          firstChild[sn] = nextChild[child_small];
         } else {
-          while (nextChild[child] != child_smallest_size) {
+          while (nextChild[child] != child_small) {
             child = nextChild[child];
           }
           // now child is the previous child of child_smallest
-          nextChild[child] = nextChild[child_smallest_size];
+          nextChild[child] = nextChild[child_small];
         }
 
       } else {

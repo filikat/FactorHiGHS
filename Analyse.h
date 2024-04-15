@@ -77,9 +77,6 @@ class Analyse {
   void Postorder();
   void RowColCount();
   void ColCount();
-  void Edge(int j, int i, const std::vector<int>& first,
-            std::vector<int>& maxfirst, std::vector<int>& delta,
-            std::vector<int>& prevleaf, std::vector<int>& ancestor) const;
   void FundamentalSupernodes();
   void RelaxSupernodes();
   void AfterRelaxSn();

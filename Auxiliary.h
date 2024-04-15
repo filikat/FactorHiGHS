@@ -18,6 +18,9 @@ void ChildrenLinkedList(const std::vector<int>& parent, std::vector<int>& head,
                         std::vector<int>& next);
 void DFS_post(int node, int& start, std::vector<int>& head,
               const std::vector<int>& next, std::vector<int>& order);
+void ProcessEdge(int j, int i, const std::vector<int>& first,
+          std::vector<int>& maxfirst, std::vector<int>& delta,
+          std::vector<int>& prevleaf, std::vector<int>& ancestor);
 
 template <typename T>
 void PermuteVector(std::vector<T>& v, const std::vector<int>& perm) {

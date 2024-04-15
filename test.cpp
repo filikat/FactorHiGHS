@@ -325,6 +325,9 @@ int main(int argc, char** argv) {
     if (ma86_data.info.flag < 0) std::cerr << "Error with ma86 analyse\n";
     ma86_time_analyse = clock.stop();
 
+    printf("MA86 nonzeros %.0f\n", (double)ma86_data.info.num_factor);
+    printf("MA86 ops      %.0f\n", (double)ma86_data.info.num_flops);
+
     clock.start();
     wrapper_ma86_factor(n, ptrLower.data(), rowsLower.data(), valLower.data(),
                         ma86_data.order.data(), &ma86_data.keep,
@@ -374,6 +377,9 @@ int main(int argc, char** argv) {
     if (ma87_data.info.flag < 0) std::cerr << "Error with ma87 analyse\n";
     ma87_time_analyse = clock.stop();
 
+    printf("MA87 nonzeros %.0f\n", (double)ma87_data.info.num_factor);
+    printf("MA87 ops      %.0f\n", (double)ma87_data.info.num_flops);
+
     clock.start();
     wrapper_ma87_factor(n, ptrLower.data(), rowsLower.data(), valLower.data(),
                         ma87_data.order.data(), &ma87_data.keep,
@@ -407,10 +413,9 @@ int main(int argc, char** argv) {
   double ma97_solNorm2{};
   double ma97_time_analyse{};
   double ma97_time_factorise{};
+  MA97Data ma97_data;
   if (atoi(argv[3]) == 1) {
     std::vector<double> solMa97(rhs);
-
-    MA97Data ma97_data;
 
     Clock clock;
 
@@ -426,6 +431,9 @@ int main(int argc, char** argv) {
                          &ma97_data.control, &ma97_data.info);
     if (ma97_data.info.flag < 0) std::cerr << "Error with ma97 analyse\n";
     ma97_time_analyse = clock.stop();
+
+    printf("MA97 nonzeros %.0f\n", (double)ma97_data.info.num_factor);
+    printf("MA97 ops      %.0f\n", (double)ma97_data.info.num_flops);
 
     clock.start();
     wrapper_ma97_factor(n, ptrLower.data(), rowsLower.data(), valLower.data(),
@@ -490,6 +498,8 @@ int main(int argc, char** argv) {
     if (ma57_data.ainfo.flag < 0) std::cerr << "Error with ma57 analyse\n";
     ma57_time_analyse = clock.stop();
 
+    printf("MA57 ops      %.0f\n", ma57_data.ainfo.opse);
+
     clock.start();
     wrapper_ma57_factorize(n, nz, rowsLower.data(), colsLower.data(),
                            valLower.data(), &ma57_data.factors,
@@ -522,10 +532,10 @@ int main(int argc, char** argv) {
   // ===========================================================================
 
   std::ofstream out_file;
-  // print(out_file, ptrLower, "ptr");
-  // print(out_file, rowsLower, "rows");
-  // print(out_file, valLower, "vals");
-  // print(out_file, S.Perm(), "perm");
+  print(out_file, ptrLower, "ptr");
+  print(out_file, rowsLower, "rows");
+  print(out_file, valLower, "vals");
+  print(out_file, S.Perm(), "perm");
   print(out_file, S.Sn_start(), "sn_start");
   print(out_file, S.Sn_parent(), "sn_parent");
   print(out_file, S.Ptr(), "ptrsn");
