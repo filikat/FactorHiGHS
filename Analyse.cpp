@@ -290,7 +290,7 @@ void Analyse::RowColCount() {
   // compute nonzeros of L
   operations_norelax = 0.0;
   for (int j = 0; j < n; ++j) {
-    nzL += colcount[j];
+    nzL += (double)colcount[j];
     operations_norelax += (double)(colcount[j] - 1) * (colcount[j] - 1);
   }
 }
@@ -345,7 +345,7 @@ void Analyse::ColCount() {
   operations_norelax = 0.0;
   nzL = 0;
   for (int j = 0; j < n; ++j) {
-    nzL += colcount[j];
+    nzL += (double)colcount[j];
     operations_norelax += (double)(colcount[j] - 1) * (colcount[j] - 1);
   }
 }
@@ -482,8 +482,7 @@ void Analyse::RelaxSupernodes() {
         // Save child with smallest number of artificial zeros created.
         // Ties are broken based on size of child.
         if (totalArtNz < nz_fakenz ||
-            (totalArtNz == nz_fakenz &&
-             size_fakenz < sn_size[child])) {
+            (totalArtNz == nz_fakenz && size_fakenz < sn_size[child])) {
           nz_fakenz = totalArtNz;
           size_fakenz = sn_size[child];
           child_fakenz = child;
@@ -629,27 +628,18 @@ void Analyse::AfterRelaxSn() {
           // count number of nodes in each new supernode
           new_sn_start[sn_start_ind] +=
               sn_start[current + 1] - sn_start[current];
-
-          // sum colcount for each column in the new sn
-          for (int col = sn_start[current]; col < sn_start[current + 1];
-               ++col) {
-            sn_indices[next_id] += colcount[col];
-          }
         }
       }
 
       // keep track of total number of artificial nonzeros
       artificialNz += fake_nonzeros[sn];
 
-      // add artificial nonzeros to the sum of colcounts
-      sn_indices[next_id] += fake_nonzeros[sn];
-
-      // Compute number of indices for new sn with the formula
-      // [ \sum_i colcount_i + fake_nz + k*(k-1)/2 ] / k
-      // where k is the number of columns in the new sn.
-      int k = new_sn_start[sn_start_ind];
-      sn_indices[next_id] += k * (k - 1) / 2;
-      sn_indices[next_id] /= k;
+      // Compure number of indices for new sn.
+      // This is equal to the number of columns in the new sn plus the clique
+      // size of the original supernode where the children where merged.
+      sn_indices[next_id] = new_sn_start[sn_start_ind] +
+                            colcount[sn_start[sn]] - sn_start[sn + 1] +
+                            sn_start[sn];
 
       ++next_id;
     }
@@ -662,7 +652,7 @@ void Analyse::AfterRelaxSn() {
   }
 
   // include artificial nonzeros in the nonzeros of the factor
-  nzL += artificialNz;
+  nzL += (double)artificialNz;
 
   // compute number of flops needed for the factorization
   operations = 0.0;
@@ -1119,37 +1109,10 @@ void Analyse::RelativeInd_clique() {
       } else if (consecutiveSums[sn][i] == 1) {
         consecutiveSums[sn][i] = consecutiveSums[sn][i + 1] + 1;
       } else {
-        printf("Error in consecutiveSums\n");
+        printf("Error in consecutiveSums %d\n", consecutiveSums[sn][i]);
       }
     }
   }
-}
-
-void Analyse::Clear() {
-  ready = false;
-  rowsUpper.clear();
-  ptrUpper.clear();
-  rowsLower.clear();
-  ptrLower.clear();
-  n = 0;
-  nz = 0;
-  nzL = 0;
-  operations = 0.0;
-  perm.clear();
-  iperm.clear();
-  parent.clear();
-  postorder.clear();
-  colcount.clear();
-  rowcount.clear();
-  // rowsL.clear();
-  // ptrL.clear();
-  sn_count = 0;
-  sn_belong.clear();
-  sn_start.clear();
-  sn_parent.clear();
-  relind_cols.clear();
-  relind_clique.clear();
-  consecutiveSums.clear();
 }
 
 bool Analyse::Check() const {
@@ -1256,7 +1219,7 @@ void Analyse::PrintTimes() const {
 
 void Analyse::Run(Symbolic& S) {
   // Perform analyse phase and store the result into the symbolic object S.
-  // After Run returns, the current Analyse object is cleared.
+  // After Run returns, the Analyse object is not valid.
 
   if (!ready) return;
 
@@ -1325,7 +1288,4 @@ void Analyse::Run(Symbolic& S) {
   S.relind_cols = std::move(relind_cols);
   S.relind_clique = std::move(relind_clique);
   S.consecutiveSums = std::move(consecutiveSums);
-
-  // clear the remaining data
-  Clear();
 }

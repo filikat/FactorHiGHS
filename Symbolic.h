@@ -8,7 +8,7 @@ class Symbolic {
   int n{};
 
   // Number of nonzeros in L
-  int nz{};
+  double nz{};
   double fillin{};
 
   // Number of dense operations and assembly operations

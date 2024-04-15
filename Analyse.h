@@ -25,7 +25,7 @@ class Analyse {
   std::vector<int> ptrLower{};
   int n{};
   int nz{};
-  int nzL{};
+  double nzL{};
   double operations{};
   double operations_norelax{};
   double operations_assembly{};
@@ -85,7 +85,6 @@ class Analyse {
   void SnPattern();
   void RelativeInd_cols();
   void RelativeInd_clique();
-  void Clear();
   bool Check() const;
 
   void PrintTimes() const;

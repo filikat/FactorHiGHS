@@ -532,10 +532,10 @@ int main(int argc, char** argv) {
   // ===========================================================================
 
   std::ofstream out_file;
-  print(out_file, ptrLower, "ptr");
-  print(out_file, rowsLower, "rows");
-  print(out_file, valLower, "vals");
-  print(out_file, S.Perm(), "perm");
+  //print(out_file, ptrLower, "ptr");
+  //print(out_file, rowsLower, "rows");
+  //print(out_file, valLower, "vals");
+  //print(out_file, S.Perm(), "perm");
   print(out_file, S.Sn_start(), "sn_start");
   print(out_file, S.Sn_parent(), "sn_parent");
   print(out_file, S.Ptr(), "ptrsn");
