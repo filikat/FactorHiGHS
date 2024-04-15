@@ -391,16 +391,16 @@ void Factorise::PrintTimes() const {
   printf("\n----------------------------------------------------\n");
   printf("\t\tFactorise\n");
   printf("----------------------------------------------------\n");
-  printf("\nFactorise time          \t%f\n", time_total);
-  printf("\tPrepare:                %f (%4.1f%%)\n", time_prepare,
+  printf("\nFactorise time          \t%8.4f\n", time_total);
+  printf("\tPrepare:                %8.4f (%4.1f%%)\n", time_prepare,
          time_prepare / time_total * 100);
-  printf("\tAssembly original:      %f (%4.1f%%)\n", time_assemble_original,
+  printf("\tAssembly original:      %8.4f (%4.1f%%)\n", time_assemble_original,
          time_assemble_original / time_total * 100);
-  printf("\tAssembly into Frontal:  %f (%4.1f%%)\n", time_assemble_children_F,
+  printf("\tAssembly into Frontal:  %8.4f (%4.1f%%)\n", time_assemble_children_F,
          time_assemble_children_F / time_total * 100);
-  printf("\tAssembly into Clique:   %f (%4.1f%%)\n", time_assemble_children_C,
+  printf("\tAssembly into Clique:   %8.4f (%4.1f%%)\n", time_assemble_children_C,
          time_assemble_children_C / time_total * 100);
-  printf("\tDense factorisation:    %f (%4.1f%%)\n", time_factorise,
+  printf("\tDense factorisation:    %8.4f (%4.1f%%)\n", time_factorise,
          time_factorise / time_total * 100);
 }
 

@@ -6,6 +6,7 @@ void Symbolic::Print() const {
   printf("Symbolic factorisation:\n");
   printf(" - size                 %d\n", n);
   printf(" - nonzero entries      %.2e\n", (double)nz);
+  printf(" - density              %.2f\n", (double)nz / (n * n));
   printf(" - fill in              %.2f\n", fillin);
   printf(" - supernodes           %d\n", sn);
   printf(" - largest supernode    %d\n", largestSn);

@@ -13,7 +13,7 @@ double get_time() {
 #define min(i, j) ((i) >= (j) ? (j) : (i))
 
 // block size
-const int nb = 64;
+const int nb = 256;
 
 // variables for BLAS calls
 double dOne = 1.0;
@@ -140,14 +140,6 @@ int PartialFact_pos_large(int n, int k, double* restrict A, int lda,
   // BLAS calls: dsyrk, dgemm, dtrsm.
   // ===========================================================================
 
-  double t0, t1, t2, t3, t4, t5, t6, t7;
-  double t_copy = 0.0;
-  double t_update = 0.0;
-  double t_fact = 0.0;
-  double t_cols = 0.0;
-  double t_schur_copy = 0.0;
-  double t_schur = 0.0;
-
   // check input
   if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
     printf("Invalid input to PartialFact\n");
@@ -167,16 +159,13 @@ int PartialFact_pos_large(int n, int k, double* restrict A, int lda,
     int K = j;
     int M = n - j - jb;
 
-    t0 = get_time();
     // update diagonal block
     dsyrk(&LL, &NN, &N, &K, &dmOne, &A[j], &lda, &dOne, &A[j + lda * j], &lda);
-    t1 = get_time();
     // factorize diagonal block
     int info = PartialFact_pos_small(N, N, &A[j + lda * j], lda, NULL, 0);
     if (info != 0) {
       return info + j - 1;
     }
-    t2 = get_time();
     if (j + jb < n) {
       // update block of columns
       dgemm(&NN, &TT, &M, &N, &K, &dmOne, &A[j + jb], &lda, &A[j], &lda, &dOne,
@@ -186,30 +175,13 @@ int PartialFact_pos_large(int n, int k, double* restrict A, int lda,
       dtrsm(&RR, &LL, &TT, &NN, &M, &N, &dOne, &A[j + lda * j], &lda,
             &A[j + jb + lda * j], &lda);
     }
-    t3 = get_time();
-    t_update += t1 - t0;
-    t_fact += t2 - t1;
-    t_cols += t3 - t2;
   }
 
   // update Schur complement if partial factorization is required
   if (k < n) {
     int N = n - k;
-    t4 = get_time();
     dsyrk(&LL, &NN, &N, &k, &dmOne, &A[k], &lda, &dZero, B, &ldb);
-    t5 = get_time();
-    t_schur += t5 - t4;
   }
-
-  /*printf("%%%%%%%%%%%%%%%%%%%%%%\n");
-  printf("Time profile pos large:\n");
-  printf("%15s %12.6f\n", "Time copy", t_copy);
-  printf("%15s %12.6f\n", "Time update", t_update);
-  printf("%15s %12.6f\n", "Time fact", t_fact);
-  printf("%15s %12.6f\n", "Time cols", t_cols);
-  printf("%15s %12.6f\n", "Time schur copy", t_schur_copy);
-  printf("%15s %12.6f\n", "Time schur", t_schur);
-  printf("%%%%%%%%%%%%%%%%%%%%%%\n\n");*/
 
   return 0;
 }

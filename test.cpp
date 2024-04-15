@@ -254,6 +254,10 @@ int main(int argc, char** argv) {
   // ===========================================================================
   std::vector<int> order_to_use{};
   if (atoi(argv[4]) == 0) {
+    // Use MC68 to produce an ordering.
+    // MC68 produces the inverse permutation.
+    // MAxx take as input the inverse permutation.
+
     MC68Data mc68_data;
     mc68_data.order = std::vector<int>(n);
     wrapper_mc68_default_control(&mc68_data.control);
@@ -272,6 +276,7 @@ int main(int argc, char** argv) {
   An.Run(S);
   S.Print();
 
+  // save inverse permutation to pass to MAxx
   if (atoi(argv[4]) == 1) order_to_use = An.metis_order;
 
   // ===========================================================================
@@ -345,13 +350,14 @@ int main(int argc, char** argv) {
     ma86_errorNorm2 = sqrt(ma86_errorNorm2);
     ma86_solNorm2 = sqrt(ma86_solNorm2);
 
-    printf("\nRelative error compared to MA86:    %.2e",
+    printf("Relative error compared to MA86:    %.2e",
            ma86_errorNorm2 / ma86_solNorm2);
     if (ma86_errorNorm2 / ma86_solNorm2 > 1e-6)
       printf(" <================================");
     printf("\n");
     printf("MA86 time analyse:                  %.2e\n", ma86_time_analyse);
     printf("MA86 time factorise:                %.2e\n", ma86_time_factorise);
+    printf("\n\n");
   }
 
   // ===========================================================================
@@ -397,13 +403,14 @@ int main(int argc, char** argv) {
     ma87_errorNorm2 = sqrt(ma87_errorNorm2);
     ma87_solNorm2 = sqrt(ma87_solNorm2);
 
-    printf("\nRelative error compared to MA87:    %.2e",
+    printf("Relative error compared to MA87:    %.2e",
            ma87_errorNorm2 / ma87_solNorm2);
     if (ma87_errorNorm2 / ma87_solNorm2 > 1e-6)
       printf(" <================================");
     printf("\n");
     printf("MA87 time analyse:                  %.2e\n", ma87_time_analyse);
     printf("MA87 time factorise:                %.2e\n", ma87_time_factorise);
+    printf("\n\n");
   }
 
   // ===========================================================================
@@ -452,13 +459,14 @@ int main(int argc, char** argv) {
     ma97_errorNorm2 = sqrt(ma97_errorNorm2);
     ma97_solNorm2 = sqrt(ma97_solNorm2);
 
-    printf("\nRelative error compared to MA97:    %.2e",
+    printf("Relative error compared to MA97:    %.2e",
            ma97_errorNorm2 / ma97_solNorm2);
     if (ma97_errorNorm2 / ma97_solNorm2 > 1e-6)
       printf(" <================================");
     printf("\n");
     printf("MA97 time analyse:                  %.2e\n", ma97_time_analyse);
     printf("MA97 time factorise:                %.2e\n", ma97_time_factorise);
+    printf("\n\n");
   }
 
   // ===========================================================================
@@ -518,13 +526,14 @@ int main(int argc, char** argv) {
     ma57_errorNorm2 = sqrt(ma57_errorNorm2);
     ma57_solNorm2 = sqrt(ma57_solNorm2);
 
-    printf("\nRelative error compared to MA57:    %.2e",
+    printf("Relative error compared to MA57:    %.2e",
            ma57_errorNorm2 / ma57_solNorm2);
     if (ma57_errorNorm2 / ma57_solNorm2 > 1e-6)
       printf(" <================================");
     printf("\n");
     printf("MA57 time analyse:                  %.2e\n", ma57_time_analyse);
     printf("MA57 time factorise:                %.2e\n", ma57_time_factorise);
+    printf("\n\n");
   }
 
   // ===========================================================================
@@ -532,10 +541,10 @@ int main(int argc, char** argv) {
   // ===========================================================================
 
   std::ofstream out_file;
-  //print(out_file, ptrLower, "ptr");
-  //print(out_file, rowsLower, "rows");
-  //print(out_file, valLower, "vals");
-  //print(out_file, S.Perm(), "perm");
+  print(out_file, ptrLower, "ptr");
+  print(out_file, rowsLower, "rows");
+  print(out_file, valLower, "vals");
+  print(out_file, S.Perm(), "perm");
   print(out_file, S.Sn_start(), "sn_start");
   print(out_file, S.Sn_parent(), "sn_parent");
   print(out_file, S.Ptr(), "ptrsn");

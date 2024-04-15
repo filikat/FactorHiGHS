@@ -547,5 +547,17 @@ Now, among all the children below the threshold, it select the one which produce
 ---
 
 *****
+15 Apr 2024
+I found a bug when trying with a larger matrix.
+Something to do with the way the indices for the supernodes were counted.
+Indeed, I was using a pretty stupid method. Now it's fixed.
+---
+I found the reason why the ordering seemed so strange.
+MC68 returns the inverse permutation and MAxx takes as input the inverse permutation.
+What I was providing through Metis was the direct permutation.
+Quick fix and now the comparison between the codes, with the two orderings, makes more sense.
+---
+
+*****
 To do:
 - postorder of supernodal tree, to optimize stack size

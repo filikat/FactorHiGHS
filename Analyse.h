@@ -9,8 +9,10 @@
 #include "metis.h"
 
 // parameters for supernode amalgamation
-const int max_artificial_nz = 1024;
-const int small_sn_thresh = 16;
+const int start_thresh_relax = 256;
+const double upper_ratio_relax = 0.02;
+const double lower_ratio_relax = 0.01;
+const int max_iter_relax = 10;
 
 // Class to perform the analyse phase of the factorization.
 // The final symbolic factorization is stored in an object of type Symbolic.
