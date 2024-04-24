@@ -114,7 +114,7 @@ void ChildrenLinkedList(const std::vector<int>& parent, std::vector<int>& head,
   }
 }
 
-void DFS_post(int node, int& start, std::vector<int>& head,
+void Dfs_post(int node, int& start, std::vector<int>& head,
               const std::vector<int>& next, std::vector<int>& order) {
   // Perform depth first search starting from root node and order the nodes
   // starting from the value start. head and next contain the linked list of

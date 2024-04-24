@@ -35,37 +35,37 @@ class Symbolic {
   std::vector<int> ptr{};
 
   // Supernodal elimination tree:
-  // - sn_parent[i] gives the parent of supernode i in the supernodal
+  // - snParent[i] gives the parent of supernode i in the supernodal
   //   elimination tree
-  std::vector<int> sn_parent{};
+  std::vector<int> snParent{};
 
   // Supernode initial node:
-  // - sn_start[i] gives the first node in supernode i.
-  //   Supernode i is made of nodes from sn_start[i] to sn_start[i+1]-1
-  std::vector<int> sn_start{};
+  // - snStart[i] gives the first node in supernode i.
+  //   Supernode i is made of nodes from snStart[i] to snStart[i+1]-1
+  std::vector<int> snStart{};
 
   // Relative indices of original columns wrt columns of L.
-  // - relind_cols[i] contains the relative indices of entry i, with respect to
+  // - relindCols[i] contains the relative indices of entry i, with respect to
   //   the numbering of the frontal matrix of the corresponding supernode.
   // - Given the row indices of the original matrix, rowsA:
-  //   relind_cols[i] = k implies that the i-th entry of the original matrix
+  //   relindCols[i] = k implies that the i-th entry of the original matrix
   //   (which has original row index given by rowsA[i]) corresponds to the row
   //   in position k in the frontal matrix of the supernode corresponding to the
   //   column to which the i-th entry belongs.
   //   This is useful when assemblying the entries of the original matrix into
   //   the frontal matrix.
-  std::vector<int> relind_cols{};
+  std::vector<int> relindCols{};
 
   // Relative indices of clique wrt parent supernode.
-  // - relind_clique[i] contains the local indices of the nonzero rows of the
+  // - relindClique[i] contains the local indices of the nonzero rows of the
   //   clique of the current supernode with respect to the numbering of the
   //   parent supernode.
-  // - relind_clique[i][j] = k implies that the row in position j in the clique
+  // - relindClique[i][j] = k implies that the row in position j in the clique
   //   of supernode i corresponds to the row in position k in the frontal matrix
-  //   of supernode sn_parent[i].
+  //   of supernode snParent[i].
   //   This is useful when summing the generated elements from supernode i into
-  //   supernode sn_parent[i].
-  std::vector<std::vector<int>> relind_clique{};
+  //   supernode snParent[i].
+  std::vector<std::vector<int>> relindClique{};
 
   // Number of consecutive sums that can be done with one BLAS call.
   // - consecutiveSums[i] contains information about the assembly of supernode i
@@ -91,22 +91,22 @@ class Symbolic {
   int Sn() const;
   int Rows(int i) const;
   int Ptr(int i) const;
-  int Sn_start(int i) const;
-  int Relind_cols(int i) const;
-  int Relind_clique(int i, int j) const;
+  int SnStart(int i) const;
+  int RelindCols(int i) const;
+  int RelindClique(int i, int j) const;
   int ConsecutiveSums(int i, int j) const;
   const std::vector<int>& Ptr() const;
   const std::vector<int>& Perm() const;
   const std::vector<int>& Iperm() const;
-  const std::vector<int>& Sn_parent() const;
-  const std::vector<int>& Sn_start() const;
+  const std::vector<int>& SnParent() const;
+  const std::vector<int>& SnStart() const;
 };
 
 // Explanation of relative indices:
 // Each supernode i corresponds to a frontal matrix Fi.
 // The indices of the rows of Fi are called Ri.
 // Ri contains the indices of the supernode
-//  {sn_start[i],...,sn_start[i+1]-1}
+//  {snStart[i],...,snStart[i+1]-1}
 // and then the indices of the clique, or generated element
 // (i.e., the entries of the Schur complement that are modified).
 //
@@ -139,7 +139,7 @@ class Symbolic {
 // ...
 // 15     x x 0
 //
-// The parent of supernode i is sn_parent[i] = p.
+// The parent of supernode i is snParent[i] = p.
 // Supernode p has the following structure:
 //
 //        7 8 9
@@ -162,16 +162,16 @@ class Symbolic {
 //
 // The original matrix, for columns 2,3,4, has indices
 //  {2,3,4,7,15,3,15,4}.
-// relind_cols, for entries corresponding to columns 2,3,4, has the relative
+// relindCols, for entries corresponding to columns 2,3,4, has the relative
 // position of these indices wrt the indices in Ri {2,3,4,7,15}, i.e.,
 // {0,1,2,3,4,1,4,2}.
 //
-// relind_clique[i] contains the relative position of the indices of the clique
+// relindClique[i] contains the relative position of the indices of the clique
 // of supernode i {7,15} with respect to Rp {7,8,9,14,15,17,19}, i.e.,
-// relind_clique[i] = {0,4}.
+// relindClique[i] = {0,4}.
 
 // Explanation of consecutive sums:
-// if relind_clique[i] = {2,5,8,9,10,11,12,14}, there are (up to) 8 entries that
+// if relindClique[i] = {2,5,8,9,10,11,12,14}, there are (up to) 8 entries that
 // need to be summed for each column of the clique.
 // However, 5 of these indices are consecutive {8,9,10,11,12}. Summing these
 // consecutive entries can be done using daxpy with increment equal to one,

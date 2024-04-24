@@ -6,7 +6,7 @@ void Symbolic::Print() const {
   printf("Symbolic factorisation:\n");
   printf(" - size                 %d\n", n);
   printf(" - nonzero entries      %.2e\n", (double)nz);
-  printf(" - density              %.2f\n", (double)nz / (n * n));
+  printf(" - density              %.2f\n", ((double)nz / n) / n);
   printf(" - fill in              %.2f\n", fillin);
   printf(" - supernodes           %d\n", sn);
   printf(" - largest supernode    %d\n", largestSn);
@@ -26,9 +26,9 @@ double Symbolic::AssemblyOps() const { return assemblyOp; }
 int Symbolic::Sn() const { return sn; }
 int Symbolic::Rows(int i) const { return rows[i]; }
 int Symbolic::Ptr(int i) const { return ptr[i]; }
-int Symbolic::Sn_start(int i) const { return sn_start[i]; }
-int Symbolic::Relind_cols(int i) const { return relind_cols[i]; }
-int Symbolic::Relind_clique(int i, int j) const { return relind_clique[i][j]; }
+int Symbolic::SnStart(int i) const { return snStart[i]; }
+int Symbolic::RelindCols(int i) const { return relindCols[i]; }
+int Symbolic::RelindClique(int i, int j) const { return relindClique[i][j]; }
 int Symbolic::ConsecutiveSums(int i, int j) const {
   return consecutiveSums[i][j];
 }
@@ -36,5 +36,5 @@ int Symbolic::ConsecutiveSums(int i, int j) const {
 const std::vector<int>& Symbolic::Ptr() const { return ptr; }
 const std::vector<int>& Symbolic::Perm() const { return perm; }
 const std::vector<int>& Symbolic::Iperm() const { return iperm; }
-const std::vector<int>& Symbolic::Sn_parent() const { return sn_parent; }
-const std::vector<int>& Symbolic::Sn_start() const { return sn_start; }
+const std::vector<int>& Symbolic::SnParent() const { return snParent; }
+const std::vector<int>& Symbolic::SnStart() const { return snStart; }

@@ -144,8 +144,9 @@ int computeAThetaAT(const HighsSparseMatrix& matrix,
 }
 
 int main(int argc, char** argv) {
-  if (argc < 5) {
-    std::cerr << "Wrong input: ./fact pb normEq(0-1) HSL(0-1) Metis(0-1)\n";
+  if (argc < 6) {
+    std::cerr << "Wrong input: ./fact pb normEq(0-1) HSL(0-1) Metis(0-1) "
+                 "print(0-1)\n";
     return 1;
   }
 
@@ -283,7 +284,7 @@ int main(int argc, char** argv) {
   // Numerical factorisation
   // ===========================================================================
   Numeric Num;
-  Factorise F(S, rowsLower.data(), ptrLower.data(), valLower.data(), n, nz);
+  Factorise F(S, rowsLower, ptrLower, valLower);
   F.Run(Num);
 
   // ===========================================================================
@@ -310,6 +311,12 @@ int main(int argc, char** argv) {
   // ===========================================================================
   // Factorise with MA86
   // ===========================================================================
+  if (atoi(argv[3]) == 1) {
+    printf("----------------------------------------------------\n");
+    printf("\t\tHSL comparison\n");
+    printf("----------------------------------------------------\n\n");
+  }
+
   double ma86_errorNorm2{};
   double ma86_solNorm2{};
   double ma86_time_analyse{};
@@ -539,50 +546,51 @@ int main(int argc, char** argv) {
   // ===========================================================================
   // Write to file
   // ===========================================================================
+  if (atoi(argv[5]) == 1) {
+    std::ofstream out_file;
+    Print(out_file, ptrLower, "ptr");
+    Print(out_file, rowsLower, "rows");
+    Print(out_file, valLower, "vals");
+    Print(out_file, S.Perm(), "perm");
+    Print(out_file, S.SnStart(), "sn_start");
+    Print(out_file, S.SnParent(), "sn_parent");
+    Print(out_file, S.Ptr(), "ptrsn");
+    Print(out_file, F.time_per_Sn, "time_per_sn");
 
-  std::ofstream out_file;
-  print(out_file, ptrLower, "ptr");
-  print(out_file, rowsLower, "rows");
-  print(out_file, valLower, "vals");
-  print(out_file, S.Perm(), "perm");
-  print(out_file, S.Sn_start(), "sn_start");
-  print(out_file, S.Sn_parent(), "sn_parent");
-  print(out_file, S.Ptr(), "ptrsn");
-  print(out_file, F.time_per_Sn, "time_per_sn");
+    // extract problem name witout mps from path
+    std::string pb_name{};
+    std::regex rgx("([^/]+)\\.mps");
+    std::smatch match;
+    std::regex_search(model_file, match, rgx);
+    pb_name = match[1];
 
-  // extract problem name witout mps from path
-  std::string pb_name{};
-  std::regex rgx("([^/]+)\\.mps");
-  std::smatch match;
-  std::regex_search(model_file, match, rgx);
-  pb_name = match[1];
+    // print results
+    FILE* file = fopen("results.txt", "a");
 
-  // print results
-  FILE* file = fopen("results.txt", "a");
+    fprintf(
+        file, "%15s  |  %12.1e %10.1f %10.1f %10.1f %10.1f %10.1f %10.1f  |  ",
+        pb_name.c_str(), An.time_total, An.time_metis / An.time_total * 100,
+        An.time_tree / An.time_total * 100, An.time_count / An.time_total * 100,
+        An.time_sn / An.time_total * 100, An.time_pattern / An.time_total * 100,
+        An.time_relind / An.time_total * 100);
 
-  fprintf(
-      file, "%15s  |  %12.1e %10.1f %10.1f %10.1f %10.1f %10.1f %10.1f  |  ",
-      pb_name.c_str(), An.time_total, An.time_metis / An.time_total * 100,
-      An.time_tree / An.time_total * 100, An.time_count / An.time_total * 100,
-      An.time_sn / An.time_total * 100, An.time_pattern / An.time_total * 100,
-      An.time_relind / An.time_total * 100);
+    fprintf(file, "%12.1e %10.1f %10.1f %10.1f %10.1f %10.1f  |  ",
+            F.time_total, F.time_prepare / F.time_total * 100,
+            F.time_assemble_original / F.time_total * 100,
+            F.time_assemble_children_C / F.time_total * 100,
+            F.time_assemble_children_F / F.time_total * 100,
+            F.time_factorise / F.time_total * 100);
 
-  fprintf(file, "%12.1e %10.1f %10.1f %10.1f %10.1f %10.1f  |  ", F.time_total,
-          F.time_prepare / F.time_total * 100,
-          F.time_assemble_original / F.time_total * 100,
-          F.time_assemble_children_C / F.time_total * 100,
-          F.time_assemble_children_F / F.time_total * 100,
-          F.time_factorise / F.time_total * 100);
-
-  fprintf(file, "\n");
-  fclose(file);
-
-  if (atoi(argv[3])) {
-    file = fopen("results_hsl.txt", "a");
-    fprintf(file, " %12.5e %12.5e %12.5e %12.5e %12.5e\n", F.time_total,
-            ma86_time_factorise, ma87_time_factorise, ma97_time_factorise,
-            ma57_time_factorise);
+    fprintf(file, "\n");
     fclose(file);
+
+    if (atoi(argv[3])) {
+      file = fopen("results_hsl.txt", "a");
+      fprintf(file, " %12.5e %12.5e %12.5e %12.5e %12.5e\n", F.time_total,
+              ma86_time_factorise, ma87_time_factorise, ma97_time_factorise,
+              ma57_time_factorise);
+      fclose(file);
+    }
   }
 
   return 0;

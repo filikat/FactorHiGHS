@@ -559,5 +559,24 @@ Quick fix and now the comparison between the codes, with the two orderings, make
 ---
 
 *****
+24 Apr 2024
+Back from holiday.
+Minor changes to the printing.
+Added printing of times for each Blas function.
+---
+Changed some names of variables to have a more uniform naming convention.
+I am aiming at using this convention:
+ - CapitalNames for functions and classes
+ - thisStyle for class variables
+ - ThisStyle for class functions
+ - this_style for local variables and other temporary stuff
+ - k_this_style for constants
+---
+Changed constructor of Factorise so that it takes std::vector as input. No idea why it was still using pointers.
+---
+Small bug when computing the density, n * n was overflowing for large matrix.
+---
+
+*****
 To do:
 - postorder of supernodal tree, to optimize stack size

@@ -2,25 +2,27 @@
 
 #include <fstream>
 
-Factorise::Factorise(const Symbolic& S_input, const int* rowsA_input,
-                     const int* ptrA_input, const double* valA_input,
-                     int n_input, int nz_input)
+Factorise::Factorise(const Symbolic& S_input,
+                     const std::vector<int>& rowsA_input,
+                     const std::vector<int>& ptrA_input,
+                     const std::vector<double>& valA_input)
     : S{S_input} {
   // Input the symmetric matrix to be factirized in CSC format and the symbolic
   // factorisation coming from Analyze.
   // Only the lower triangular part of the matrix is used.
 
-  if (n_input != S.Size()) {
+  n = ptrA_input.size() - 1;
+
+  if (n != S.Size()) {
     printf(
         "Matrix provided to Factorise has size incompatible with symbolic "
         "object.\n");
     return;
   }
 
-  n = n_input;
-  rowsA = std::vector<int>(rowsA_input, rowsA_input + nz_input);
-  valA = std::vector<double>(valA_input, valA_input + nz_input);
-  ptrA = std::vector<int>(ptrA_input, ptrA_input + n_input + 1);
+  rowsA = rowsA_input;
+  valA = valA_input;
+  ptrA = ptrA_input;
 
   // Permute the matrix.
   // This also removes any entry not in the lower triangle.
@@ -36,7 +38,7 @@ Factorise::Factorise(const Symbolic& S_input, const int* rowsA_input,
   Transpose(temp_ptr, temp_rows, temp_val, ptrA, rowsA, valA);
 
   // create linked lists of children in supernodal elimination tree
-  ChildrenLinkedList(S.Sn_parent(), firstChildren, nextChildren);
+  ChildrenLinkedList(S.SnParent(), firstChildren, nextChildren);
 
   // allocate space for list of generated elements and columns of L
   SchurContribution.resize(S.Sn(), nullptr);
@@ -120,8 +122,8 @@ void Factorise::ProcessSupernode(int sn) {
   // Supernode information
   // ===================================================
   // first and last+1 column of the supernodes
-  int sn_begin = S.Sn_start(sn);
-  int sn_end = S.Sn_start(sn + 1);
+  int sn_begin = S.SnStart(sn);
+  int sn_end = S.SnStart(sn + 1);
   int sn_size = sn_end - sn_begin;
 
   // leading dimension of the frontal matrix
@@ -133,25 +135,25 @@ void Factorise::ProcessSupernode(int sn) {
   // Allocate space for frontal matrix:
   // The front size is ldf and the supernode size is sn_size.
   // The frontal matrix is stored as two dense matrices:
-  // Frontal is ldf x sn_size and stores the first sn_size columns that will
+  // frontal is ldf x sn_size and stores the first sn_size columns that will
   // undergo Cholesky elimination.
-  // Clique is ldc x ldc and stores the remaining (ldf - sn_size) columns
+  // clique is ldc x ldc and stores the remaining (ldf - sn_size) columns
   // (without the top part), that do not undergo Cholesky elimination.
-  std::vector<double>& Frontal = SnColumns[sn];
-  double*& Clique = SchurContribution[sn];
+  std::vector<double>& frontal = SnColumns[sn];
+  double*& clique = SchurContribution[sn];
 
-  // Frontal is initialized to zero
-  Frontal.resize(ldf * sn_size, 0.0);
+  // frontal is initialized to zero
+  frontal.resize(ldf * sn_size, 0.0);
 
-  // Clique need not be initialized to zero, provided that the assembly is done
+  // clique need not be initialized to zero, provided that the assembly is done
   // properly
-  if (ldc > 0) Clique = new double[ldc * ldc];
+  if (ldc > 0) clique = new double[ldc * ldc];
 
   time_prepare += clock.stop();
 
   clock.start();
   // ===================================================
-  // Assemble original matrix A into Frontal
+  // Assemble original matrix A into frontal
   // ===================================================
   // j is relative column index in the frontal matrix
   for (int j = 0; j < sn_size; ++j) {
@@ -161,29 +163,29 @@ void Factorise::ProcessSupernode(int sn) {
     // go through the column
     for (int el = ptrA[col]; el < ptrA[col + 1]; ++el) {
       // relative row index in the frontal matrix
-      int i = S.Relind_cols(el);
+      int i = S.RelindCols(el);
 
-      Frontal[i + j * ldf] = valA[el];
+      frontal[i + j * ldf] = valA[el];
     }
   }
   time_assemble_original += clock.stop();
 
   // ===================================================
-  // Assemble frontal matrices of children into Frontal
+  // Assemble frontal matrices of children into frontal
   // ===================================================
   clock.start();
   int child_sn = firstChildren[sn];
   while (child_sn != -1) {
     // Schur contribution of the current child
-    double*& C = SchurContribution[child_sn];
-    if (!C) {
+    double* child_clique = SchurContribution[child_sn];
+    if (!child_clique) {
       printf("Error with child supernode\n");
       return;
     }
 
     // determine size of clique of child
-    int child_begin = S.Sn_start(child_sn);
-    int child_end = S.Sn_start(child_sn + 1);
+    int child_begin = S.SnStart(child_sn);
+    int child_end = S.SnStart(child_sn + 1);
 
     // number of nodes in child sn
     int child_size = child_end - child_begin;
@@ -194,7 +196,7 @@ void Factorise::ProcessSupernode(int sn) {
     // go through the columns of the contribution of the child
     for (int col = 0; col < nc; ++col) {
       // relative index of column in the frontal matrix
-      int j = S.Relind_clique(child_sn, col);
+      int j = S.RelindClique(child_sn, col);
 
       if (j < sn_size) {
         // assemble into Columns
@@ -202,24 +204,24 @@ void Factorise::ProcessSupernode(int sn) {
         // go through the rows of the contribution of the child
         int row = col;
         while (row < nc) {
-          // relative index of the entry in the matrix Frontal
-          int i = S.Relind_clique(child_sn, row);
+          // relative index of the entry in the matrix frontal
+          int i = S.RelindClique(child_sn, row);
 
           // how many entries to sum
           int consecutive = S.ConsecutiveSums(child_sn, row);
 
           // use daxpy for summing consecutive entries
-          int iOne = 1;
-          double dOne = 1.0;
-          daxpy(&consecutive, &dOne, &C[row + nc * col], &iOne,
-                &Frontal[i + ldf * j], &iOne);
+          int i_one = 1;
+          double d_one = 1.0;
+          daxpy(&consecutive, &d_one, &child_clique[row + nc * col], &i_one,
+                &frontal[i + ldf * j], &i_one);
           row += consecutive;
         }
       }
 
-      // If j >= sn_size, we would assemble into Clique.
+      // If j >= sn_size, we would assemble into clique.
       // This is delayed until after the partial factorisation, to avoid having
-      // to initialize Clique to zero.
+      // to initialize clique to zero.
     }
 
     // move on to the next child
@@ -231,25 +233,26 @@ void Factorise::ProcessSupernode(int sn) {
   // Partial factorisation
   // ===================================================
   clock.start();
-  PartialFact_pos_large(ldf, sn_size, Frontal.data(), ldf, Clique, ldc);
+  PartialFactPosLarge(ldf, sn_size, frontal.data(), ldf, clique, ldc,
+                      times_partialfact.data());
   time_factorise += clock.stop();
 
   // ===================================================
-  // Assemble frontal matrices of children into Clique
+  // Assemble frontal matrices of children into clique
   // ===================================================
   clock.start();
   child_sn = firstChildren[sn];
   while (child_sn != -1) {
     // Schur contribution of the current child
-    double*& C = SchurContribution[child_sn];
-    if (!C) {
+    double* child_clique = SchurContribution[child_sn];
+    if (!child_clique) {
       printf("Error with child supernode\n");
       return;
     }
 
     // determine size of clique of child
-    int child_begin = S.Sn_start(child_sn);
-    int child_end = S.Sn_start(child_sn + 1);
+    int child_begin = S.SnStart(child_sn);
+    int child_end = S.SnStart(child_sn + 1);
 
     // number of nodes in child sn
     int child_size = child_end - child_begin;
@@ -260,19 +263,19 @@ void Factorise::ProcessSupernode(int sn) {
     // go through the columns of the contribution of the child
     for (int col = 0; col < nc; ++col) {
       // relative index of column in the frontal matrix
-      int j = S.Relind_clique(child_sn, col);
+      int j = S.RelindClique(child_sn, col);
 
       if (j >= sn_size) {
-        // assemble into Clique
+        // assemble into clique
 
-        // adjust relative index to access Clique
+        // adjust relative index to access clique
         j -= sn_size;
 
         // go through the rows of the contribution of the child
         int row = col;
         while (row < nc) {
-          // relative index of the entry in the matrix Clique
-          int i = S.Relind_clique(child_sn, row) - sn_size;
+          // relative index of the entry in the matrix clique
+          int i = S.RelindClique(child_sn, row) - sn_size;
 
           // how many entries to sum
           int consecutive = S.ConsecutiveSums(child_sn, row);
@@ -280,19 +283,19 @@ void Factorise::ProcessSupernode(int sn) {
           // use daxpy for summing consecutive entries
           int iOne = 1;
           double dOne = 1.0;
-          daxpy(&consecutive, &dOne, &C[row + nc * col], &iOne,
-                &Clique[i + ldc * j], &iOne);
+          daxpy(&consecutive, &dOne, &child_clique[row + nc * col], &iOne,
+                &clique[i + ldc * j], &iOne);
           row += consecutive;
         }
       }
 
       // j < sn_size was already done before, because it was needed before the
-      // partial factorisation. Assembling into the Clique instead can be done
+      // partial factorisation. Assembling into the clique instead can be done
       // after.
     }
 
     // Schur contribution of the child is no longer needed
-    delete[] C;
+    delete[] child_clique;
 
     // move on to the next child
     child_sn = nextChildren[child_sn];
@@ -335,21 +338,21 @@ bool Factorise::Check() const {
   // assemble sparse factor into dense factor
   std::vector<double> L(n * n);
   for (int sn = 0; sn < S.Sn(); ++sn) {
-    for (int col = S.Sn_start(sn); col < S.Sn_start(sn + 1); ++col) {
+    for (int col = S.SnStart(sn); col < S.SnStart(sn + 1); ++col) {
       // indices to access corresponding entry in the supernode
-      int colSn = col - S.Sn_start(sn);
-      int ldSn = S.Ptr(sn + 1) - S.Ptr(sn);
+      int col_sn = col - S.SnStart(sn);
+      int ldsn = S.Ptr(sn + 1) - S.Ptr(sn);
 
       for (int el = S.Ptr(sn); el < S.Ptr(sn + 1); ++el) {
         int row = S.Rows(el);
 
         // indices to access corresponding entry in the supernode
-        int rowSn = el - S.Ptr(sn);
+        int row_sn = el - S.Ptr(sn);
 
         // skip upper triangle of supernodes
         if (row < col) continue;
 
-        L[row + col * n] = SnColumns[sn][rowSn + colSn * ldSn];
+        L[row + col * n] = SnColumns[sn][row_sn + col_sn * ldsn];
       }
     }
   }
@@ -359,23 +362,23 @@ bool Factorise::Check() const {
   // dense and sparse factors, divided by the Frobenius norm of the dense
   // factor.
 
-  double FrobeniusDense{};
-  double FrobeniusDiff{};
+  double frobenius_dense{};
+  double frobenius_diff{};
 
   for (int col = 0; col < n; ++col) {
     for (int row = 0; row < n; ++row) {
-      double valSparse = L[row + n * col];
-      double valDense = M[row + col * n];
-      double diff = valSparse - valDense;
+      double val_sparse = L[row + n * col];
+      double val_dense = M[row + col * n];
+      double diff = val_sparse - val_dense;
 
-      FrobeniusDense += valDense * valDense;
-      FrobeniusDiff += diff * diff;
+      frobenius_dense += val_dense * val_dense;
+      frobenius_diff += diff * diff;
     }
   }
 
-  FrobeniusDense = sqrt(FrobeniusDense);
-  FrobeniusDiff = sqrt(FrobeniusDiff);
-  check_error = FrobeniusDiff / FrobeniusDense;
+  frobenius_dense = sqrt(frobenius_dense);
+  frobenius_diff = sqrt(frobenius_diff);
+  double check_error = frobenius_diff / frobenius_dense;
 
   printf("\nFactorise Frobenius error %e\n", check_error);
   if (check_error < 1e-12) {
@@ -396,12 +399,22 @@ void Factorise::PrintTimes() const {
          time_prepare / time_total * 100);
   printf("\tAssembly original:      %8.4f (%4.1f%%)\n", time_assemble_original,
          time_assemble_original / time_total * 100);
-  printf("\tAssembly into Frontal:  %8.4f (%4.1f%%)\n", time_assemble_children_F,
-         time_assemble_children_F / time_total * 100);
-  printf("\tAssembly into Clique:   %8.4f (%4.1f%%)\n", time_assemble_children_C,
-         time_assemble_children_C / time_total * 100);
+  printf("\tAssembly into frontal:  %8.4f (%4.1f%%)\n",
+         time_assemble_children_F, time_assemble_children_F / time_total * 100);
+  printf("\tAssembly into clique:   %8.4f (%4.1f%%)\n",
+         time_assemble_children_C, time_assemble_children_C / time_total * 100);
   printf("\tDense factorisation:    %8.4f (%4.1f%%)\n", time_factorise,
          time_factorise / time_total * 100);
+
+  printf("\t\t  |\n");
+  printf("\t\t  |   dtrsm:    %8.4f (%4.1f%%)\n", times_partialfact[t_dtrsm],
+         times_partialfact[t_dtrsm] / time_factorise * 100);
+  printf("\t\t  |_  dsyrk:    %8.4f (%4.1f%%)\n", times_partialfact[t_dsyrk],
+         times_partialfact[t_dsyrk] / time_factorise * 100);
+  printf("\t\t      dgemm:    %8.4f (%4.1f%%)\n", times_partialfact[t_dgemm],
+         times_partialfact[t_dgemm] / time_factorise * 100);
+  printf("\t\t       fact:    %8.4f (%4.1f%%)\n", times_partialfact[t_fact],
+         times_partialfact[t_fact] / time_factorise * 100);
 }
 
 void Factorise::Run(Numeric& Num) {
@@ -409,13 +422,14 @@ void Factorise::Run(Numeric& Num) {
   clock.start();
 
   time_per_Sn.resize(S.Sn());
+  times_partialfact.resize(times_ind::t_size);
 
-  Clock clockSn;
+  Clock clock_sn;
 
   for (int sn = 0; sn < S.Sn(); ++sn) {
-    clockSn.start();
+    clock_sn.start();
     ProcessSupernode(sn);
-    time_per_Sn[sn] = clockSn.stop();
+    time_per_Sn[sn] = clock_sn.stop();
   }
 
   time_total = clock.stop();

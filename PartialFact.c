@@ -1,44 +1,10 @@
+#include "PartialFact.h"
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 
-double get_time() {
-  struct timespec now;
-  clock_gettime(CLOCK_REALTIME, &now);
-  return now.tv_sec + now.tv_nsec * 1e-9;
-}
-
-#define max(i, j) ((i) >= (j) ? (i) : (j))
-#define min(i, j) ((i) >= (j) ? (j) : (i))
-
-// block size
-const int nb = 256;
-
-// variables for BLAS calls
-double dOne = 1.0;
-double dZero = 0.0;
-double dmOne = -1.0;
-int iOne = 1;
-char LL = 'L';
-char NN = 'N';
-char RR = 'R';
-char TT = 'T';
-char UU = 'U';
-
-// BLAS declaration
-double ddot(int* n, double* dx, int* incx, double* dy, int* incy);
-void dgemv(char* trans, int* m, int* n, double* alpha, double* A, int* lda,
-           double* x, int* incx, double* beta, double* y, int* incy);
-void dscal(int* n, double* da, double* dx, int* incx);
-void dcopy(int* n, double* dx, int* incx, double* dy, int* incy);
-void dsyrk(char* uplo, char* trans, int* n, int* k, double* alpha, double* a,
-           int* lda, double* beta, double* c, int* ldc);
-void dgemm(char* transa, char* transb, int* m, int* n, int* k, double* alpha,
-           double* A, int* lda, double* B, int* ldb, double* beta, double* C,
-           int* ldc);
-void dtrsm(char* side, char* uplo, char* trans, char* diag, int* m, int* n,
-           double* alpha, double* a, int* lda, double* b, int* ldb);
+#include "PartialFactAux.h"
 
 // ===========================================================================
 // Functions to compute dense partial Cholesky or LDL factorizations with
@@ -83,8 +49,8 @@ void dtrsm(char* side, char* uplo, char* trans, char* diag, int* m, int* n,
 //
 // ===========================================================================
 
-int PartialFact_pos_small(int n, int k, double* restrict A, int lda,
-                          double* restrict B, int ldb) {
+int PartialFactPosSmall(int n, int k, double* restrict A, int lda,
+                           double* restrict B, int ldb) {
   // ===========================================================================
   // Positive definite factorization without blocks.
   // BLAS calls: ddot, dgemv, dscal, dsyrk.
@@ -92,7 +58,7 @@ int PartialFact_pos_small(int n, int k, double* restrict A, int lda,
 
   // check input
   if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
-    printf("Invalid input to PartialFact\n");
+    printf("Invalid input to PartialFactPosSmall\n");
     return -1;
   }
 
@@ -118,23 +84,23 @@ int PartialFact_pos_small(int n, int k, double* restrict A, int lda,
 
     // compute column j
     if (j < n - 1) {
-      dgemv(&NN, &M, &N, &dmOne, &A[j + 1], &lda, &A[j], &lda, &dOne,
-            &A[j + 1 + j * lda], &iOne);
-      dscal(&M, &coeff, &A[j + 1 + j * lda], &iOne);
+      dgemv(&NN, &M, &N, &d_m_one, &A[j + 1], &lda, &A[j], &lda, &d_one,
+            &A[j + 1 + j * lda], &i_one);
+      dscal(&M, &coeff, &A[j + 1 + j * lda], &i_one);
     }
   }
 
   // update Schur complement
   if (k < n) {
     int N = n - k;
-    dsyrk(&LL, &NN, &N, &k, &dmOne, &A[k], &lda, &dZero, B, &ldb);
+    dsyrk(&LL, &NN, &N, &k, &d_m_one, &A[k], &lda, &d_zero, B, &ldb);
   }
 
   return 0;
 }
 
-int PartialFact_pos_large(int n, int k, double* restrict A, int lda,
-                          double* restrict B, int ldb) {
+int PartialFactPosLarge(int n, int k, double* restrict A, int lda,
+                           double* restrict B, int ldb, double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks.
   // BLAS calls: dsyrk, dgemm, dtrsm.
@@ -142,7 +108,12 @@ int PartialFact_pos_large(int n, int k, double* restrict A, int lda,
 
   // check input
   if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
-    printf("Invalid input to PartialFact\n");
+    printf("Invalid input to PartialFactPosLarge\n");
+    return -1;
+  }
+
+  if (!times) {
+    printf("Invalid times\n");
     return -1;
   }
 
@@ -160,34 +131,46 @@ int PartialFact_pos_large(int n, int k, double* restrict A, int lda,
     int M = n - j - jb;
 
     // update diagonal block
-    dsyrk(&LL, &NN, &N, &K, &dmOne, &A[j], &lda, &dOne, &A[j + lda * j], &lda);
+    double t0 = GetTime();
+    dsyrk(&LL, &NN, &N, &K, &d_m_one, &A[j], &lda, &d_one, &A[j + lda * j],
+          &lda);
+    times[t_dsyrk] += GetTime() - t0;
+
     // factorize diagonal block
-    int info = PartialFact_pos_small(N, N, &A[j + lda * j], lda, NULL, 0);
+    t0 = GetTime();
+    int info = PartialFactPosSmall(N, N, &A[j + lda * j], lda, NULL, 0);
+    times[t_fact] += GetTime() - t0;
     if (info != 0) {
       return info + j - 1;
     }
     if (j + jb < n) {
       // update block of columns
-      dgemm(&NN, &TT, &M, &N, &K, &dmOne, &A[j + jb], &lda, &A[j], &lda, &dOne,
-            &A[j + jb + lda * j], &lda);
+      t0 = GetTime();
+      dgemm(&NN, &TT, &M, &N, &K, &d_m_one, &A[j + jb], &lda, &A[j], &lda,
+            &d_one, &A[j + jb + lda * j], &lda);
+      times[t_dgemm] += GetTime() - t0;
 
       // solve block of columns with diagonal block
-      dtrsm(&RR, &LL, &TT, &NN, &M, &N, &dOne, &A[j + lda * j], &lda,
+      t0 = GetTime();
+      dtrsm(&RR, &LL, &TT, &NN, &M, &N, &d_one, &A[j + lda * j], &lda,
             &A[j + jb + lda * j], &lda);
+      times[t_dtrsm] += GetTime() - t0;
     }
   }
 
   // update Schur complement if partial factorization is required
   if (k < n) {
     int N = n - k;
-    dsyrk(&LL, &NN, &N, &k, &dmOne, &A[k], &lda, &dZero, B, &ldb);
+    double t0 = GetTime();
+    dsyrk(&LL, &NN, &N, &k, &d_m_one, &A[k], &lda, &d_zero, B, &ldb);
+    times[t_dsyrk] += GetTime() - t0;
   }
 
   return 0;
 }
 
-int PartialFact_ind_small(int n, int k, double* restrict A, int lda,
-                          double* restrict B, int ldb) {
+int PartialFactIndSmall(int n, int k, double* restrict A, int lda,
+                           double* restrict B, int ldb) {
   // ===========================================================================
   // Infedinite factorization without blocks.
   // BLAS calls: ddot, dgemv, dscal, dcopy, dgemm.
@@ -195,7 +178,7 @@ int PartialFact_ind_small(int n, int k, double* restrict A, int lda,
 
   // check input
   if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
-    printf("Invalid input to PartialFact\n");
+    printf("Invalid input to PartialFactIndSmall\n");
     return -1;
   }
 
@@ -214,7 +197,7 @@ int PartialFact_ind_small(int n, int k, double* restrict A, int lda,
     }
 
     // update diagonal element
-    double Ajj = A[j + lda * j] - ddot(&N, &A[j], &lda, temp, &iOne);
+    double Ajj = A[j + lda * j] - ddot(&N, &A[j], &lda, temp, &i_one);
     if (Ajj == 0.0 || isnan(Ajj)) {
       A[j + lda * j] = Ajj;
       return j;
@@ -226,9 +209,9 @@ int PartialFact_ind_small(int n, int k, double* restrict A, int lda,
 
     // compute column j
     if (j < n - 1) {
-      dgemv(&NN, &M, &N, &dmOne, &A[j + 1], &lda, temp, &iOne, &dOne,
-            &A[j + 1 + j * lda], &iOne);
-      dscal(&M, &coeff, &A[j + 1 + j * lda], &iOne);
+      dgemv(&NN, &M, &N, &d_m_one, &A[j + 1], &lda, temp, &i_one, &d_one,
+            &A[j + 1 + j * lda], &i_one);
+      dscal(&M, &coeff, &A[j + 1 + j * lda], &i_one);
     }
 
     // free temporary copy of row
@@ -242,12 +225,13 @@ int PartialFact_ind_small(int n, int k, double* restrict A, int lda,
     // make temporary copy of M(k:n-1,0:k-1), multiplied by pivots
     double* temp = malloc((n - k) * k * sizeof(double));
     for (int j = 0; j < k; ++j) {
-      dcopy(&N, &A[k + j * lda], &iOne, &temp[j * (n - k)], &iOne);
-      dscal(&N, &A[j + j * lda], &temp[j * (n - k)], &iOne);
+      dcopy(&N, &A[k + j * lda], &i_one, &temp[j * (n - k)], &i_one);
+      dscal(&N, &A[j + j * lda], &temp[j * (n - k)], &i_one);
     }
 
     // update Schur complement using dgemm
-    dgemm(&NN, &TT, &N, &N, &k, &dmOne, &A[k], &lda, temp, &N, &dZero, B, &ldb);
+    dgemm(&NN, &TT, &N, &N, &k, &d_m_one, &A[k], &lda, temp, &N, &d_zero, B,
+          &ldb);
 
     free(temp);
   }
@@ -255,8 +239,8 @@ int PartialFact_ind_small(int n, int k, double* restrict A, int lda,
   return 0;
 }
 
-int PartialFact_ind_large(int n, int k, double* restrict A, int lda,
-                          double* restrict B, int ldb) {
+int PartialFactIndLarge(int n, int k, double* restrict A, int lda,
+                           double* restrict B, int ldb) {
   // ===========================================================================
   // Indefinite factorization with blocks.
   // BLAS calls: dcopy, dscal, dgemm, dtrsm, dsyrk
@@ -272,7 +256,7 @@ int PartialFact_ind_large(int n, int k, double* restrict A, int lda,
 
   // check input
   if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
-    printf("Invalid input to PartialFact\n");
+    printf("Invalid input to PartialFactIndLarge\n");
     return -1;
   }
 
@@ -289,44 +273,44 @@ int PartialFact_ind_large(int n, int k, double* restrict A, int lda,
     int K = j;
     int M = n - j - jb;
 
-    t0 = get_time();
+    t0 = GetTime();
     // create temporary copy of block of rows, multiplied by pivots
     double* temp = malloc(j * jb * sizeof(double));
     int ldt = jb;
     for (int i = 0; i < j; ++i) {
-      dcopy(&N, &A[j + i * lda], &iOne, &temp[i * ldt], &iOne);
-      dscal(&N, &A[i + i * lda], &temp[i * ldt], &iOne);
+      dcopy(&N, &A[j + i * lda], &i_one, &temp[i * ldt], &i_one);
+      dscal(&N, &A[i + i * lda], &temp[i * ldt], &i_one);
     }
 
-    t1 = get_time();
+    t1 = GetTime();
     // update diagonal block using dgemm
-    dgemm(&NN, &TT, &jb, &jb, &j, &dmOne, &A[j], &lda, temp, &ldt, &dOne,
+    dgemm(&NN, &TT, &jb, &jb, &j, &d_m_one, &A[j], &lda, temp, &ldt, &d_one,
           &A[j + lda * j], &lda);
 
-    t2 = get_time();
+    t2 = GetTime();
     // factorize diagonal block
-    int info = PartialFact_ind_small(N, N, &A[j + lda * j], lda, NULL, 0);
+    int info = PartialFactIndSmall(N, N, &A[j + lda * j], lda, NULL, 0);
     if (info != 0) {
       return info + j - 1;
     }
 
-    t3 = get_time();
+    t3 = GetTime();
     if (j + jb < n) {
       // update block of columns
-      dgemm(&NN, &TT, &M, &N, &K, &dmOne, &A[j + jb], &lda, temp, &ldt, &dOne,
-            &A[j + jb + lda * j], &lda);
+      dgemm(&NN, &TT, &M, &N, &K, &d_m_one, &A[j + jb], &lda, temp, &ldt,
+            &d_one, &A[j + jb + lda * j], &lda);
 
       // solve block of columns with L
-      dtrsm(&RR, &LL, &TT, &UU, &M, &N, &dOne, &A[j + lda * j], &lda,
+      dtrsm(&RR, &LL, &TT, &UU, &M, &N, &d_one, &A[j + lda * j], &lda,
             &A[j + jb + lda * j], &lda);
 
       // solve block of columns with D
       for (int i = 0; i < jb; ++i) {
         double coeff = 1.0 / A[j + i + (j + i) * lda];
-        dscal(&M, &coeff, &A[j + jb + lda * (j + i)], &iOne);
+        dscal(&M, &coeff, &A[j + jb + lda * (j + i)], &i_one);
       }
     }
-    t4 = get_time();
+    t4 = GetTime();
 
     t_copy += t1 - t0;
     t_update += t2 - t1;
@@ -340,7 +324,7 @@ int PartialFact_ind_large(int n, int k, double* restrict A, int lda,
   if (k < n) {
     int N = n - k;
 
-    t5 = get_time();
+    t5 = GetTime();
     // count number of positive and negative pivots
     int pos_pivot = 0;
     int neg_pivot = 0;
@@ -364,25 +348,25 @@ int PartialFact_ind_large(int n, int k, double* restrict A, int lda,
       double Ajj = A[j + lda * j];
       if (Ajj >= 0.0) {
         Ajj = sqrt(Ajj);
-        dcopy(&N, &A[k + j * lda], &iOne, &temp_pos[start_pos * ldt], &iOne);
-        dscal(&N, &Ajj, &temp_pos[start_pos * ldt], &iOne);
+        dcopy(&N, &A[k + j * lda], &i_one, &temp_pos[start_pos * ldt], &i_one);
+        dscal(&N, &Ajj, &temp_pos[start_pos * ldt], &i_one);
         ++start_pos;
       } else {
         Ajj = sqrt(-Ajj);
-        dcopy(&N, &A[k + j * lda], &iOne, &temp_neg[start_neg * ldt], &iOne);
-        dscal(&N, &Ajj, &temp_neg[start_neg * ldt], &iOne);
+        dcopy(&N, &A[k + j * lda], &i_one, &temp_neg[start_neg * ldt], &i_one);
+        dscal(&N, &Ajj, &temp_neg[start_neg * ldt], &i_one);
         ++start_neg;
       }
     }
-    t6 = get_time();
+    t6 = GetTime();
 
     // Update schur complement by subtracting contribution of positive columns
     // and adding contribution of negative columns.
     // In this way, I can use dsyrk instead of dgemm and avoid updating the full
     // square schur complement.
-    dsyrk(&LL, &NN, &N, &pos_pivot, &dmOne, temp_pos, &ldt, &dZero, B, &ldb);
-    dsyrk(&LL, &NN, &N, &neg_pivot, &dOne, temp_neg, &ldt, &dZero, B, &ldb);
-    t7 = get_time();
+    dsyrk(&LL, &NN, &N, &pos_pivot, &d_m_one, temp_pos, &ldt, &d_zero, B, &ldb);
+    dsyrk(&LL, &NN, &N, &neg_pivot, &d_one, temp_neg, &ldt, &d_zero, B, &ldb);
+    t7 = GetTime();
 
     t_schur_copy += t6 - t5;
     t_schur += t7 - t6;

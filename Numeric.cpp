@@ -9,9 +9,9 @@ void Numeric::Lsolve(std::vector<double>& x) const {
     // leading size of supernode
     int ldSn = S->Ptr(sn + 1) - S->Ptr(sn);
 
-    for (int col = S->Sn_start(sn); col < S->Sn_start(sn + 1); ++col) {
+    for (int col = S->SnStart(sn); col < S->SnStart(sn + 1); ++col) {
       // relative index of column within supernode
-      int j = col - S->Sn_start(sn);
+      int j = col - S->SnStart(sn);
 
       // scale entry x_col
       x[col] /= SnColumns[sn][j + ldSn * j];
@@ -41,9 +41,9 @@ void Numeric::Ltsolve(std::vector<double>& x) const {
     int ldSn = S->Ptr(sn + 1) - S->Ptr(sn);
 
     // go through the columns of the sn in reverse order
-    for (int col = S->Sn_start(sn + 1) - 1; col >= S->Sn_start(sn); --col) {
+    for (int col = S->SnStart(sn + 1) - 1; col >= S->SnStart(sn); --col) {
       // relative index of column within supernode
-      int j = col - S->Sn_start(sn);
+      int j = col - S->SnStart(sn);
 
       // index to access S->rows for this supernode
       int startRow = S->Ptr(sn);

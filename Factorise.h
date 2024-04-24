@@ -35,9 +35,9 @@ class Factorise {
   void PrintTimes() const;
 
  public:
-  Factorise(const Symbolic& S_input, const int* rowsA_input,
-            const int* ptrA_input, const double* valA_input, int n_input,
-            int nz_input);
+  Factorise(const Symbolic& S_input, const std::vector<int>& rowsA_input,
+            const std::vector<int>& ptrA_input,
+            const std::vector<double>& valA_input);
 
   void Run(Numeric& Num);
 
@@ -49,7 +49,7 @@ class Factorise {
   double time_assemble_children_C{};
   double time_factorise{};
   double time_total{};
-  mutable double check_error{};
+  std::vector<double> times_partialfact;
 };
 
 extern "C" void daxpy(int* n, double* alpha, double* dx, int* incx, double* dy,

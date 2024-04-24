@@ -9,10 +9,10 @@
 #include "metis.h"
 
 // parameters for supernode amalgamation
-const int start_thresh_relax = 256;
-const double upper_ratio_relax = 0.02;
-const double lower_ratio_relax = 0.01;
-const int max_iter_relax = 10;
+const int k_start_thresh_relax = 256;
+const double k_upper_ratio_relax = 0.02;
+const double k_lower_ratio_relax = 0.01;
+const int k_max_iter_relax = 10;
 
 // Class to perform the analyse phase of the factorization.
 // The final symbolic factorization is stored in an object of type Symbolic.
@@ -29,8 +29,8 @@ class Analyse {
   int nz{};
   double nzL{};
   double operations{};
-  double operations_norelax{};
-  double operations_assembly{};
+  double operationsNorelax{};
+  double operationsAssembly{};
 
   // Permutation and inverse permutation from Metis
   std::vector<int> perm{};
@@ -43,50 +43,46 @@ class Analyse {
   std::vector<int> postorder{};
 
   // number of entries in each column of L
-  std::vector<int> colcount{};
-  std::vector<int> rowcount{};
+  std::vector<int> colCount{};
 
   // sparsity pattern of supernodes of L
   std::vector<int> rowsLsn{};
   std::vector<int> ptrLsn{};
 
-  std::vector<int> sn_indices{};
+  std::vector<int> snIndices{};
 
   // fundamental supernodes information
-  int sn_count{};
+  int snCount{};
   int artificialNz{};
-  std::vector<int> sn_belong{};
-  std::vector<int> sn_start{};
-  std::vector<int> sn_parent{};
+  std::vector<int> snBelong{};
+  std::vector<int> snStart{};
+  std::vector<int> snParent{};
 
   // temporary storage for relaxing supernodes
-  std::vector<int> fake_nonzeros{};
+  std::vector<int> fakeNonzeros{};
   std::vector<int> mergedInto{};
-  int merged_sn{};
+  int mergedSn{};
 
   // relative indices of original columns wrt L columns
-  std::vector<int> relind_cols{};
+  std::vector<int> relindCols{};
 
   // relative indices of clique wrt parent
-  std::vector<std::vector<int>> relind_clique{};
+  std::vector<std::vector<int>> relindClique{};
 
-  // information about consecutive indices in relind_clique
+  // information about consecutive indices in relindClique
   std::vector<std::vector<int>> consecutiveSums{};
 
   void GetPermutation();
   void Permute(const std::vector<int>& iperm);
   void ETree();
   void Postorder();
-  void RowColCount();
   void ColCount();
   void FundamentalSupernodes();
   void RelaxSupernodes();
   void AfterRelaxSn();
-  void RelaxSupernodes_2();
-  void RelaxSupernodes_3();
   void SnPattern();
-  void RelativeInd_cols();
-  void RelativeInd_clique();
+  void RelativeIndCols();
+  void RelativeIndClique();
   bool Check() const;
 
   void PrintTimes() const;
@@ -108,6 +104,7 @@ class Analyse {
   double time_relind{};
   double time_total{};
 
+  // save metis iperm to be used by hsl codes for comparison
   std::vector<int> metis_order{};
 };
 
