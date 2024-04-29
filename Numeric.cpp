@@ -1,64 +1,92 @@
 #include "Numeric.h"
 
 void Numeric::Lsolve(std::vector<double>& x) const {
-  // Forward solve
-  // (row,col) indicate absolute indices within L.
-  // (i,j) indicate relative indices within supernode.
+  // Forward solve.
+  // Uses Blas 2
+
+  // variables for BLAS calls
+  char LL = 'L';
+  char NN = 'N';
+  int i_one = 1;
+  double d_one = 1.0;
+  double d_zero = 0.0;
 
   for (int sn = 0; sn < S->Sn(); ++sn) {
     // leading size of supernode
     int ldSn = S->Ptr(sn + 1) - S->Ptr(sn);
 
-    for (int col = S->SnStart(sn); col < S->SnStart(sn + 1); ++col) {
-      // relative index of column within supernode
-      int j = col - S->SnStart(sn);
+    // number of columns in the supernode
+    int sn_size = S->SnStart(sn + 1) - S->SnStart(sn);
 
-      // scale entry x_col
-      x[col] /= SnColumns[sn][j + ldSn * j];
+    // first colums of the supernode
+    int sn_start = S->SnStart(sn);
 
-      // index to access S->rows for this supernode
-      int startRow = S->Ptr(sn);
+    // size of clique of supernode
+    int clique_size = ldSn - sn_size;
 
-      // update x with entries in column j
-      for (int i = j + 1; i < ldSn; ++i) {
-        // absolute index of row to update
-        int row = S->Rows(startRow + i);
+    // index to access S->rows for this supernode
+    int start_row = S->Ptr(sn);
 
-        x[row] -= x[col] * SnColumns[sn][i + ldSn * j];
-      }
+    dtrsv(&LL, &NN, &NN, &sn_size, SnColumns[sn].data(), &ldSn, &x[sn_start],
+          &i_one);
+
+    // temporary space for gemv
+    std::vector<double> y(clique_size);
+
+    dgemv(&NN, &clique_size, &sn_size, &d_one, &SnColumns[sn][sn_size], &ldSn,
+          &x[sn_start], &i_one, &d_zero, y.data(), &i_one);
+
+    // scatter solution of gemv
+    for (int i = 0; i < clique_size; ++i) {
+      int row = S->Rows(start_row + sn_size + i);
+      x[row] -= y[i];
     }
   }
 }
 
 void Numeric::Ltsolve(std::vector<double>& x) const {
-  // Backward solve
-  // (row,col) indicate absolute indices within L.
-  // (i,j) indicate relative indices within supernode.
+  // Backward solve.
+  // Uses Blas 2
 
-  // go thourh the sn in reverse order
+  // variables for BLAS calls
+  char LL = 'L';
+  char NN = 'N';
+  char TT = 'T';
+  int i_one = 1;
+  double d_m_one = -1.0;
+  double d_one = 1.0;
+
+  // go through the sn in reverse order
   for (int sn = S->Sn() - 1; sn >= 0; --sn) {
     // leading size of supernode
     int ldSn = S->Ptr(sn + 1) - S->Ptr(sn);
 
-    // go through the columns of the sn in reverse order
-    for (int col = S->SnStart(sn + 1) - 1; col >= S->SnStart(sn); --col) {
-      // relative index of column within supernode
-      int j = col - S->SnStart(sn);
+    // number of columns in the supernode
+    int sn_size = S->SnStart(sn + 1) - S->SnStart(sn);
 
-      // index to access S->rows for this supernode
-      int startRow = S->Ptr(sn);
+    // first colums of the supernode
+    int sn_start = S->SnStart(sn);
 
-      // update x with entries in column j
-      for (int i = j + 1; i < ldSn; ++i) {
-        // absolute index of row to update
-        int row = S->Rows(startRow + i);
+    // size of clique of supernode
+    int clique_size = ldSn - sn_size;
 
-        x[col] -= x[row] * SnColumns[sn][i + ldSn * j];
-      }
+    // index to access S->rows for this supernode
+    int start_row = S->Ptr(sn);
 
-      // scale entry x_col
-      x[col] /= SnColumns[sn][j + ldSn * j];
+    // temporary space for gemv
+    std::vector<double> y(clique_size);
+
+    // scatter entries into y
+    for (int i = 0; i < clique_size; ++i) {
+      int row = S->Rows(start_row + sn_size + i);
+      y[i] = x[row];
     }
+
+    dgemv(&TT, &clique_size, &sn_size, &d_m_one, &SnColumns[sn][sn_size], &ldSn,
+          y.data(), &i_one, &d_one, &x[sn_start], &i_one);
+
+    dtrsv(&LL, &TT, &NN, &sn_size, SnColumns[sn].data(), &ldSn, &x[sn_start],
+          &i_one);
   }
 }
 

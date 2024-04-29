@@ -71,5 +71,5 @@ $(c_objects): $(objdir)/%.o: %.c
 .PHONY : clean
 clean: 
 	rm $(objdir)/*.o
-	rm $(binary_name)
 	rm $(objdir)/*.d
+	rm $(binary_name)

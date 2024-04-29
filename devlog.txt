@@ -578,5 +578,17 @@ Small bug when computing the density, n * n was overflowing for large matrix.
 ---
 
 *****
+29 Apr 2024
+I changed the solve routines to use BLAS 2.
+I moved all the Blas declarations in a single file.
+Eventually, the columns may need to be stored in packed format. 
+I am not sure how to do the forward and back solve in packed format, since tpsv does not have a 'leading dimension' argument.
+Probably the hybrid storage format allows to do something clever about that.
+---
+
+*****
 To do:
 - postorder of supernodal tree, to optimize stack size
+- switch to clique stored in packed format:
+  . assembly into clique uses packed format indexing
+  . clique is packed after partial factorization

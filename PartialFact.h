@@ -1,20 +1,30 @@
-#ifndef PARTIALFACT_H
-#define PARTIALFACT_H
+#ifndef PARTIAL_FACT_H
+#define PARTIAL_FACT_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <time.h>
+#include "Blas_declaration.h"
 
-int PartialFactPosLarge(int n, int k, double* A, int lda, double* B, int ldb,
-                          double* times);
-int PartialFactPosSmall(int n, int k, double* A, int lda, double* B, int ldb);
-int PartialFactIndLarge(int n, int k, double* A, int lda, double* B, int ldb);
-int PartialFactIndSmall(int n, int k, double* A, int lda, double* B, int ldb);
-
-#ifdef __cplusplus
+double GetTime() {
+  struct timespec now;
+  clock_gettime(CLOCK_REALTIME, &now);
+  return now.tv_sec + now.tv_nsec * 1e-9;
 }
-#endif
 
-enum times_ind { t_dtrsm, t_dsyrk, t_dgemm, t_fact, t_size };
+#define max(i, j) ((i) >= (j) ? (i) : (j))
+#define min(i, j) ((i) >= (j) ? (j) : (i))
+
+// block size
+const int nb = 256;
+
+// variables for BLAS calls
+double d_one = 1.0;
+double d_zero = 0.0;
+double d_m_one = -1.0;
+int i_one = 1;
+char LL = 'L';
+char NN = 'N';
+char RR = 'R';
+char TT = 'T';
+char UU = 'U';
 
 #endif

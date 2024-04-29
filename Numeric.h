@@ -5,6 +5,7 @@
 
 #include "Auxiliary.h"
 #include "Symbolic.h"
+#include "Blas_declaration.h"
 
 class Numeric {
   std::vector<std::vector<double>> SnColumns{};

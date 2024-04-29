@@ -281,10 +281,10 @@ void Factorise::ProcessSupernode(int sn) {
           int consecutive = S.ConsecutiveSums(child_sn, row);
 
           // use daxpy for summing consecutive entries
-          int iOne = 1;
-          double dOne = 1.0;
-          daxpy(&consecutive, &dOne, &child_clique[row + nc * col], &iOne,
-                &clique[i + ldc * j], &iOne);
+          int i_one = 1;
+          double d_one = 1.0;
+          daxpy(&consecutive, &d_one, &child_clique[row + nc * col], &i_one,
+                &clique[i + ldc * j], &i_one);
           row += consecutive;
         }
       }
@@ -407,13 +407,13 @@ void Factorise::PrintTimes() const {
          time_factorise / time_total * 100);
 
   printf("\t\t  |\n");
-  printf("\t\t  |   dtrsm:    %8.4f (%4.1f%%)\n", times_partialfact[t_dtrsm],
+  printf("\t\t  |   trsm:     %8.4f (%4.1f%%)\n", times_partialfact[t_dtrsm],
          times_partialfact[t_dtrsm] / time_factorise * 100);
-  printf("\t\t  |_  dsyrk:    %8.4f (%4.1f%%)\n", times_partialfact[t_dsyrk],
+  printf("\t\t  |_  syrk:     %8.4f (%4.1f%%)\n", times_partialfact[t_dsyrk],
          times_partialfact[t_dsyrk] / time_factorise * 100);
-  printf("\t\t      dgemm:    %8.4f (%4.1f%%)\n", times_partialfact[t_dgemm],
+  printf("\t\t      gemm:     %8.4f (%4.1f%%)\n", times_partialfact[t_dgemm],
          times_partialfact[t_dgemm] / time_factorise * 100);
-  printf("\t\t       fact:    %8.4f (%4.1f%%)\n", times_partialfact[t_fact],
+  printf("\t\t      fact:     %8.4f (%4.1f%%)\n", times_partialfact[t_fact],
          times_partialfact[t_fact] / time_factorise * 100);
 }
 

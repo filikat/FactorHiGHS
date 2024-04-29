@@ -2,8 +2,9 @@
 #define FACTORIZE_H
 
 #include "Auxiliary.h"
+#include "Blas_declaration.h"
 #include "Numeric.h"
-#include "PartialFact.h"
+#include "PartialFact_declaration.h"
 #include "Symbolic.h"
 
 class Factorise {
@@ -51,8 +52,5 @@ class Factorise {
   double time_total{};
   std::vector<double> times_partialfact;
 };
-
-extern "C" void daxpy(int* n, double* alpha, double* dx, int* incx, double* dy,
-                      int* incy);
 
 #endif

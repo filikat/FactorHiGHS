@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "PartialFactAux.h"
+#include "PartialFact_declaration.h"
 
 // ===========================================================================
 // Functions to compute dense partial Cholesky or LDL factorizations with
@@ -50,7 +50,7 @@
 // ===========================================================================
 
 int PartialFactPosSmall(int n, int k, double* restrict A, int lda,
-                           double* restrict B, int ldb) {
+                        double* restrict B, int ldb) {
   // ===========================================================================
   // Positive definite factorization without blocks.
   // BLAS calls: ddot, dgemv, dscal, dsyrk.
@@ -100,7 +100,7 @@ int PartialFactPosSmall(int n, int k, double* restrict A, int lda,
 }
 
 int PartialFactPosLarge(int n, int k, double* restrict A, int lda,
-                           double* restrict B, int ldb, double* times) {
+                        double* restrict B, int ldb, double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks.
   // BLAS calls: dsyrk, dgemm, dtrsm.
@@ -170,7 +170,7 @@ int PartialFactPosLarge(int n, int k, double* restrict A, int lda,
 }
 
 int PartialFactIndSmall(int n, int k, double* restrict A, int lda,
-                           double* restrict B, int ldb) {
+                        double* restrict B, int ldb) {
   // ===========================================================================
   // Infedinite factorization without blocks.
   // BLAS calls: ddot, dgemv, dscal, dcopy, dgemm.
@@ -240,7 +240,7 @@ int PartialFactIndSmall(int n, int k, double* restrict A, int lda,
 }
 
 int PartialFactIndLarge(int n, int k, double* restrict A, int lda,
-                           double* restrict B, int ldb) {
+                        double* restrict B, int ldb) {
   // ===========================================================================
   // Indefinite factorization with blocks.
   // BLAS calls: dcopy, dscal, dgemm, dtrsm, dsyrk
