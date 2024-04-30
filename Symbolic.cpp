@@ -4,6 +4,8 @@
 
 void Symbolic::Print() const {
   printf("Symbolic factorisation:\n");
+  printf(" - type                 %s\n",
+         type == FactType::NormEq ? "Normal equations" : "Augmented system");
   printf(" - size                 %d\n", n);
   printf(" - nonzero entries      %.2e\n", (double)nz);
   printf(" - density              %.2f\n", ((double)nz / n) / n);
@@ -13,12 +15,13 @@ void Symbolic::Print() const {
   printf(" - largest front        %d\n", largestFront);
   printf(" - dense operations     %.2e\n", operations);
   printf(" - assembly operations  %.2e\n", assemblyOp);
-  printf(" - artificial nonzeros  %.2e (%2.1f%%)\n", (double)artificialNz,
+  printf(" - artificial nonzeros  %.2e (%4.1f%%)\n", (double)artificialNz,
          (double)artificialNz / nz * 100);
-  printf(" - artificial ops       %.2e (%2.1f%%)\n", artificialOp,
+  printf(" - artificial ops       %.2e (%4.1f%%)\n", artificialOp,
          artificialOp / operations * 100);
 }
 
+FactType Symbolic::Type() const { return type; }
 int Symbolic::Size() const { return n; }
 int Symbolic::Nz() const { return nz; }
 double Symbolic::Ops() const { return operations; }

@@ -6,7 +6,7 @@
 #include <stack>
 
 Analyse::Analyse(const std::vector<int>& rows_input,
-                 const std::vector<int>& ptr_input,
+                 const std::vector<int>& ptr_input, FactType type_input,
                  const std::vector<int>& order) {
   // Input the symmetric matrix to be analysed in CSC format.
   // row_ind contains the row indices.
@@ -17,6 +17,7 @@ Analyse::Analyse(const std::vector<int>& rows_input,
 
   n = ptr_input.size() - 1;
   nz = rows_input.size();
+  type = type_input;
 
   // Create upper triangular part
   rowsUpper.resize(nz);
@@ -479,18 +480,28 @@ void Analyse::RelaxSupernodes() {
       }
     }
 
-    int temp_art_nz{};
+    // compute total number of artificial nonzeros and artificial ops for this
+    // value of max_artificial_nz
+    double temp_art_nz{};
+    double temp_art_ops{};
     for (int sn = 0; sn < snCount; ++sn) {
       if (mergedInto[sn] == -1) {
         temp_art_nz += fakeNonzeros[sn];
+
+        double nn = sn_size[sn];
+        double cc = clique_size[sn];
+        temp_art_ops += (nn + cc) * (nn + cc) * nn - (nn + cc) * nn * (nn + 1) +
+                        nn * (nn + 1) * (2 * nn + 1) / 6;
       }
     }
+    temp_art_ops -= operationsNorelax;
 
-    // if enough fake nz have been added, stop.
-    double ratio_fake_nz = (double)temp_art_nz / (nzL + temp_art_nz);
+    // if enough fake nz or ops have been added, stop.
+    // double ratio_fake = temp_art_nz / (nzL + temp_art_nz);
+    double ratio_fake = temp_art_ops / (temp_art_ops + operationsNorelax);
 
     // try to find ratio in interval [0.01,0.02] using bisection
-    if (ratio_fake_nz < k_lower_ratio_relax) {
+    if (ratio_fake < k_lower_ratio_relax) {
       // ratio too small
       largest_below = max_artificial_nz;
       if (smallest_above == -1) {
@@ -498,7 +509,7 @@ void Analyse::RelaxSupernodes() {
       } else {
         max_artificial_nz = (largest_below + smallest_above) / 2;
       }
-    } else if (ratio_fake_nz > k_upper_ratio_relax) {
+    } else if (ratio_fake > k_upper_ratio_relax) {
       // ratio too large
       smallest_above = max_artificial_nz;
       if (largest_below == -1) {
@@ -996,6 +1007,7 @@ void Analyse::Run(Symbolic& S) {
   Check();
 
   // move relevant stuff into S
+  S.type = type;
   S.n = n;
   S.nz = nzL;
   S.fillin = (double)nzL / nz;

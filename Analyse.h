@@ -19,7 +19,6 @@ const int k_max_iter_relax = 10;
 class Analyse {
   bool ready = false;
 
- public:
   // Matrix to be factorized, stored in upper and lower triangular format
   std::vector<int> rowsUpper{};
   std::vector<int> ptrUpper{};
@@ -31,6 +30,7 @@ class Analyse {
   double operations{};
   double operationsNorelax{};
   double operationsAssembly{};
+  FactType type{};
 
   // Permutation and inverse permutation from Metis
   std::vector<int> perm{};
@@ -90,7 +90,7 @@ class Analyse {
  public:
   // Constructor: matrix must be in upper triangular format
   Analyse(const std::vector<int>& rows_input, const std::vector<int>& ptr_input,
-          const std::vector<int>& order = {});
+          FactType type_input, const std::vector<int>& order = {});
 
   // Run analyse phase and save the result in Symbolic object S
   void Run(Symbolic& S);

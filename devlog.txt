@@ -587,6 +587,24 @@ Probably the hybrid storage format allows to do something clever about that.
 ---
 
 *****
+30 Apr 2024
+I implemented the indefinite factorization as well.
+For now, without any regularization, so that it may break down.
+I put very large positive and negative entries on the diagonal to avoid it.
+There was a small bug, very hard to notice.
+When I do the double call to dsyrk to update the Schur complement, I was doing both of them with beta=0.0.
+However, the first call was clearing the uninitialized clique. The second call was clearing the result of the first call...
+Took a while to notice.
+Now everything seems to work.
+I implemented the Dsolve and put controls so that things are done properly for normal equations and augmented system.
+For augmented system I can only compare with MA86 and MA57. The error is small, as for the normal equations.
+---
+I implemented the relaxing of supernodes to stop when the number of fake ops is between 1% and 2%, instead of the number of fake nz.
+There are small differences, but it looks to be doing better.
+I will leave both of them to test later.
+---
+
+*****
 To do:
 - postorder of supernodal tree, to optimize stack size
 - switch to clique stored in packed format:

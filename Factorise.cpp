@@ -233,8 +233,13 @@ void Factorise::ProcessSupernode(int sn) {
   // Partial factorisation
   // ===================================================
   clock.start();
-  PartialFactPosLarge(ldf, sn_size, frontal.data(), ldf, clique, ldc,
-                      times_partialfact.data());
+  if (S.Type() == FactType::NormEq) {
+    PartialFactPosLarge(ldf, sn_size, frontal.data(), ldf, clique, ldc,
+                        times_partialfact.data());
+  } else {
+    PartialFactIndLarge(ldf, sn_size, frontal.data(), ldf, clique, ldc,
+                        times_partialfact.data());
+  }
   time_factorise += clock.stop();
 
   // ===================================================
@@ -436,7 +441,7 @@ void Factorise::Run(Numeric& Num) {
 
   PrintTimes();
 
-  Check();
+  if (S.Type() == FactType::NormEq) Check();
 
   // move factorisation to numerical object
   Num.SnColumns = std::move(SnColumns);

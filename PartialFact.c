@@ -240,19 +240,11 @@ int PartialFactIndSmall(int n, int k, double* restrict A, int lda,
 }
 
 int PartialFactIndLarge(int n, int k, double* restrict A, int lda,
-                        double* restrict B, int ldb) {
+                        double* restrict B, int ldb, double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks.
   // BLAS calls: dcopy, dscal, dgemm, dtrsm, dsyrk
   // ===========================================================================
-
-  double t0, t1, t2, t3, t4, t5, t6, t7;
-  double t_copy = 0.0;
-  double t_update = 0.0;
-  double t_fact = 0.0;
-  double t_cols = 0.0;
-  double t_schur_copy = 0.0;
-  double t_schur = 0.0;
 
   // check input
   if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
@@ -273,7 +265,6 @@ int PartialFactIndLarge(int n, int k, double* restrict A, int lda,
     int K = j;
     int M = n - j - jb;
 
-    t0 = GetTime();
     // create temporary copy of block of rows, multiplied by pivots
     double* temp = malloc(j * jb * sizeof(double));
     int ldt = jb;
@@ -282,27 +273,32 @@ int PartialFactIndLarge(int n, int k, double* restrict A, int lda,
       dscal(&N, &A[i + i * lda], &temp[i * ldt], &i_one);
     }
 
-    t1 = GetTime();
     // update diagonal block using dgemm
+    double t0 = GetTime();
     dgemm(&NN, &TT, &jb, &jb, &j, &d_m_one, &A[j], &lda, temp, &ldt, &d_one,
           &A[j + lda * j], &lda);
+    times[t_dgemm] += GetTime() - t0;
 
-    t2 = GetTime();
     // factorize diagonal block
+    t0 = GetTime();
     int info = PartialFactIndSmall(N, N, &A[j + lda * j], lda, NULL, 0);
+    times[t_fact] += GetTime() - t0;
     if (info != 0) {
       return info + j - 1;
     }
 
-    t3 = GetTime();
     if (j + jb < n) {
       // update block of columns
+      t0 = GetTime();
       dgemm(&NN, &TT, &M, &N, &K, &d_m_one, &A[j + jb], &lda, temp, &ldt,
             &d_one, &A[j + jb + lda * j], &lda);
+      times[t_dgemm] += GetTime() - t0;
 
       // solve block of columns with L
+      t0 = GetTime();
       dtrsm(&RR, &LL, &TT, &UU, &M, &N, &d_one, &A[j + lda * j], &lda,
             &A[j + jb + lda * j], &lda);
+      times[t_dtrsm] += GetTime() - t0;
 
       // solve block of columns with D
       for (int i = 0; i < jb; ++i) {
@@ -310,12 +306,6 @@ int PartialFactIndLarge(int n, int k, double* restrict A, int lda,
         dscal(&M, &coeff, &A[j + jb + lda * (j + i)], &i_one);
       }
     }
-    t4 = GetTime();
-
-    t_copy += t1 - t0;
-    t_update += t2 - t1;
-    t_fact += t3 - t2;
-    t_cols += t4 - t3;
 
     free(temp);
   }
@@ -324,7 +314,6 @@ int PartialFactIndLarge(int n, int k, double* restrict A, int lda,
   if (k < n) {
     int N = n - k;
 
-    t5 = GetTime();
     // count number of positive and negative pivots
     int pos_pivot = 0;
     int neg_pivot = 0;
@@ -358,32 +347,21 @@ int PartialFactIndLarge(int n, int k, double* restrict A, int lda,
         ++start_neg;
       }
     }
-    t6 = GetTime();
 
     // Update schur complement by subtracting contribution of positive columns
     // and adding contribution of negative columns.
     // In this way, I can use dsyrk instead of dgemm and avoid updating the full
     // square schur complement.
+    // First call uses beta = 0.0, to clear content of B.
+    // Second call uses beta = 1.0, to not clear the result of the first call.
+    double t0 = GetTime();
     dsyrk(&LL, &NN, &N, &pos_pivot, &d_m_one, temp_pos, &ldt, &d_zero, B, &ldb);
-    dsyrk(&LL, &NN, &N, &neg_pivot, &d_one, temp_neg, &ldt, &d_zero, B, &ldb);
-    t7 = GetTime();
-
-    t_schur_copy += t6 - t5;
-    t_schur += t7 - t6;
+    dsyrk(&LL, &NN, &N, &neg_pivot, &d_one, temp_neg, &ldt, &d_one, B, &ldb);
+    times[t_dsyrk] += GetTime() - t0;
 
     free(temp_pos);
     free(temp_neg);
   }
-
-  printf("%%%%%%%%%%%%%%%%%%%%%%\n");
-  printf("Time profile ind large:\n");
-  printf("%15s %12.6f\n", "Time copy", t_copy);
-  printf("%15s %12.6f\n", "Time update", t_update);
-  printf("%15s %12.6f\n", "Time fact", t_fact);
-  printf("%15s %12.6f\n", "Time cols", t_cols);
-  printf("%15s %12.6f\n", "Time schur copy", t_schur_copy);
-  printf("%15s %12.6f\n", "Time schur", t_schur);
-  printf("%%%%%%%%%%%%%%%%%%%%%%\n\n");
 
   return 0;
 }

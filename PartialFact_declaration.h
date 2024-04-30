@@ -8,7 +8,8 @@ extern "C" {
 int PartialFactPosLarge(int n, int k, double* A, int lda, double* B, int ldb,
                         double* times);
 int PartialFactPosSmall(int n, int k, double* A, int lda, double* B, int ldb);
-int PartialFactIndLarge(int n, int k, double* A, int lda, double* B, int ldb);
+int PartialFactIndLarge(int n, int k, double* A, int lda, double* B, int ldb,
+                        double* times);
 int PartialFactIndSmall(int n, int k, double* A, int lda, double* B, int ldb);
 
 #ifdef __cplusplus

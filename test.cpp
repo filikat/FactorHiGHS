@@ -145,7 +145,7 @@ int computeAThetaAT(const HighsSparseMatrix& matrix,
 
 int main(int argc, char** argv) {
   if (argc < 6) {
-    std::cerr << "Wrong input: ./fact pb normEq(0-1) HSL(0-1) Metis(0-1) "
+    std::cerr << "Wrong input: ./fact pb augSys(0-1) HSL(0-1) Metis(0-1) "
                  "print(0-1)\n";
     return 1;
   }
@@ -163,7 +163,7 @@ int main(int argc, char** argv) {
   assert(status == HighsStatus::kOk);
   const HighsLp lp = highs.getPresolvedLp();
 
-  int type = atoi(argv[2]);
+  FactType type = (FactType)atoi(argv[2]);
 
   int nA = lp.a_matrix_.num_col_;
   int mA = lp.a_matrix_.num_row_;
@@ -179,7 +179,7 @@ int main(int argc, char** argv) {
   int n;
   int nz;
 
-  if (type == 0) {
+  if (type == FactType::AugSys) {
     // Augmented system, lower triangular
 
     const HighsSparseMatrix& A = lp.a_matrix_;
@@ -207,7 +207,7 @@ int main(int argc, char** argv) {
     // 2,2 block
     for (int i = 0; i < mA; ++i) {
       rowsLower[next] = nA + i;
-      valLower[next++] = nA * 1000;
+      valLower[next++] = -nA * 1000;
       ptrLower[nA + i + 1] = ptrLower[nA + i] + 1;
     }
 
@@ -273,7 +273,7 @@ int main(int argc, char** argv) {
   // Symbolic factorisation
   // ===========================================================================
   Symbolic S;
-  Analyse An(rowsLower, ptrLower, order_to_use);
+  Analyse An(rowsLower, ptrLower, type, order_to_use);
   An.Run(S);
   S.Print();
 
@@ -312,7 +312,7 @@ int main(int argc, char** argv) {
   // Factorise with MA86
   // ===========================================================================
   if (atoi(argv[3]) == 1) {
-    printf("----------------------------------------------------\n");
+    printf("\n----------------------------------------------------\n");
     printf("\t\tHSL comparison\n");
     printf("----------------------------------------------------\n\n");
   }
@@ -337,8 +337,8 @@ int main(int argc, char** argv) {
     if (ma86_data.info.flag < 0) std::cerr << "Error with ma86 analyse\n";
     ma86_time_analyse = clock.stop();
 
-    printf("MA86 nonzeros %.0f\n", (double)ma86_data.info.num_factor);
-    printf("MA86 ops      %.0f\n", (double)ma86_data.info.num_flops);
+    printf("MA86 nonzeros %.2e\n", (double)ma86_data.info.num_factor);
+    printf("MA86 ops      %.2e\n", (double)ma86_data.info.num_flops);
 
     clock.start();
     wrapper_ma86_factor(n, ptrLower.data(), rowsLower.data(), valLower.data(),
@@ -374,7 +374,7 @@ int main(int argc, char** argv) {
   double ma87_solNorm2{};
   double ma87_time_analyse{};
   double ma87_time_factorise{};
-  if (atoi(argv[3]) == 1) {
+  if (atoi(argv[3]) == 1 && S.Type() == FactType::NormEq) {
     std::vector<double> solMa87(rhs);
 
     MA87Data ma87_data;
@@ -390,8 +390,8 @@ int main(int argc, char** argv) {
     if (ma87_data.info.flag < 0) std::cerr << "Error with ma87 analyse\n";
     ma87_time_analyse = clock.stop();
 
-    printf("MA87 nonzeros %.0f\n", (double)ma87_data.info.num_factor);
-    printf("MA87 ops      %.0f\n", (double)ma87_data.info.num_flops);
+    printf("MA87 nonzeros %.2e\n", (double)ma87_data.info.num_factor);
+    printf("MA87 ops      %.2e\n", (double)ma87_data.info.num_flops);
 
     clock.start();
     wrapper_ma87_factor(n, ptrLower.data(), rowsLower.data(), valLower.data(),
@@ -428,7 +428,7 @@ int main(int argc, char** argv) {
   double ma97_time_analyse{};
   double ma97_time_factorise{};
   MA97Data ma97_data;
-  if (atoi(argv[3]) == 1) {
+  if (atoi(argv[3]) == 1 && S.Type() == FactType::NormEq) {
     std::vector<double> solMa97(rhs);
 
     Clock clock;
@@ -446,8 +446,8 @@ int main(int argc, char** argv) {
     if (ma97_data.info.flag < 0) std::cerr << "Error with ma97 analyse\n";
     ma97_time_analyse = clock.stop();
 
-    printf("MA97 nonzeros %.0f\n", (double)ma97_data.info.num_factor);
-    printf("MA97 ops      %.0f\n", (double)ma97_data.info.num_flops);
+    printf("MA97 nonzeros %.2e\n", (double)ma97_data.info.num_factor);
+    printf("MA97 ops      %.2e\n", (double)ma97_data.info.num_flops);
 
     clock.start();
     wrapper_ma97_factor(n, ptrLower.data(), rowsLower.data(), valLower.data(),
@@ -513,7 +513,7 @@ int main(int argc, char** argv) {
     if (ma57_data.ainfo.flag < 0) std::cerr << "Error with ma57 analyse\n";
     ma57_time_analyse = clock.stop();
 
-    printf("MA57 ops      %.0f\n", ma57_data.ainfo.opse);
+    printf("MA57 ops      %.2e\n", ma57_data.ainfo.opse);
 
     clock.start();
     wrapper_ma57_factorize(n, nz, rowsLower.data(), colsLower.data(),

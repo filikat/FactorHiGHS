@@ -20,6 +20,9 @@ class Numeric {
   // Backward solve with single right hand side
   void Ltsolve(std::vector<double>& x) const;
 
+  // Diagonal solve for LDL
+  void Dsolve(std::vector<double>& x) const;
+
   // Full solve
   void Solve(std::vector<double>& x) const;
 };

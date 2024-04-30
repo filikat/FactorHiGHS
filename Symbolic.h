@@ -3,7 +3,12 @@
 
 #include <vector>
 
+enum FactType { NormEq, AugSys };
+
 class Symbolic {
+  // Type of factorization
+  FactType type{};
+
   // Size of the matrix L
   int n{};
 
@@ -84,6 +89,7 @@ class Symbolic {
   void Print() const;
 
   // provide const access to symbolic factorization
+  FactType Type() const;
   int Size() const;
   int Nz() const;
   double Ops() const;
