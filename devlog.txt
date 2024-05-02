@@ -605,6 +605,29 @@ I will leave both of them to test later.
 ---
 
 *****
+1 May 2024
+I found a better way of using the hybrid packed format.
+I can pack the matrix using dcopy and I can leave it packed, doing the solve in a different way.
+A couple of things to adapt. I need to figure out how to compute the Schur complement after the partial factorization efficiently in this format.
+---
+
+*****
+2 May 2024
+I checked the old function that uses lower-block-hybrid format to perform the factorization. 
+It seems to work.
+I added the partial factorization.
+I need quite a large buffer to compute the Schur complement in full format, before packing at the end.
+There may be a better way of doing this, blocking the Schur complement and using a smaller buffer, but for now it works.
+I changed a bit the names of the dense factorization functions.
+I will need to figure out how to do the same in the indefinite case.
+It shouldn't be too difficult.
+---
+Next, I need to have a control on whether to use packed or full format in the sparse code.
+I need to implement the assembly for packed matrices.
+I need to convert to lower-block-hybrid format the frontal matrix and switch to the correct solve.
+---
+
+*****
 To do:
 - postorder of supernodal tree, to optimize stack size
 - switch to clique stored in packed format:

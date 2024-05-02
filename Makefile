@@ -14,7 +14,7 @@ cpp_sources = \
 
 c_sources = \
 	hsl_wrapper.c \
-	PartialFact.c 
+	DenseFact.c 
 
 # binary file name
 binary_name = fact

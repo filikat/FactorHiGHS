@@ -1,5 +1,5 @@
-#ifndef PARTIAL_FACT_H
-#define PARTIAL_FACT_H
+#ifndef DENSE_FACT_H
+#define DENSE_FACT_H
 
 #include <time.h>
 #include "Blas_declaration.h"

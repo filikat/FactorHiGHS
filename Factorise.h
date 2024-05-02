@@ -4,7 +4,7 @@
 #include "Auxiliary.h"
 #include "Blas_declaration.h"
 #include "Numeric.h"
-#include "PartialFact_declaration.h"
+#include "DenseFact_declaration.h"
 #include "Symbolic.h"
 
 class Factorise {
