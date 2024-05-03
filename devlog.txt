@@ -628,8 +628,14 @@ I need to convert to lower-block-hybrid format the frontal matrix and switch to 
 ---
 
 *****
+3 May 2024
+I started adding the blocked-hybrid factorization to the code, but I noticed that it was quite a bit slower.
+It looks like computing the Schur complement using multiple calls to dsyrk is not good.
+For the moment, I give up on this and only implement the packed cliques.
+The factorization is the same, but the clique is packed after being computed.
+This is quite slow, around 20% of the dense factorization time.
+---
+
+*****
 To do:
 - postorder of supernodal tree, to optimize stack size
-- switch to clique stored in packed format:
-  . assembly into clique uses packed format indexing
-  . clique is packed after partial factorization

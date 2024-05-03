@@ -2,7 +2,7 @@
 
 void Numeric::Lsolve(std::vector<double>& x) const {
   // Forward solve.
-  // Uses Blas 2
+  // Blas calls: dtrsv, dgemv
 
   // variables for BLAS calls
   char LL = 'L';
@@ -49,7 +49,7 @@ void Numeric::Lsolve(std::vector<double>& x) const {
 
 void Numeric::Ltsolve(std::vector<double>& x) const {
   // Backward solve.
-  // Uses Blas 2
+  // Blas calls: dgemv, dtrsv
 
   // variables for BLAS calls
   char LL = 'L';
@@ -97,6 +97,11 @@ void Numeric::Ltsolve(std::vector<double>& x) const {
 }
 
 void Numeric::Dsolve(std::vector<double>& x) const {
+  // Diagonal solve
+
+  // Dsolve performed only for augmented system
+  if (S->Type() == FactType::NormEq) return;
+
   for (int sn = 0; sn < S->Sn(); ++sn) {
     // leading size of supernode
     int ldSn = S->Ptr(sn + 1) - S->Ptr(sn);
@@ -116,7 +121,7 @@ void Numeric::Dsolve(std::vector<double>& x) const {
 void Numeric::Solve(std::vector<double>& x) const {
   PermuteVector(x, S->Perm());
   Lsolve(x);
-  if (S->Type() == FactType::AugSys) Dsolve(x);
+  Dsolve(x);
   Ltsolve(x);
   PermuteVector(x, S->Iperm());
 }

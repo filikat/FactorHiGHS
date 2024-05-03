@@ -3,11 +3,16 @@
 
 #include <vector>
 
+// Type of factorization:
+// normal equations or augmented system
 enum FactType { NormEq, AugSys };
 
 class Symbolic {
   // Type of factorization
   FactType type{};
+
+  // Packed or full format
+  bool packed = false;
 
   // Size of the matrix L
   int n{};
@@ -90,6 +95,7 @@ class Symbolic {
 
   // provide const access to symbolic factorization
   FactType Type() const;
+  bool Packed() const;
   int Size() const;
   int Nz() const;
   double Ops() const;

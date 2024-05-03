@@ -88,7 +88,7 @@ class Analyse {
   void PrintTimes() const;
 
  public:
-  // Constructor: matrix must be in upper triangular format
+  // Constructor: matrix must be in lower triangular format
   Analyse(const std::vector<int>& rows_input, const std::vector<int>& ptr_input,
           FactType type_input, const std::vector<int>& order = {});
 

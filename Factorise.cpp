@@ -147,7 +147,11 @@ void Factorise::ProcessSupernode(int sn) {
 
   // clique need not be initialized to zero, provided that the assembly is done
   // properly
-  if (ldc > 0) clique = new double[ldc * ldc];
+  if (S.Packed()) {
+    if (ldc > 0) clique = new double[ldc * (ldc + 1) / 2];
+  } else {
+    if (ldc > 0) clique = new double[ldc * ldc];
+  }
 
   time_prepare += clock.stop();
 
@@ -213,8 +217,14 @@ void Factorise::ProcessSupernode(int sn) {
           // use daxpy for summing consecutive entries
           int i_one = 1;
           double d_one = 1.0;
-          daxpy(&consecutive, &d_one, &child_clique[row + nc * col], &i_one,
-                &frontal[i + ldf * j], &i_one);
+          if (S.Packed()) {
+            daxpy(&consecutive, &d_one,
+                  &child_clique[row + nc * col - col * (col + 1) / 2], &i_one,
+                  &frontal[i + ldf * j], &i_one);
+          } else {
+            daxpy(&consecutive, &d_one, &child_clique[row + nc * col], &i_one,
+                  &frontal[i + ldf * j], &i_one);
+          }
           row += consecutive;
         }
       }
@@ -233,13 +243,41 @@ void Factorise::ProcessSupernode(int sn) {
   // Partial factorisation
   // ===================================================
   clock.start();
-  if (S.Type() == FactType::NormEq) {
-    PartialFactPosLarge(ldf, sn_size, frontal.data(), ldf, clique, ldc,
-                        times_partialfact.data());
+  if (S.Packed()) {
+    // uninitialized temporary full format clique
+    double* temp_clique = new double[ldc * ldc];
+
+    if (S.Type() == FactType::NormEq) {
+      PartialFactPosLarge(ldf, sn_size, frontal.data(), ldf, temp_clique, ldc,
+                          times_partialfact.data());
+    } else {
+      PartialFactIndLarge(ldf, sn_size, frontal.data(), ldf, temp_clique, ldc,
+                          times_partialfact.data());
+    }
+
+    Clock clock2;
+    clock2.start();
+    // pack temp_clique into clique
+    int pos{};
+    for (int j = 0; j < ldc; ++j) {
+      int nn = ldc - j;
+      int i_one = 1;
+      dcopy(&nn, &temp_clique[j + j * ldc], &i_one, &clique[pos], &i_one);
+      pos += nn;
+    }
+    delete[] temp_clique;
+    times_partialfact[t_dcopy] += clock2.stop();
+
   } else {
-    PartialFactIndLarge(ldf, sn_size, frontal.data(), ldf, clique, ldc,
-                        times_partialfact.data());
+    if (S.Type() == FactType::NormEq) {
+      PartialFactPosLarge(ldf, sn_size, frontal.data(), ldf, clique, ldc,
+                          times_partialfact.data());
+    } else {
+      PartialFactIndLarge(ldf, sn_size, frontal.data(), ldf, clique, ldc,
+                          times_partialfact.data());
+    }
   }
+
   time_factorise += clock.stop();
 
   // ===================================================
@@ -288,8 +326,14 @@ void Factorise::ProcessSupernode(int sn) {
           // use daxpy for summing consecutive entries
           int i_one = 1;
           double d_one = 1.0;
-          daxpy(&consecutive, &d_one, &child_clique[row + nc * col], &i_one,
-                &clique[i + ldc * j], &i_one);
+          if (S.Packed()) {
+            daxpy(&consecutive, &d_one,
+                  &child_clique[row + nc * col - col * (col + 1) / 2], &i_one,
+                  &clique[i + ldc * j - j * (j + 1) / 2], &i_one);
+          } else {
+            daxpy(&consecutive, &d_one, &child_clique[row + nc * col], &i_one,
+                  &clique[i + ldc * j], &i_one);
+          }
           row += consecutive;
         }
       }
@@ -313,6 +357,11 @@ bool Factorise::Check() const {
   // algebra operations.
   // Return true if check is successful, or if matrix is too large.
   // To be used for debug.
+
+  if (S.Type() == FactType::AugSys) {
+    printf("\n==> Dense check not available\n");
+    return true;
+  }
 
   if (n > 5000) {
     printf("\n==> Matrix is too large for dense check\n\n");
@@ -420,6 +469,8 @@ void Factorise::PrintTimes() const {
          times_partialfact[t_dgemm] / time_factorise * 100);
   printf("\t\t      fact:     %8.4f (%4.1f%%)\n", times_partialfact[t_fact],
          times_partialfact[t_fact] / time_factorise * 100);
+  printf("\t\t      copy:     %8.4f (%4.1f%%)\n", times_partialfact[t_dcopy],
+         times_partialfact[t_dcopy] / time_factorise * 100);
 }
 
 void Factorise::Run(Numeric& Num) {
@@ -441,7 +492,7 @@ void Factorise::Run(Numeric& Num) {
 
   PrintTimes();
 
-  if (S.Type() == FactType::NormEq) Check();
+  Check();
 
   // move factorisation to numerical object
   Num.SnColumns = std::move(SnColumns);

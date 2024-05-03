@@ -367,7 +367,7 @@ int PartialFactIndLarge(int n, int k, double* restrict A, int lda,
 }
 
 int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
-                         double* restrict B) {
+                         double* restrict B, double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks in lower-blocked-hybrid
   // format. A should be in lower-blocked-hybrid format. Schur complement is
@@ -407,6 +407,10 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
     // jb is the number of columns
     int jb = min(nb, k - nb * j);
 
+    // size of current block could be smaller than diag_size and full_size
+    int this_diag_size = jb * (jb + 1) / 2;
+    int this_full_size = nb * jb;
+
     // full copy of diagonal block by rows
     double* D = malloc(jb * jb * sizeof(double));
     int offset = 0;
@@ -418,10 +422,9 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
 
     // number of rows left below block j
     int M = n - nb * j - jb;
-    printf("%d\n", M);
 
     // starting position of block of columns below diagonal block j
-    int Lij_pos = diag_start[j] + jb * (jb + 1) / 2;
+    int Lij_pos = diag_start[j] + this_diag_size;
 
     // update diagonal block and block of columns
     for (int k = 0; k < j; ++k) {
@@ -429,24 +432,32 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
       int Ljk_pos = diag_start[k] + diag_size;
       if (j > k + 1) Ljk_pos += full_size * (j - k - 1);
 
+      double t0 = GetTime();
       dsyrk(&UU, &TT, &jb, &nb, &d_m_one, &A[Ljk_pos], &nb, &d_one, D, &jb);
+      times[t_dsyrk] += GetTime() - t0;
 
       if (M > 0) {
-        int Lik_pos = Ljk_pos + nb * jb;
+        int Lik_pos = Ljk_pos + this_full_size;
+        t0 = GetTime();
         dgemm(&TT, &NN, &jb, &M, &nb, &d_m_one, &A[Ljk_pos], &nb, &A[Lik_pos],
               &nb, &d_one, &A[Lij_pos], &jb);
+        times[t_dgemm] += GetTime() - t0;
       }
     }
 
     // factorize diagonal block
+    double t0 = GetTime();
     int info = FactPosSmall('U', jb, D, jb);
+    times[t_fact] += GetTime() - t0;
     if (info != 0) {
       return info + j - 1;
     }
 
     if (M > 0) {
       // solve block of columns with diagonal block
+      t0 = GetTime();
       dtrsm(&LL, &UU, &TT, &NN, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
+      times[t_dtrsm] += GetTime() - t0;
     }
 
     // put D back into packed format
@@ -468,21 +479,25 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
     double* Sbuf = malloc(ns * ns * sizeof(double));
 
     // size of last full block (may be smaller than full_size)
-    int size_last = k % nb;
-    int last_full_size = size_last == 0 ? full_size : size_last * nb;
+    int ncol_last = k % nb;
+    int last_full_size = ncol_last == 0 ? full_size : ncol_last * nb;
 
     double beta = 0.0;
     for (int j = 0; j < n_blocks; ++j) {
       // jb is the number of columns
       int jb = min(nb, k - nb * j);
 
+      int this_diag_size = jb * (jb + 1) / 2;
+
       // starting position of block that contributes to Schur complement
-      int Lij_pos = diag_start[j] + jb * (jb + 1) / 2;
+      int Lij_pos = diag_start[j] + this_diag_size;
       if (j < n_blocks - 1) {
         Lij_pos += (n_blocks - j - 2) * full_size + last_full_size;
       }
 
+      double t0 = GetTime();
       dsyrk(&UU, &TT, &ns, &jb, &d_m_one, &A[Lij_pos], &jb, &beta, Sbuf, &ns);
+      times[t_dsyrk] += GetTime() - t0;
 
       // beta is 0 for the first time (to avoid initializing S) and 1 for the
       // next calls
@@ -491,11 +506,13 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
 
     // pack S into B
     int startB = 0;
+    double t0 = GetTime();
     for (int i = 0; i < ns; ++i) {
       int row_length = ns - i;
       dcopy(&row_length, &Sbuf[i + i * ns], &ns, &B[startB], &i_one);
       startB += row_length;
     }
+    times[t_dcopy] += GetTime() - t0;
 
     free(Sbuf);
   }
@@ -505,7 +522,7 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
   return 0;
 }
 
-void PackedToHybrid(double* A, int nrow, int ncol, int nb) {
+void PackedToHybrid(double* restrict A, int nrow, int ncol, int nb) {
   // ===========================================================================
   // Takes a matrix in lower-packed format, with nrow rows.
   // Converts the first ncol columns into lower-blocked-hybrid format, with

@@ -15,9 +15,9 @@ int main() {
   // ===========================================================================
   // Set up
   // ===========================================================================
-  int nb = 4;
-  int nrow = 11;
-  int ncol = 7;
+  int nb = 256;
+  int nrow = 5000;
+  int ncol = 400;
 
   int l = nrow * ncol - ncol * (ncol - 1) / 2;
 
@@ -53,21 +53,30 @@ int main() {
     }
   }
 
+  auto t0 = std::chrono::high_resolution_clock::now();
   PackedToHybrid(A.data(), nrow, ncol, nb);
+  auto t1 = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> d01 = t1 - t0;
+  printf("%f\n\n", d01.count());
 
-  for (double d : A) printf("%.0f ", d);
-  printf("\n");
+  // for (double d : A) printf("%.0f ", d);
+  // printf("\n");
 
   int lb = nrow - ncol;
   lb = lb * (lb + 1) / 2;
   std::vector<double> B(lb);
 
-  PartialFactPosPacked(nrow, ncol, A.data(), nb, B.data());
+  std::vector<double> times(times_ind::t_size);
+  PartialFactPosPacked(nrow, ncol, A.data(), nb, B.data(), times.data());
 
-  for (double d: B){
-    printf("%f ",d);
+  for (double t : times) {
+    printf("%f\n", t);
   }
-  printf("\n");
+
+  /*for (double d : B) {
+    printf("%f ", d);
+  }
+  printf("\n");*/
 
   /*
     //

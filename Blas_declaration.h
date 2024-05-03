@@ -14,10 +14,12 @@ double ddot(int* n, double* dx, int* incx, double* dy, int* incy);
 void dscal(int* n, double* da, double* dx, int* incx);
 
 // level 2
-void dgemv(char* trans, int* m, int* n, double* alpha, const double* A, int* lda,
-           double* x, int* incx, double* beta, double* y, int* incy);
-void dtrsv(char* uplo, char* trans, char* diag, int* n, const double* A, int* lda,
-           double* x, int* incx);
+void dgemv(char* trans, int* m, int* n, double* alpha, const double* A,
+           int* lda, double* x, int* incx, double* beta, double* y, int* incy);
+void dtpsv(char* uplo, char* trans, char* diag, int* n, const double* ap, double* x,
+           int* incx);
+void dtrsv(char* uplo, char* trans, char* diag, int* n, const double* A,
+           int* lda, double* x, int* incx);
 
 // level 3
 void dgemm(char* transa, char* transb, int* m, int* n, int* k, double* alpha,

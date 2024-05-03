@@ -16,7 +16,8 @@ int PartialFactIndLarge(int n, int k, double* A, int lda, double* B, int ldb,
                         double* times);
 
 // dense partial factorization, in blocked-hybrid format
-int PartialFactPosPacked(int n, int k, double* A, int nb, double* B);
+int PartialFactPosPacked(int n, int k, double* A, int nb, double* B,
+                         double* times);
 
 // function to convert A from lower packed, to lower-blocked-hybrid format
 void PackedToHybrid(double* A, int nrow, int ncol, int nb);
@@ -25,6 +26,6 @@ void PackedToHybrid(double* A, int nrow, int ncol, int nb);
 }
 #endif
 
-enum times_ind { t_dtrsm, t_dsyrk, t_dgemm, t_fact, t_size };
+enum times_ind { t_dtrsm, t_dsyrk, t_dgemm, t_fact, t_dcopy, t_size };
 
 #endif
