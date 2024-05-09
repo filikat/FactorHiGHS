@@ -5,14 +5,15 @@
 
 // Type of factorization:
 // normal equations or augmented system
-enum FactType { NormEq, AugSys };
+enum class FactType { NormEq, AugSys };
+enum class PackType { Full, Packed, Hybrid };
 
 class Symbolic {
   // Type of factorization
   FactType type{};
 
   // Packed or full format
-  bool packed = false;
+  PackType packed = PackType::Hybrid;
 
   // Size of the matrix L
   int n{};
@@ -95,7 +96,7 @@ class Symbolic {
 
   // provide const access to symbolic factorization
   FactType Type() const;
-  bool Packed() const;
+  PackType Packed() const;
   int Size() const;
   int Nz() const;
   double Ops() const;

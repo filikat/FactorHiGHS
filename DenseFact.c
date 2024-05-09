@@ -388,7 +388,7 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
   int n_blocks = (k - 1) / nb + 1;
 
   // start of diagonal blocks
-  int* diag_start = (int*)malloc(n_blocks * sizeof(double));
+  int* diag_start = malloc(n_blocks * sizeof(double));
   diag_start[0] = 0;
   for (int i = 1; i < n_blocks; ++i) {
     diag_start[i] =
@@ -402,6 +402,11 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
   // variables for blas calls
   int info;
 
+  // buffer for full-format diagonal blocks
+  double* D = malloc(nb * nb * sizeof(double));
+
+  double t0;
+
   // j is the index of the block column
   for (int j = 0; j < n_blocks; ++j) {
     // jb is the number of columns
@@ -411,14 +416,15 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
     int this_diag_size = jb * (jb + 1) / 2;
     int this_full_size = nb * jb;
 
-    // full copy of diagonal block by rows
-    double* D = malloc(jb * jb * sizeof(double));
+    // full copy of diagonal block by rows, in D
+    t0 = GetTime();
     int offset = 0;
-    for (int ii = 0; ii < jb; ++ii) {
-      for (int jj = 0; jj <= ii; ++jj) {
-        D[ii * jb + jj] = A[diag_start[j] + offset++];
-      }
+    for (int Drow = 0; Drow < jb; ++Drow) {
+      int N = Drow + 1;
+      dcopy(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
+      offset += N;
     }
+    times[t_dcopy] += GetTime() - t0;
 
     // number of rows left below block j
     int M = n - nb * j - jb;
@@ -432,7 +438,7 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
       int Ljk_pos = diag_start[k] + diag_size;
       if (j > k + 1) Ljk_pos += full_size * (j - k - 1);
 
-      double t0 = GetTime();
+      t0 = GetTime();
       dsyrk(&UU, &TT, &jb, &nb, &d_m_one, &A[Ljk_pos], &nb, &d_one, D, &jb);
       times[t_dsyrk] += GetTime() - t0;
 
@@ -446,7 +452,7 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
     }
 
     // factorize diagonal block
-    double t0 = GetTime();
+    t0 = GetTime();
     int info = FactPosSmall('U', jb, D, jb);
     times[t_fact] += GetTime() - t0;
     if (info != 0) {
@@ -461,60 +467,93 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
     }
 
     // put D back into packed format
+    t0 = GetTime();
     offset = 0;
-    for (int ii = 0; ii < jb; ++ii) {
-      for (int jj = 0; jj <= ii; ++jj) {
-        A[diag_start[j] + offset++] = D[ii * jb + jj];
-      }
+    for (int Drow = 0; Drow < jb; ++Drow) {
+      int N = Drow + 1;
+      dcopy(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
+      offset += N;
     }
-    free(D);
+    times[t_dcopy] += GetTime() - t0;
   }
+  free(D);
 
   // update Schur complement if partial factorization is required
   if (k < n) {
     // number of rows/columns in the Schur complement
     int ns = n - k;
 
-    // allocate full copy of Schur complement
-    double* Sbuf = malloc(ns * ns * sizeof(double));
-
     // size of last full block (may be smaller than full_size)
     int ncol_last = k % nb;
     int last_full_size = ncol_last == 0 ? full_size : ncol_last * nb;
 
     double beta = 0.0;
-    for (int j = 0; j < n_blocks; ++j) {
-      // jb is the number of columns
-      int jb = min(nb, k - nb * j);
 
-      int this_diag_size = jb * (jb + 1) / 2;
+    // buffer for full-format of block of columns of Schur complement
+    double* schur_buf = malloc(ns * nb * sizeof(double));
 
-      // starting position of block that contributes to Schur complement
-      int Lij_pos = diag_start[j] + this_diag_size;
-      if (j < n_blocks - 1) {
-        Lij_pos += (n_blocks - j - 2) * full_size + last_full_size;
+    int s_blocks = (ns - 1) / nb + 1;
+
+    int B_start = 0;
+
+    // Go through block of columns of Schur complement.
+    // Each block will have a full-format copy made in schur_buf
+    for (int sb = 0; sb < s_blocks; ++sb) {
+      // number of rows of the block
+      int nrow = ns - nb * sb;
+
+      // number of columns of the block
+      int ncol = min(nb, nrow);
+
+      int schur_diag_size = ncol * (ncol + 1) / 2;
+
+      beta = 0.0;
+
+      // each block receives contributions from the blocks of the leading part
+      // of A
+      for (int j = 0; j < n_blocks; ++j) {
+        int jb = min(nb, k - nb * j);
+        int this_diag_size = jb * (jb + 1) / 2;
+        int this_full_size = nb * jb;
+
+        int diag_pos = diag_start[j] + this_diag_size;
+        if (j < n_blocks - 1) {
+          diag_pos += (n_blocks - j - 2) * full_size + last_full_size;
+        }
+        diag_pos += sb * this_full_size;
+
+        // update diagonal part
+        double t0 = GetTime();
+        dsyrk(&UU, &TT, &ncol, &jb, &d_m_one, &A[diag_pos], &jb, &beta,
+              schur_buf, &ncol);
+        times[t_dsyrk] += GetTime() - t0;
+
+        // update subdiagonal part
+        int M = nrow - nb;
+        if (M > 0) {
+          t0 = GetTime();
+          dgemm(&TT, &NN, &nb, &M, &jb, &d_m_one, &A[diag_pos], &jb,
+                &A[diag_pos + this_full_size], &jb, &beta,
+                &schur_buf[ncol * ncol], &ncol);
+          times[t_dgemm] += GetTime() - t0;
+        }
+
+        // beta is 0 for the first time (to avoid initializing S) and 1 for the
+        // next calls
+        beta = 1.0;
       }
 
       double t0 = GetTime();
-      dsyrk(&UU, &TT, &ns, &jb, &d_m_one, &A[Lij_pos], &jb, &beta, Sbuf, &ns);
-      times[t_dsyrk] += GetTime() - t0;
-
-      // beta is 0 for the first time (to avoid initializing S) and 1 for the
-      // next calls
-      beta = 1.0;
+      for (int buf_col = 0; buf_col < ncol; ++buf_col) {
+        int N = nrow - buf_col;
+        dcopy(&N, &schur_buf[buf_col + buf_col * ncol], &ncol, &B[B_start],
+              &i_one);
+        B_start += N;
+      }
+      times[t_dcopy] += GetTime() - t0;
     }
 
-    // pack S into B
-    int startB = 0;
-    double t0 = GetTime();
-    for (int i = 0; i < ns; ++i) {
-      int row_length = ns - i;
-      dcopy(&row_length, &Sbuf[i + i * ns], &ns, &B[startB], &i_one);
-      startB += row_length;
-    }
-    times[t_dcopy] += GetTime() - t0;
-
-    free(Sbuf);
+    free(schur_buf);
   }
 
   free(diag_start);

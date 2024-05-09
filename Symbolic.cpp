@@ -22,7 +22,7 @@ void Symbolic::Print() const {
 }
 
 FactType Symbolic::Type() const { return type; }
-bool Symbolic::Packed() const { return packed; }
+PackType Symbolic::Packed() const { return packed; }
 int Symbolic::Size() const { return n; }
 int Symbolic::Nz() const { return nz; }
 double Symbolic::Ops() const { return operations; }

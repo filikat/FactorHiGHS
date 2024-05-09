@@ -7,6 +7,10 @@
 #include "DenseFact_declaration.h"
 #include "Symbolic.h"
 
+// size of the blocks for dense factorization
+// 128 seems to work best
+const int hybridBlockSize = 128;
+
 class Factorise {
  public:
   // matrix to factorise

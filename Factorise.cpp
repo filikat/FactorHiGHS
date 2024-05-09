@@ -143,14 +143,26 @@ void Factorise::ProcessSupernode(int sn) {
   double*& clique = SchurContribution[sn];
 
   // frontal is initialized to zero
-  frontal.resize(ldf * sn_size, 0.0);
+  switch (S.Packed()) {
+    case PackType::Full:
+    case PackType::Packed:
+      frontal.resize(ldf * sn_size, 0.0);
+      break;
+    case PackType::Hybrid:
+      frontal.resize(ldf * sn_size - sn_size * (sn_size - 1) / 2, 0.0);
+  }
 
   // clique need not be initialized to zero, provided that the assembly is done
   // properly
-  if (S.Packed()) {
-    if (ldc > 0) clique = new double[ldc * (ldc + 1) / 2];
-  } else {
-    if (ldc > 0) clique = new double[ldc * ldc];
+  switch (S.Packed()) {
+    case PackType::Full:
+      if (ldc > 0) clique = new double[ldc * ldc];
+      break;
+
+    case PackType::Packed:
+    case PackType::Hybrid:
+      if (ldc > 0) clique = new double[ldc * (ldc + 1) / 2];
+      break;
   }
 
   time_prepare += clock.stop();
@@ -169,7 +181,15 @@ void Factorise::ProcessSupernode(int sn) {
       // relative row index in the frontal matrix
       int i = S.RelindCols(el);
 
-      frontal[i + j * ldf] = valA[el];
+      switch (S.Packed()) {
+        case PackType::Full:
+        case PackType::Packed:
+          frontal[i + j * ldf] = valA[el];
+          break;
+        case PackType::Hybrid:
+          frontal[i + j * ldf - j * (j + 1) / 2] = valA[el];
+          break;
+      }
     }
   }
   time_assemble_original += clock.stop();
@@ -217,13 +237,23 @@ void Factorise::ProcessSupernode(int sn) {
           // use daxpy for summing consecutive entries
           int i_one = 1;
           double d_one = 1.0;
-          if (S.Packed()) {
-            daxpy(&consecutive, &d_one,
-                  &child_clique[row + nc * col - col * (col + 1) / 2], &i_one,
-                  &frontal[i + ldf * j], &i_one);
-          } else {
-            daxpy(&consecutive, &d_one, &child_clique[row + nc * col], &i_one,
-                  &frontal[i + ldf * j], &i_one);
+          switch (S.Packed()) {
+            case PackType::Full:
+              daxpy(&consecutive, &d_one, &child_clique[row + nc * col], &i_one,
+                    &frontal[i + ldf * j], &i_one);
+              break;
+
+            case PackType::Packed:
+              daxpy(&consecutive, &d_one,
+                    &child_clique[row + nc * col - col * (col + 1) / 2], &i_one,
+                    &frontal[i + ldf * j], &i_one);
+              break;
+
+            case PackType::Hybrid:
+              daxpy(&consecutive, &d_one,
+                    &child_clique[row + nc * col - col * (col + 1) / 2], &i_one,
+                    &frontal[i + ldf * j - j * (j + 1) / 2], &i_one);
+              break;
           }
           row += consecutive;
         }
@@ -243,39 +273,54 @@ void Factorise::ProcessSupernode(int sn) {
   // Partial factorisation
   // ===================================================
   clock.start();
-  if (S.Packed()) {
-    // uninitialized temporary full format clique
-    double* temp_clique = new double[ldc * ldc];
+  switch (S.Packed()) {
+    case PackType::Full:
+      if (S.Type() == FactType::NormEq) {
+        PartialFactPosLarge(ldf, sn_size, frontal.data(), ldf, clique, ldc,
+                            times_partialfact.data());
+      } else {
+        PartialFactIndLarge(ldf, sn_size, frontal.data(), ldf, clique, ldc,
+                            times_partialfact.data());
+      }
+      break;
 
-    if (S.Type() == FactType::NormEq) {
-      PartialFactPosLarge(ldf, sn_size, frontal.data(), ldf, temp_clique, ldc,
-                          times_partialfact.data());
-    } else {
-      PartialFactIndLarge(ldf, sn_size, frontal.data(), ldf, temp_clique, ldc,
-                          times_partialfact.data());
+    case PackType::Packed: {
+      // uninitialized temporary full format clique
+      double* temp_clique = new double[ldc * ldc];
+
+      if (S.Type() == FactType::NormEq) {
+        PartialFactPosLarge(ldf, sn_size, frontal.data(), ldf, temp_clique, ldc,
+                            times_partialfact.data());
+      } else {
+        PartialFactIndLarge(ldf, sn_size, frontal.data(), ldf, temp_clique, ldc,
+                            times_partialfact.data());
+      }
+
+      Clock clock2;
+      clock2.start();
+      // pack temp_clique into clique
+      int pos{};
+      for (int j = 0; j < ldc; ++j) {
+        int nn = ldc - j;
+        int i_one = 1;
+        dcopy(&nn, &temp_clique[j + j * ldc], &i_one, &clique[pos], &i_one);
+        pos += nn;
+      }
+      delete[] temp_clique;
+      times_partialfact[t_dcopy] += clock2.stop();
+      break;
     }
 
-    Clock clock2;
-    clock2.start();
-    // pack temp_clique into clique
-    int pos{};
-    for (int j = 0; j < ldc; ++j) {
-      int nn = ldc - j;
-      int i_one = 1;
-      dcopy(&nn, &temp_clique[j + j * ldc], &i_one, &clique[pos], &i_one);
-      pos += nn;
-    }
-    delete[] temp_clique;
-    times_partialfact[t_dcopy] += clock2.stop();
-
-  } else {
-    if (S.Type() == FactType::NormEq) {
-      PartialFactPosLarge(ldf, sn_size, frontal.data(), ldf, clique, ldc,
-                          times_partialfact.data());
-    } else {
-      PartialFactIndLarge(ldf, sn_size, frontal.data(), ldf, clique, ldc,
-                          times_partialfact.data());
-    }
+    case PackType::Hybrid:
+      if (S.Type() == FactType::NormEq) {
+        PackedToHybrid(frontal.data(), ldf, sn_size, hybridBlockSize);
+        PartialFactPosPacked(ldf, sn_size, frontal.data(), hybridBlockSize,
+                             clique, times_partialfact.data());
+      } else {
+        printf("Not yet supported\n");
+        return;
+      }
+      break;
   }
 
   time_factorise += clock.stop();
@@ -326,13 +371,18 @@ void Factorise::ProcessSupernode(int sn) {
           // use daxpy for summing consecutive entries
           int i_one = 1;
           double d_one = 1.0;
-          if (S.Packed()) {
-            daxpy(&consecutive, &d_one,
-                  &child_clique[row + nc * col - col * (col + 1) / 2], &i_one,
-                  &clique[i + ldc * j - j * (j + 1) / 2], &i_one);
-          } else {
-            daxpy(&consecutive, &d_one, &child_clique[row + nc * col], &i_one,
-                  &clique[i + ldc * j], &i_one);
+          switch (S.Packed()) {
+            case PackType::Full:
+              daxpy(&consecutive, &d_one, &child_clique[row + nc * col], &i_one,
+                    &clique[i + ldc * j], &i_one);
+              break;
+
+            case PackType::Packed:
+            case PackType::Hybrid:
+              daxpy(&consecutive, &d_one,
+                    &child_clique[row + nc * col - col * (col + 1) / 2], &i_one,
+                    &clique[i + ldc * j - j * (j + 1) / 2], &i_one);
+              break;
           }
           row += consecutive;
         }
@@ -358,7 +408,7 @@ bool Factorise::Check() const {
   // Return true if check is successful, or if matrix is too large.
   // To be used for debug.
 
-  if (S.Type() == FactType::AugSys) {
+  if (S.Type() == FactType::AugSys || S.Packed() == PackType::Hybrid) {
     printf("\n==> Dense check not available\n");
     return true;
   }

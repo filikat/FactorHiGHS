@@ -7,3 +7,4 @@ netlib_test
 a.out
 *.o
 results*
+test*

@@ -85,6 +85,8 @@ class Analyse {
   void RelativeIndClique();
   bool Check() const;
 
+  void GenerateLayer0();
+
   void PrintTimes() const;
 
  public:

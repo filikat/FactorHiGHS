@@ -1032,3 +1032,97 @@ void Analyse::Run(Symbolic& S) {
   S.relindClique = std::move(relindClique);
   S.consecutiveSums = std::move(consecutiveSums);
 }
+
+void Analyse::GenerateLayer0() {
+  // linked lists of children
+  std::vector<int> head, next;
+  ChildrenLinkedList(snParent, head, next);
+
+  // compute number of operations for each supernode
+  std::vector<double> sn_ops(snCount);
+  for (int sn = 0; sn < snCount; ++sn) {
+    // supernode size
+    int sz = snStart[sn + 1] - snStart[sn];
+
+    // frontal size
+    int fr = ptrLsn[sn + 1] - ptrLsn[sn];
+
+    // number of dense operations for this supernode
+    for (int i = 0; i < sz; ++i) {
+      sn_ops[sn] += (double)(fr - i - 1) * (fr - i - 1);
+    }
+  }
+
+  // keep track of nodes in layer0
+  std::vector<int> layer0{};
+
+  // compute number of operations to process each subtree
+  std::vector<double> subtree_ops(snCount, 0.0);
+  for (int sn = 0; sn < snCount; ++sn) {
+    subtree_ops[sn] += sn_ops[sn];
+    if (snParent[sn] != -1) {
+      subtree_ops[snParent[sn]] += subtree_ops[sn];
+    } else {
+      // add roots in layer0
+      layer0.push_back(sn);
+    }
+  }
+
+  for (int iter = 0; iter < 10; ++iter) {
+    printf("\nlayer0: ");
+    for (int i : layer0) printf("%d ", i + 1);
+    printf("\n");
+    // for (int i = 0; i < layer0.size(); ++i)
+    // printf("%d %f\n", layer0[i], subtree_ops[layer0[i]]);
+
+    std::vector<double> processors(3, 0.0);
+
+    // sort nodes in layer0 according to cost in subtree_ops
+    std::sort(layer0.begin(), layer0.end(),
+              [&](int a, int b) { return subtree_ops[a] > subtree_ops[b]; });
+
+    // allocate nodes in layer0 to processors
+    for (int i = 0; i < layer0.size(); ++i) {
+      // find processor with lowest load
+      int proc_least_load =
+          std::distance(processors.begin(),
+                        std::min_element(processors.begin(), processors.end()));
+
+      processors[proc_least_load] += subtree_ops[layer0[i]];
+      // printf("Put %d in proc %d\n", layer0[i], proc_least_load);
+    }
+
+    // compute imbalance ratio
+    double imbalance = *std::min_element(processors.begin(), processors.end()) /
+                       *std::max_element(processors.begin(), processors.end());
+
+    printf("Imbalance: %f\n", imbalance);
+    if (imbalance > 0.5) {
+      double left = operations;
+      for (int i = 0; i < processors.size(); ++i) {
+        printf("Proc %d: %e\n", i, processors[i]);
+        left -= processors[i];
+      }
+      printf("Left  : %e\n", left);
+      break;
+    }
+
+    // find most expensive node in layer0
+    auto it_node_most_exp = std::max_element(
+        layer0.begin(), layer0.end(),
+        [&](int a, int b) { return subtree_ops[a] < subtree_ops[b]; });
+    int node_most_exp = *it_node_most_exp;
+
+    // printf("Node to remove: %d\n", node_most_exp);
+
+    // remove it from layer0
+    layer0.erase(it_node_most_exp);
+
+    // and add its children
+    int child = head[node_most_exp];
+    while (child != -1) {
+      layer0.push_back(child);
+      child = next[child];
+    }
+  }
+}

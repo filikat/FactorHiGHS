@@ -15,9 +15,9 @@ int main() {
   // ===========================================================================
   // Set up
   // ===========================================================================
-  int nb = 256;
-  int nrow = 5000;
-  int ncol = 400;
+  int nb = 5;
+  int nrow = 18;
+  int ncol = 7;
 
   int l = nrow * ncol - ncol * (ncol - 1) / 2;
 
@@ -69,14 +69,11 @@ int main() {
   std::vector<double> times(times_ind::t_size);
   PartialFactPosPacked(nrow, ncol, A.data(), nb, B.data(), times.data());
 
-  for (double t : times) {
-    printf("%f\n", t);
-  }
 
-  /*for (double d : B) {
+  for (double d : B) {
     printf("%f ", d);
   }
-  printf("\n");*/
+  printf("\n");
 
   /*
     //

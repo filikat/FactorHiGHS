@@ -10,7 +10,7 @@ cpp_sources = \
 	Factorise.cpp \
 	Numeric.cpp \
 	Symbolic.cpp \
-	test.cpp
+	main.cpp
 
 c_sources = \
 	hsl_wrapper.c \

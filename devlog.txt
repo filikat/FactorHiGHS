@@ -637,5 +637,38 @@ This is quite slow, around 20% of the dense factorization time.
 ---
 
 *****
+7 May 2024
+I had a talk with Jennifer today.
+Some points to note for later:
+- frontal matrix and clique should use some kind of packed format. frontal may use full format only for blocks in factorization (nb x nb), rather that for the whole block.
+- blas calls may already be using parallelism. htop shows that indeed the cpu usage reaches around 250% (activity monitor is less accurarate apparently). This simplifies dealing with node level parallelism. I still need to deal with tree level parallelism.
+- within a supernode, 2x2 pivots may be used without changing the data structure (?). worth considering it when a bad pivot is found.
+---
+I started to work on implementing the 'layer0' for tree parallelism. It looks like it needs to leave behind a large chunk of operations to obtain balance in the tree.
+It may be better, at least for now, to give up trying to avoid imbalance.
+---
+
+*****
+8 May 2024
+To be able to store frontal and clique in packed format, I need to use the hybrid storage format. It is the only one that make sense.
+The computation of Schur complement should be done in left-looking approach, block columns by block column. This is described in the doc of MA54 and it makes sense.
+It has more blas calls, but if the block size is large enough, it should be able to get good performance. The memory footprint should be reduced quite a bit.
+There is the need of a full format copy of the block of columns, but this is much less that a full format copy of the whole schur complement, especially if the front size is large.
+---
+I am still not 100% sure that the hybrid format factorization is correct.
+I need to implement the proper solve routines to properly check.
+The time taken is not very different from the packed format.
+The copying of data takes some time, but it is necessary.
+---
+
+*****
+9 May 2024
+I checked that the hybrid format produces the correct Schur complement.
+I still have to implement the correct solve phase.
+It seems to be a little bit slower, due to the extra copies. Not too bad though.
+I am not sure if there are savings in term of memory. A bit harder to check.
+---
+
+*****
 To do:
 - postorder of supernodal tree, to optimize stack size
