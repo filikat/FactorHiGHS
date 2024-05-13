@@ -4,12 +4,15 @@
 #include <vector>
 
 #include "Auxiliary.h"
-#include "Symbolic.h"
 #include "Blas_declaration.h"
+#include "DenseFact_declaration.h"
+#include "Symbolic.h"
 
 class Numeric {
   std::vector<std::vector<double>> SnColumns{};
   const Symbolic* S;
+
+  int nb = hybridBlockSize;
 
   friend class Factorise;
 

@@ -666,7 +666,26 @@ The copying of data takes some time, but it is necessary.
 I checked that the hybrid format produces the correct Schur complement.
 I still have to implement the correct solve phase.
 It seems to be a little bit slower, due to the extra copies. Not too bad though.
-I am not sure if there are savings in term of memory. A bit harder to check.
+I am not sure if there are savings in terms of memory. A bit harder to check.
+---
+Changed names to dense factorization functions.
+Now the name tells whether the function performs full or partial factorization, posdef of indef, blocked or unblocked, and the packing format.
+I also changed some of the error codes of the dense factorization functions.
+---
+
+*****
+10 May 2024
+I implemented the solve for the hybrid format.
+It finds the correct solution.
+Only for the positive definite case for now, because I am still missing the factorization in hybrid format for the indefinite case.
+It shouldn't change much for the solve anyway.
+Solve time seems to be a bit smaller when using packed format.
+May be a result of using tpsv instead of trsv when the columns are packed.
+The difference is quite substantial actually. For nug08 solve time goes from 0.025 to 0.018. 
+---
+I noticed that indeed the blas calls are more efficient when using the hybrid format.
+For nug08, the blas time (withoud dcopy) using hybrid is 0.78, with full format it is 1.03. The dcopy time is roughly equal to the difference, but this may change for larger problems.
+It may well become more efficient to use the hybrid format, both for time and memory. Great!
 ---
 
 *****

@@ -13,7 +13,7 @@ class Symbolic {
   FactType type{};
 
   // Packed or full format
-  PackType packed = PackType::Hybrid;
+  PackType packed = PackType::Full;
 
   // Size of the matrix L
   int n{};

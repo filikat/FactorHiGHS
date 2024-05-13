@@ -414,8 +414,6 @@ void Analyse::RelaxSupernodes() {
       // keep iterating through the children of the supernode, until there's no
       // more child to merge with
 
-      std::vector<int> merged_sons{};
-
       while (true) {
         int child = first_child[sn];
 
@@ -458,7 +456,6 @@ void Analyse::RelaxSupernodes() {
 
           // save information about merging of supernodes
           mergedInto[child_fakenz] = sn;
-          merged_sons.push_back(child_fakenz);
 
           // remove child from linked list of children
           child = first_child[sn];
@@ -520,6 +517,96 @@ void Analyse::RelaxSupernodes() {
     } else {
       // good ratio
       return;
+    }
+  }
+}
+
+void Analyse::RelaxSupernodes_2() {
+  // Smallest child is merged with parent, if child is small enough.
+
+  // =================================================
+  // build information about supernodes
+  // =================================================
+  std::vector<int> sn_size(snCount);
+  std::vector<int> clique_size(snCount);
+  fakeNonzeros.assign(snCount, 0);
+  for (int i = 0; i < snCount; ++i) {
+    sn_size[i] = snStart[i + 1] - snStart[i];
+    clique_size[i] = colCount[snStart[i]] - sn_size[i];
+    fakeNonzeros[i] = 0;
+  }
+
+  // build linked lists of children
+  std::vector<int> first_child, next_child;
+  ChildrenLinkedList(snParent, first_child, next_child);
+
+  // =================================================
+  // Merge supernodes
+  // =================================================
+  mergedInto.assign(snCount, -1);
+  mergedSn = 0;
+
+  for (int sn = 0; sn < snCount; ++sn) {
+    // keep iterating through the children of the supernode, until there's no
+    // more child to merge with
+
+    while (true) {
+      int child = first_child[sn];
+
+      // info for first criterion
+      int size_smallest = INT_MAX;
+      int child_smallest = -1;
+      int nz_smallest = 0;
+
+      while (child != -1) {
+        // how many zero rows would become nonzero
+        int rows_filled = sn_size[sn] + clique_size[sn] - clique_size[child];
+
+        // how many zero entries would become nonzero
+        int nz_added = rows_filled * sn_size[child];
+
+        // how many artificial nonzeros would the merged supernode have
+        int total_art_nz = nz_added + fakeNonzeros[sn] + fakeNonzeros[child];
+
+        if (sn_size[child] < size_smallest) {
+          size_smallest = sn_size[child];
+          child_smallest = child;
+          nz_smallest = total_art_nz;
+        }
+
+        child = next_child[child];
+      }
+
+      if (size_smallest < 8) {
+        // smallest supernode is small enough to be merged with parent
+
+        // update information of parent
+        sn_size[sn] += size_smallest;
+        fakeNonzeros[sn] = nz_smallest;
+
+        // count number of merged supernodes
+        ++mergedSn;
+
+        // save information about merging of supernodes
+        mergedInto[child_smallest] = sn;
+
+        // remove child from linked list of children
+        child = first_child[sn];
+        if (child == child_smallest) {
+          // child_smallest is the first child
+          first_child[sn] = next_child[child_smallest];
+        } else {
+          while (next_child[child] != child_smallest) {
+            child = next_child[child];
+          }
+          // now child is the previous child of child_smallest
+          next_child[child] = next_child[child_smallest];
+        }
+
+      } else {
+        // no more children can be merged with parent
+        break;
+      }
     }
   }
 }

@@ -112,7 +112,7 @@ void Factorise::Permute(const std::vector<int>& iperm) {
   valA = std::move(new_val);
 }
 
-void Factorise::ProcessSupernode(int sn) {
+int Factorise::ProcessSupernode(int sn) {
   // Assemble frontal matrix for supernode sn, perform partial factorisation and
   // store the result.
   Clock clock;
@@ -204,7 +204,7 @@ void Factorise::ProcessSupernode(int sn) {
     double* child_clique = SchurContribution[child_sn];
     if (!child_clique) {
       printf("Error with child supernode\n");
-      return;
+      return ret_generic;
     }
 
     // determine size of clique of child
@@ -276,11 +276,14 @@ void Factorise::ProcessSupernode(int sn) {
   switch (S.Packed()) {
     case PackType::Full:
       if (S.Type() == FactType::NormEq) {
-        PartialFactPosLarge(ldf, sn_size, frontal.data(), ldf, clique, ldc,
-                            times_partialfact.data());
+        int status = DenseFact_pdbf(ldf, sn_size, frontal.data(), ldf, clique,
+                                    ldc, times_partialfact.data());
+        if (status) return status;
+
       } else {
-        PartialFactIndLarge(ldf, sn_size, frontal.data(), ldf, clique, ldc,
-                            times_partialfact.data());
+        int status = DenseFact_pibf(ldf, sn_size, frontal.data(), ldf, clique,
+                                    ldc, times_partialfact.data());
+        if (status) return status;
       }
       break;
 
@@ -289,11 +292,14 @@ void Factorise::ProcessSupernode(int sn) {
       double* temp_clique = new double[ldc * ldc];
 
       if (S.Type() == FactType::NormEq) {
-        PartialFactPosLarge(ldf, sn_size, frontal.data(), ldf, temp_clique, ldc,
-                            times_partialfact.data());
+        int status = DenseFact_pdbf(ldf, sn_size, frontal.data(), ldf,
+                                    temp_clique, ldc, times_partialfact.data());
+        if (status) return status;
+
       } else {
-        PartialFactIndLarge(ldf, sn_size, frontal.data(), ldf, temp_clique, ldc,
-                            times_partialfact.data());
+        int status = DenseFact_pibf(ldf, sn_size, frontal.data(), ldf,
+                                    temp_clique, ldc, times_partialfact.data());
+        if (status) return status;
       }
 
       Clock clock2;
@@ -313,12 +319,17 @@ void Factorise::ProcessSupernode(int sn) {
 
     case PackType::Hybrid:
       if (S.Type() == FactType::NormEq) {
-        PackedToHybrid(frontal.data(), ldf, sn_size, hybridBlockSize);
-        PartialFactPosPacked(ldf, sn_size, frontal.data(), hybridBlockSize,
-                             clique, times_partialfact.data());
+        int status =
+            DenseFact_l2h(frontal.data(), ldf, sn_size, hybridBlockSize);
+        if (status) return status;
+
+        status = DenseFact_pdbh(ldf, sn_size, frontal.data(), hybridBlockSize,
+                                clique, times_partialfact.data());
+        if (status) return status;
+
       } else {
         printf("Not yet supported\n");
-        return;
+        return ret_generic;
       }
       break;
   }
@@ -335,7 +346,7 @@ void Factorise::ProcessSupernode(int sn) {
     double* child_clique = SchurContribution[child_sn];
     if (!child_clique) {
       printf("Error with child supernode\n");
-      return;
+      return ret_generic;
     }
 
     // determine size of clique of child
@@ -400,6 +411,8 @@ void Factorise::ProcessSupernode(int sn) {
     child_sn = nextChildren[child_sn];
   }
   time_assemble_children_C += clock.stop();
+
+  return ret_ok;
 }
 
 bool Factorise::Check() const {
@@ -534,8 +547,9 @@ void Factorise::Run(Numeric& Num) {
 
   for (int sn = 0; sn < S.Sn(); ++sn) {
     clock_sn.start();
-    ProcessSupernode(sn);
+    int status = ProcessSupernode(sn);
     time_per_Sn[sn] = clock_sn.stop();
+    if (status) break;
   }
 
   time_total = clock.stop();

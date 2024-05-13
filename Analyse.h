@@ -79,6 +79,7 @@ class Analyse {
   void ColCount();
   void FundamentalSupernodes();
   void RelaxSupernodes();
+  void RelaxSupernodes_2();
   void AfterRelaxSn();
   void SnPattern();
   void RelativeIndCols();

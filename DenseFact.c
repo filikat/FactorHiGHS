@@ -6,7 +6,18 @@
 
 #include "DenseFact_declaration.h"
 
-int FactPosSmall(char uplo, int n, double* restrict A, int lda) {
+/*
+Names:
+DenseFact_(pf)(di)(bu)(flh)
+
+pf: Partial or Full factorization
+di: (positive) Definite of Indefinite
+bu: Blocked of Unblocked
+flh: Full format, Lower packed format, or lower-blocked-Hybrid packed format
+
+*/
+
+int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
   // ===========================================================================
   // Positive definite factorization without blocks.
   // BLAS calls: ddot, dgemv, dscal.
@@ -14,12 +25,12 @@ int FactPosSmall(char uplo, int n, double* restrict A, int lda) {
 
   // check input
   if (n < 0 || !A || lda < n || (uplo != 'L' && uplo != 'U')) {
-    printf("Invalid input to FactPosSmall\n");
-    return -1;
+    printf("DenseFact_fduf: invalid input\n");
+    return ret_invalid_input;
   }
 
   // quick return
-  if (n == 0) return 0;
+  if (n == 0) return ret_ok;
 
   // main operations
   if (uplo == 'L') {
@@ -31,7 +42,8 @@ int FactPosSmall(char uplo, int n, double* restrict A, int lda) {
       double Ajj = A[j + lda * j] - ddot(&N, &A[j], &lda, &A[j], &lda);
       if (Ajj <= 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
-        return j;
+        printf("DenseFact_fduf: invalid pivot\n");
+        return ret_invalid_pivot;
       }
 
       // compute diagonal element
@@ -56,7 +68,8 @@ int FactPosSmall(char uplo, int n, double* restrict A, int lda) {
           A[j + lda * j] - ddot(&N, &A[lda * j], &i_one, &A[lda * j], &i_one);
       if (Ajj <= 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
-        return j;
+        printf("DenseFact_fduf: invalid pivot\n");
+        return ret_invalid_pivot;
       }
 
       // compute diagonal element
@@ -73,10 +86,10 @@ int FactPosSmall(char uplo, int n, double* restrict A, int lda) {
     }
   }
 
-  return 0;
+  return ret_ok;
 }
 
-int FactIndSmall(int n, double* restrict A, int lda) {
+int DenseFact_fiuf(int n, double* restrict A, int lda) {
   // ===========================================================================
   // Infedinite factorization without blocks.
   // BLAS calls: ddot, dgemv, dscal.
@@ -84,12 +97,12 @@ int FactIndSmall(int n, double* restrict A, int lda) {
 
   // check input
   if (n < 0 || !A || lda < n) {
-    printf("Invalid input to FactIndSmall\n");
-    return -1;
+    printf("DenseFact_fiuf: invalid input\n");
+    return ret_invalid_input;
   }
 
   // quick return
-  if (n == 0) return 0;
+  if (n == 0) return ret_ok;
 
   // main operations
   for (int j = 0; j < n; ++j) {
@@ -98,6 +111,11 @@ int FactIndSmall(int n, double* restrict A, int lda) {
 
     // create temporary copy of row j, multiplied by pivots
     double* temp = malloc(j * sizeof(double));
+    if (!temp) {
+      printf("DenseFact_fiuf: out of memory\n");
+      return ret_out_of_memory;
+    }
+
     for (int i = 0; i < j; ++i) {
       temp[i] = A[j + i * lda] * A[i + i * lda];
     }
@@ -106,7 +124,8 @@ int FactIndSmall(int n, double* restrict A, int lda) {
     double Ajj = A[j + lda * j] - ddot(&N, &A[j], &lda, temp, &i_one);
     if (Ajj == 0.0 || isnan(Ajj)) {
       A[j + lda * j] = Ajj;
-      return j;
+      printf("DenseFact_fiuf: invalid pivot\n");
+      return ret_invalid_pivot;
     }
 
     // save diagonal element
@@ -124,7 +143,7 @@ int FactIndSmall(int n, double* restrict A, int lda) {
     free(temp);
   }
 
-  return 0;
+  return ret_ok;
 }
 
 // ===========================================================================
@@ -169,8 +188,8 @@ int FactIndSmall(int n, double* restrict A, int lda) {
 //
 // ===========================================================================
 
-int PartialFactPosLarge(int n, int k, double* restrict A, int lda,
-                        double* restrict B, int ldb, double* times) {
+int DenseFact_pdbf(int n, int k, double* restrict A, int lda,
+                   double* restrict B, int ldb, double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks.
   // BLAS calls: dsyrk, dgemm, dtrsm.
@@ -178,17 +197,17 @@ int PartialFactPosLarge(int n, int k, double* restrict A, int lda,
 
   // check input
   if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
-    printf("Invalid input to PartialFactPosLarge\n");
-    return -1;
+    printf("DenseFact_pdbf: invalid input\n");
+    return ret_invalid_input;
   }
 
   if (!times) {
-    printf("Invalid times\n");
-    return -1;
+    printf("DenseFact_pdbf: invalid input\n");
+    return ret_invalid_input;
   }
 
   // quick return
-  if (n == 0) return 0;
+  if (n == 0) return ret_ok;
 
   // j is the starting col of the block of columns
   for (int j = 0; j < k; j += nb) {
@@ -208,11 +227,10 @@ int PartialFactPosLarge(int n, int k, double* restrict A, int lda,
 
     // factorize diagonal block
     t0 = GetTime();
-    int info = FactPosSmall('L', N, &A[j + lda * j], lda);
+    int info = DenseFact_fduf('L', N, &A[j + lda * j], lda);
     times[t_fact] += GetTime() - t0;
-    if (info != 0) {
-      return info + j - 1;
-    }
+    if (info != 0) return info;
+
     if (j + jb < n) {
       // update block of columns
       t0 = GetTime();
@@ -236,11 +254,11 @@ int PartialFactPosLarge(int n, int k, double* restrict A, int lda,
     times[t_dsyrk] += GetTime() - t0;
   }
 
-  return 0;
+  return ret_ok;
 }
 
-int PartialFactIndLarge(int n, int k, double* restrict A, int lda,
-                        double* restrict B, int ldb, double* times) {
+int DenseFact_pibf(int n, int k, double* restrict A, int lda,
+                   double* restrict B, int ldb, double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks.
   // BLAS calls: dcopy, dscal, dgemm, dtrsm, dsyrk
@@ -248,12 +266,12 @@ int PartialFactIndLarge(int n, int k, double* restrict A, int lda,
 
   // check input
   if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
-    printf("Invalid input to PartialFactIndLarge\n");
-    return -1;
+    printf("DenseFact_pibf: invalid input\n");
+    return ret_invalid_input;
   }
 
   // quick return
-  if (n == 0) return 0;
+  if (n == 0) return ret_ok;
 
   // j is the starting col of the block of columns
   for (int j = 0; j < k; j += nb) {
@@ -267,6 +285,10 @@ int PartialFactIndLarge(int n, int k, double* restrict A, int lda,
 
     // create temporary copy of block of rows, multiplied by pivots
     double* temp = malloc(j * jb * sizeof(double));
+    if (!temp) {
+      printf("DenseFact_pibf: out of memory\n");
+      return ret_out_of_memory;
+    }
     int ldt = jb;
     for (int i = 0; i < j; ++i) {
       dcopy(&N, &A[j + i * lda], &i_one, &temp[i * ldt], &i_one);
@@ -281,11 +303,9 @@ int PartialFactIndLarge(int n, int k, double* restrict A, int lda,
 
     // factorize diagonal block
     t0 = GetTime();
-    int info = FactIndSmall(N, &A[j + lda * j], lda);
+    int info = DenseFact_fiuf(N, &A[j + lda * j], lda);
     times[t_fact] += GetTime() - t0;
-    if (info != 0) {
-      return info + j - 1;
-    }
+    if (info != 0) return info;
 
     if (j + jb < n) {
       // update block of columns
@@ -327,7 +347,16 @@ int PartialFactIndLarge(int n, int k, double* restrict A, int lda,
 
     // make temporary copies of positive and negative columns separately
     double* temp_pos = malloc((n - k) * pos_pivot * sizeof(double));
+    if (!temp_pos) {
+      printf("DenseFact_pibf: out of memory\n");
+      return ret_out_of_memory;
+    }
     double* temp_neg = malloc((n - k) * neg_pivot * sizeof(double));
+    if (!temp_neg) {
+      printf("DenseFact_pibf: out of memory\n");
+      return ret_out_of_memory;
+    }
+
     int ldt = n - k;
 
     // the copies of the columns are multiplied by sqrt(|Ajj|)
@@ -363,11 +392,11 @@ int PartialFactIndLarge(int n, int k, double* restrict A, int lda,
     free(temp_neg);
   }
 
-  return 0;
+  return ret_ok;
 }
 
-int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
-                         double* restrict B, double* times) {
+int DenseFact_pdbh(int n, int k, double* restrict A, int nb, double* restrict B,
+                   double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks in lower-blocked-hybrid
   // format. A should be in lower-blocked-hybrid format. Schur complement is
@@ -377,18 +406,22 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
 
   // check input
   if (n < 0 || k < 0 || !A || (k < n && !B)) {
-    printf("Invalid input to PartialFactPosPacked\n");
-    return -1;
+    printf("DenseFact_pdbh: invalid input\n");
+    return ret_invalid_input;
   }
 
   // quick return
-  if (n == 0) return 0;
+  if (n == 0) return ret_ok;
 
   // number of blocks of columns
   int n_blocks = (k - 1) / nb + 1;
 
   // start of diagonal blocks
   int* diag_start = malloc(n_blocks * sizeof(double));
+  if (!diag_start) {
+    printf("DenseFact_pdbh: out of memory\n");
+    return ret_out_of_memory;
+  }
   diag_start[0] = 0;
   for (int i = 1; i < n_blocks; ++i) {
     diag_start[i] =
@@ -404,6 +437,10 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
 
   // buffer for full-format diagonal blocks
   double* D = malloc(nb * nb * sizeof(double));
+  if (!D) {
+    printf("DenseFact_pdbh: out of memory\n");
+    return ret_out_of_memory;
+  }
 
   double t0;
 
@@ -453,11 +490,9 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
 
     // factorize diagonal block
     t0 = GetTime();
-    int info = FactPosSmall('U', jb, D, jb);
+    int info = DenseFact_fduf('U', jb, D, jb);
     times[t_fact] += GetTime() - t0;
-    if (info != 0) {
-      return info + j - 1;
-    }
+    if (info != 0) return info;
 
     if (M > 0) {
       // solve block of columns with diagonal block
@@ -478,7 +513,7 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
   }
   free(D);
 
-  // update Schur complement if partial factorization is required
+  // compute Schur complement if partial factorization is required
   if (k < n) {
     // number of rows/columns in the Schur complement
     int ns = n - k;
@@ -491,9 +526,15 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
 
     // buffer for full-format of block of columns of Schur complement
     double* schur_buf = malloc(ns * nb * sizeof(double));
+    if (!schur_buf) {
+      printf("DenseFact_pdbh: out of memory\n");
+      return ret_out_of_memory;
+    }
 
+    // number of blocks in Schur complement
     int s_blocks = (ns - 1) / nb + 1;
 
+    // index to write into B
     int B_start = 0;
 
     // Go through block of columns of Schur complement.
@@ -505,6 +546,7 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
       // number of columns of the block
       int ncol = min(nb, nrow);
 
+      // number of elements in diagonal block
       int schur_diag_size = ncol * (ncol + 1) / 2;
 
       beta = 0.0;
@@ -516,13 +558,14 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
         int this_diag_size = jb * (jb + 1) / 2;
         int this_full_size = nb * jb;
 
+        // compute index to access diagonal block in A
         int diag_pos = diag_start[j] + this_diag_size;
         if (j < n_blocks - 1) {
           diag_pos += (n_blocks - j - 2) * full_size + last_full_size;
         }
         diag_pos += sb * this_full_size;
 
-        // update diagonal part
+        // update diagonal block
         double t0 = GetTime();
         dsyrk(&UU, &TT, &ncol, &jb, &d_m_one, &A[diag_pos], &jb, &beta,
               schur_buf, &ncol);
@@ -538,11 +581,13 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
           times[t_dgemm] += GetTime() - t0;
         }
 
-        // beta is 0 for the first time (to avoid initializing S) and 1 for the
-        // next calls
+        // beta is 0 for the first time (to avoid initializing schur_buf) and 1
+        // for the next calls
         beta = 1.0;
       }
 
+      // schur_buf contains Schur complement in hybrid format (with full
+      // diagonal blocks). Put it in lower-packed format in B.
       double t0 = GetTime();
       for (int buf_col = 0; buf_col < ncol; ++buf_col) {
         int N = nrow - buf_col;
@@ -558,10 +603,10 @@ int PartialFactPosPacked(int n, int k, double* restrict A, int nb,
 
   free(diag_start);
 
-  return 0;
+  return ret_ok;
 }
 
-void PackedToHybrid(double* restrict A, int nrow, int ncol, int nb) {
+int DenseFact_l2h(double* restrict A, int nrow, int ncol, int nb) {
   // ===========================================================================
   // Takes a matrix in lower-packed format, with nrow rows.
   // Converts the first ncol columns into lower-blocked-hybrid format, with
@@ -570,6 +615,10 @@ void PackedToHybrid(double* restrict A, int nrow, int ncol, int nb) {
   // ===========================================================================
 
   double* buf = malloc(nrow * nb * sizeof(double));
+  if (!buf) {
+    printf("DenseFact_l2h: out of memory\n");
+    return ret_out_of_memory;
+  }
   int startAtoBuf = 0;
   int startBuftoA = 0;
 
@@ -607,4 +656,6 @@ void PackedToHybrid(double* restrict A, int nrow, int ncol, int nb) {
   }
 
   free(buf);
+
+  return ret_ok;
 }

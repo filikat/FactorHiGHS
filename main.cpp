@@ -291,6 +291,8 @@ int main(int argc, char** argv) {
   // Solve
   // ===========================================================================
 
+  Clock clock;
+
   std::random_device rd;
   std::mt19937 rng(rd());
   std::uniform_real_distribution<double> distr(-10.0, 10.0);
@@ -300,13 +302,17 @@ int main(int argc, char** argv) {
   double rhsNorm2{};
   for (int i = 0; i < n; ++i) {
     rhs[i] = distr(rng);
+    // rhs[i] = i;
     rhsNorm2 += rhs[i] * rhs[i];
   }
   rhsNorm2 = sqrt(rhsNorm2);
 
   // solve
   std::vector<double> sol(rhs);
+
+  clock.start();
   Num.Solve(sol);
+  printf("Solve time %f\n\n", clock.stop());
 
   // ===========================================================================
   // Factorise with MA86
@@ -325,8 +331,6 @@ int main(int argc, char** argv) {
     std::vector<double> solMa86(rhs);
 
     MA86Data ma86_data;
-
-    Clock clock;
 
     clock.start();
     wrapper_ma86_default_control(&ma86_data.control);
@@ -379,8 +383,6 @@ int main(int argc, char** argv) {
 
     MA87Data ma87_data;
 
-    Clock clock;
-
     clock.start();
     wrapper_ma87_default_control(&ma87_data.control);
     ma87_data.order = order_to_use;
@@ -430,8 +432,6 @@ int main(int argc, char** argv) {
   MA97Data ma97_data;
   if (atoi(argv[3]) == 1 && S.Type() == FactType::NormEq) {
     std::vector<double> solMa97(rhs);
-
-    Clock clock;
 
     clock.start();
     wrapper_ma97_default_control(&ma97_data.control);
@@ -495,8 +495,6 @@ int main(int argc, char** argv) {
     }
 
     MA57Data ma57_data;
-
-    Clock clock;
 
     clock.start();
     wrapper_ma57_default_control(&ma57_data.control);
