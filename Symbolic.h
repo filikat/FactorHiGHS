@@ -13,7 +13,10 @@ class Symbolic {
   FactType type{};
 
   // Packed or full format
-  PackType packed = PackType::Full;
+  PackType packed = PackType::Hybrid;
+
+  // Size of blocks for dense factorization
+  const int blockSize = 128;
 
   // Size of the matrix L
   int n{};
@@ -97,6 +100,7 @@ class Symbolic {
   // provide const access to symbolic factorization
   FactType Type() const;
   PackType Packed() const;
+  int BlockSize() const;
   int Size() const;
   int Nz() const;
   double Ops() const;

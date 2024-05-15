@@ -13,9 +13,6 @@ double GetTime() {
 #define max(i, j) ((i) >= (j) ? (i) : (j))
 #define min(i, j) ((i) >= (j) ? (j) : (i))
 
-// block size
-const int nb = 256;
-
 // variables for BLAS calls
 double d_one = 1.0;
 double d_zero = 0.0;

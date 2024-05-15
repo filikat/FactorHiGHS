@@ -12,8 +12,6 @@ class Numeric {
   std::vector<std::vector<double>> SnColumns{};
   const Symbolic* S;
 
-  int nb = hybridBlockSize;
-
   friend class Factorise;
 
  public:

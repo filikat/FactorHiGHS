@@ -19,6 +19,8 @@ void Numeric::Lsolve(std::vector<double>& x) const {
   if (S->Packed() == PackType::Hybrid) {
     // supernode columns in hybrid-blocked format
 
+    const int nb = S->BlockSize();
+
     for (int sn = 0; sn < S->Sn(); ++sn) {
       // leading size of supernode
       int ldSn = S->Ptr(sn + 1) - S->Ptr(sn);
@@ -126,6 +128,8 @@ void Numeric::Ltsolve(std::vector<double>& x) const {
   if (S->Packed() == PackType::Hybrid) {
     // supernode columns in hybrid-blocked format
 
+    const int nb = S->BlockSize();
+
     // go through the sn in reverse order
     for (int sn = S->Sn() - 1; sn >= 0; --sn) {
       // leading size of supernode
@@ -221,18 +225,64 @@ void Numeric::Dsolve(std::vector<double>& x) const {
   // Dsolve performed only for augmented system
   if (S->Type() == FactType::NormEq) return;
 
-  for (int sn = 0; sn < S->Sn(); ++sn) {
-    // leading size of supernode
-    int ldSn = S->Ptr(sn + 1) - S->Ptr(sn);
+  if (S->Packed() == PackType::Hybrid) {
+    // supernode columns in hybrid-blocked format
 
-    for (int col = S->SnStart(sn); col < S->SnStart(sn + 1); ++col) {
-      // relative index of column within supernode
-      int j = col - S->SnStart(sn);
+    const int nb = S->BlockSize();
 
-      // diagonal entry of column j
-      double d = SnColumns[sn][j + j * ldSn];
+    for (int sn = 0; sn < S->Sn(); ++sn) {
+      // leading size of supernode
+      int ldSn = S->Ptr(sn + 1) - S->Ptr(sn);
 
-      x[col] /= d;
+      // number of columns in the supernode
+      int sn_size = S->SnStart(sn + 1) - S->SnStart(sn);
+
+      // first colums of the supernode
+      int sn_start = S->SnStart(sn);
+
+      // index to access S->rows for this supernode
+      int start_row = S->Ptr(sn);
+
+      // number of blocks of columns
+      int n_blocks = (sn_size - 1) / nb + 1;
+
+      // index to access diagonal part of block
+      int diag_start{};
+
+      // go through blocks of columns for this supernode
+      for (int j = 0; j < n_blocks; ++j) {
+        // number of columns in the block
+        int jb = std::min(nb, sn_size - nb * j);
+
+        // go through columns of block
+        for (int col = 0; col < jb; ++col) {
+          double d = SnColumns[sn][diag_start + (col + 1) * (col + 2) / 2 - 1];
+          x[sn_start + nb * j + col] /= d;
+        }
+
+        // move diag_start forward by number of diagonal entries in block
+        diag_start += jb * (jb + 1) / 2;
+
+        // move diag_start forward by number of sub-diagonal entries in block
+        diag_start += (ldSn - nb * j - jb) * jb;
+      }
+    }
+  } else {
+    // supernode columns in full format
+
+    for (int sn = 0; sn < S->Sn(); ++sn) {
+      // leading size of supernode
+      int ldSn = S->Ptr(sn + 1) - S->Ptr(sn);
+
+      for (int col = S->SnStart(sn); col < S->SnStart(sn + 1); ++col) {
+        // relative index of column within supernode
+        int j = col - S->SnStart(sn);
+
+        // diagonal entry of column j
+        double d = SnColumns[sn][j + j * ldSn];
+
+        x[col] /= d;
+      }
     }
   }
 }

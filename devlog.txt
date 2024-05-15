@@ -689,5 +689,26 @@ It may well become more efficient to use the hybrid format, both for time and me
 ---
 
 *****
+14 May 2024
+I implemented the factorization in hybrid format for indefinite matrices.
+I also implemented the solve with D in hybrid format.
+It seemed to work, but if I change the block size, something goes wrong.
+I need to step through the code to see where the bug is.
+---
+
+*****
+15 May 2024
+I found the bug.
+Very weird one: the makefile should force recompilation of DenseFact.c if DenseFact_declaration.h changes. The block size was in this file, but DenseFact.c was not recompiled when it should have.
+So it was using the old block size, while the rest of the code would use the new one.
+I moved the block size in another file and put it as input for the functions in DenseFact.c.
+I still don't know why it wasn't recompiled.
+The depencency file is correct, it contains all the dependencies, so I am not really sure what was happening.
+Anyway, now it works.
+However, the operation of computing the Schur complement in hybrid format, and in particular the calls to dcopy to put it into lower-packed format, take a very large amount of time.
+I need to find a better way. Maybe I can hold the Schur complement packed by rows, instead of columns.
+---
+
+*****
 To do:
 - postorder of supernodal tree, to optimize stack size

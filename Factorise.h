@@ -50,7 +50,7 @@ class Factorise {
   double time_assemble_children_C{};
   double time_factorise{};
   double time_total{};
-  std::vector<double> times_partialfact;
+  std::vector<double> times_dense_fact;
 };
 
 #endif

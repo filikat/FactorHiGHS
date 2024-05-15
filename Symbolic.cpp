@@ -23,6 +23,7 @@ void Symbolic::Print() const {
 
 FactType Symbolic::Type() const { return type; }
 PackType Symbolic::Packed() const { return packed; }
+int Symbolic::BlockSize() const { return blockSize; }
 int Symbolic::Size() const { return n; }
 int Symbolic::Nz() const { return nz; }
 double Symbolic::Ops() const { return operations; }

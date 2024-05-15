@@ -276,13 +276,13 @@ int Factorise::ProcessSupernode(int sn) {
   switch (S.Packed()) {
     case PackType::Full:
       if (S.Type() == FactType::NormEq) {
-        int status = DenseFact_pdbf(ldf, sn_size, frontal.data(), ldf, clique,
-                                    ldc, times_partialfact.data());
+        int status = DenseFact_pdbf(ldf, sn_size, S.BlockSize(), frontal.data(),
+                                    ldf, clique, ldc, times_dense_fact.data());
         if (status) return status;
 
       } else {
-        int status = DenseFact_pibf(ldf, sn_size, frontal.data(), ldf, clique,
-                                    ldc, times_partialfact.data());
+        int status = DenseFact_pibf(ldf, sn_size, S.BlockSize(), frontal.data(),
+                                    ldf, clique, ldc, times_dense_fact.data());
         if (status) return status;
       }
       break;
@@ -292,13 +292,15 @@ int Factorise::ProcessSupernode(int sn) {
       double* temp_clique = new double[ldc * ldc];
 
       if (S.Type() == FactType::NormEq) {
-        int status = DenseFact_pdbf(ldf, sn_size, frontal.data(), ldf,
-                                    temp_clique, ldc, times_partialfact.data());
+        int status =
+            DenseFact_pdbf(ldf, sn_size, S.BlockSize(), frontal.data(), ldf,
+                           temp_clique, ldc, times_dense_fact.data());
         if (status) return status;
 
       } else {
-        int status = DenseFact_pibf(ldf, sn_size, frontal.data(), ldf,
-                                    temp_clique, ldc, times_partialfact.data());
+        int status =
+            DenseFact_pibf(ldf, sn_size, S.BlockSize(), frontal.data(), ldf,
+                           temp_clique, ldc, times_dense_fact.data());
         if (status) return status;
       }
 
@@ -313,23 +315,23 @@ int Factorise::ProcessSupernode(int sn) {
         pos += nn;
       }
       delete[] temp_clique;
-      times_partialfact[t_dcopy] += clock2.stop();
+      times_dense_fact[t_dcopy] += clock2.stop();
       break;
     }
 
     case PackType::Hybrid:
+      int status = DenseFact_l2h(frontal.data(), ldf, sn_size, S.BlockSize(),
+                                 times_dense_fact.data());
+      if (status) return status;
+
       if (S.Type() == FactType::NormEq) {
-        int status =
-            DenseFact_l2h(frontal.data(), ldf, sn_size, hybridBlockSize);
+        status = DenseFact_pdbh(ldf, sn_size, S.BlockSize(), frontal.data(),
+                                clique, times_dense_fact.data());
         if (status) return status;
-
-        status = DenseFact_pdbh(ldf, sn_size, frontal.data(), hybridBlockSize,
-                                clique, times_partialfact.data());
-        if (status) return status;
-
       } else {
-        printf("Not yet supported\n");
-        return ret_generic;
+        status = DenseFact_pibh(ldf, sn_size, S.BlockSize(), frontal.data(),
+                                clique, times_dense_fact.data());
+        if (status) return status;
       }
       break;
   }
@@ -524,16 +526,18 @@ void Factorise::PrintTimes() const {
          time_factorise / time_total * 100);
 
   printf("\t\t  |\n");
-  printf("\t\t  |   trsm:     %8.4f (%4.1f%%)\n", times_partialfact[t_dtrsm],
-         times_partialfact[t_dtrsm] / time_factorise * 100);
-  printf("\t\t  |_  syrk:     %8.4f (%4.1f%%)\n", times_partialfact[t_dsyrk],
-         times_partialfact[t_dsyrk] / time_factorise * 100);
-  printf("\t\t      gemm:     %8.4f (%4.1f%%)\n", times_partialfact[t_dgemm],
-         times_partialfact[t_dgemm] / time_factorise * 100);
-  printf("\t\t      fact:     %8.4f (%4.1f%%)\n", times_partialfact[t_fact],
-         times_partialfact[t_fact] / time_factorise * 100);
-  printf("\t\t      copy:     %8.4f (%4.1f%%)\n", times_partialfact[t_dcopy],
-         times_partialfact[t_dcopy] / time_factorise * 100);
+  printf("\t\t  |   trsm:     %8.4f (%4.1f%%)\n", times_dense_fact[t_dtrsm],
+         times_dense_fact[t_dtrsm] / time_factorise * 100);
+  printf("\t\t  |_  syrk:     %8.4f (%4.1f%%)\n", times_dense_fact[t_dsyrk],
+         times_dense_fact[t_dsyrk] / time_factorise * 100);
+  printf("\t\t      gemm:     %8.4f (%4.1f%%)\n", times_dense_fact[t_dgemm],
+         times_dense_fact[t_dgemm] / time_factorise * 100);
+  printf("\t\t      fact:     %8.4f (%4.1f%%)\n", times_dense_fact[t_fact],
+         times_dense_fact[t_fact] / time_factorise * 100);
+  printf("\t\t      copy:     %8.4f (%4.1f%%)\n", times_dense_fact[t_dcopy],
+         times_dense_fact[t_dcopy] / time_factorise * 100);
+  printf("\t\t      scal:     %8.4f (%4.1f%%)\n", times_dense_fact[t_dscal],
+         times_dense_fact[t_dscal] / time_factorise * 100);
 }
 
 void Factorise::Run(Numeric& Num) {
@@ -541,7 +545,7 @@ void Factorise::Run(Numeric& Num) {
   clock.start();
 
   time_per_Sn.resize(S.Sn());
-  times_partialfact.resize(times_ind::t_size);
+  times_dense_fact.resize(times_ind::t_size);
 
   Clock clock_sn;
 

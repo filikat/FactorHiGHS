@@ -301,8 +301,8 @@ int main(int argc, char** argv) {
   std::vector<double> rhs(n);
   double rhsNorm2{};
   for (int i = 0; i < n; ++i) {
-    rhs[i] = distr(rng);
-    // rhs[i] = i;
+    // rhs[i] = distr(rng);
+    rhs[i] = i;
     rhsNorm2 += rhs[i] * rhs[i];
   }
   rhsNorm2 = sqrt(rhsNorm2);
@@ -327,6 +327,7 @@ int main(int argc, char** argv) {
   double ma86_solNorm2{};
   double ma86_time_analyse{};
   double ma86_time_factorise{};
+  double ma86_time_solve{};
   if (atoi(argv[3]) == 1) {
     std::vector<double> solMa86(rhs);
 
@@ -351,8 +352,10 @@ int main(int argc, char** argv) {
     if (ma86_data.info.flag < 0) std::cerr << "Error with ma86 factor\n";
     ma86_time_factorise = clock.stop();
 
+    clock.start();
     wrapper_ma86_solve(0, 1, n, solMa86.data(), ma86_data.order.data(),
                        &ma86_data.keep, &ma86_data.control, &ma86_data.info);
+    ma86_time_solve = clock.stop();
 
     for (int i = 0; i < n; ++i) {
       ma86_errorNorm2 += (solMa86[i] - sol[i]) * (solMa86[i] - sol[i]);
@@ -368,6 +371,7 @@ int main(int argc, char** argv) {
     printf("\n");
     printf("MA86 time analyse:                  %.2e\n", ma86_time_analyse);
     printf("MA86 time factorise:                %.2e\n", ma86_time_factorise);
+    printf("MA86 time solve:                    %.2e\n", ma86_time_solve);
     printf("\n\n");
   }
 
@@ -378,6 +382,7 @@ int main(int argc, char** argv) {
   double ma87_solNorm2{};
   double ma87_time_analyse{};
   double ma87_time_factorise{};
+  double ma87_time_solve{};
   if (atoi(argv[3]) == 1 && S.Type() == FactType::NormEq) {
     std::vector<double> solMa87(rhs);
 
@@ -402,8 +407,10 @@ int main(int argc, char** argv) {
     if (ma87_data.info.flag < 0) std::cerr << "Error with ma87 factor\n";
     ma87_time_factorise = clock.stop();
 
+    clock.start();
     wrapper_ma87_solve(0, 1, n, solMa87.data(), ma87_data.order.data(),
                        &ma87_data.keep, &ma87_data.control, &ma87_data.info);
+    ma87_time_solve = clock.stop();
 
     for (int i = 0; i < n; ++i) {
       ma87_errorNorm2 += (solMa87[i] - sol[i]) * (solMa87[i] - sol[i]);
@@ -419,6 +426,7 @@ int main(int argc, char** argv) {
     printf("\n");
     printf("MA87 time analyse:                  %.2e\n", ma87_time_analyse);
     printf("MA87 time factorise:                %.2e\n", ma87_time_factorise);
+    printf("MA87 time solve:                    %.2e\n", ma87_time_solve);
     printf("\n\n");
   }
 
@@ -429,6 +437,7 @@ int main(int argc, char** argv) {
   double ma97_solNorm2{};
   double ma97_time_analyse{};
   double ma97_time_factorise{};
+  double ma97_time_solve{};
   MA97Data ma97_data;
   if (atoi(argv[3]) == 1 && S.Type() == FactType::NormEq) {
     std::vector<double> solMa97(rhs);
@@ -456,8 +465,10 @@ int main(int argc, char** argv) {
     if (ma97_data.info.flag < 0) std::cerr << "Error with ma97 factor\n";
     ma97_time_factorise = clock.stop();
 
+    clock.start();
     wrapper_ma97_solve(0, 1, n, solMa97.data(), &ma97_data.akeep,
                        &ma97_data.fkeep, &ma97_data.control, &ma97_data.info);
+    ma97_time_solve = clock.stop();
 
     for (int i = 0; i < n; ++i) {
       ma97_errorNorm2 += (solMa97[i] - sol[i]) * (solMa97[i] - sol[i]);
@@ -473,6 +484,7 @@ int main(int argc, char** argv) {
     printf("\n");
     printf("MA97 time analyse:                  %.2e\n", ma97_time_analyse);
     printf("MA97 time factorise:                %.2e\n", ma97_time_factorise);
+    printf("MA97 time solve:                    %.2e\n", ma97_time_solve);
     printf("\n\n");
   }
 
@@ -483,6 +495,7 @@ int main(int argc, char** argv) {
   double ma57_solNorm2{};
   double ma57_time_analyse{};
   double ma57_time_factorise{};
+  double ma57_time_solve{};
   if (atoi(argv[3]) == 1) {
     std::vector<double> solMa57(rhs);
 
@@ -520,9 +533,11 @@ int main(int argc, char** argv) {
     if (ma57_data.finfo.flag < 0) std::cerr << "Error with ma57 factor\n";
     ma57_time_factorise = clock.stop();
 
+    clock.start();
     wrapper_ma57_solve(n, nz, rowsLower.data(), colsLower.data(),
                        valLower.data(), &ma57_data.factors, solMa57.data(),
                        &ma57_data.control, &ma57_data.sinfo);
+    ma57_time_solve = clock.stop();
 
     for (int i = 0; i < n; ++i) {
       ma57_errorNorm2 += (solMa57[i] - sol[i]) * (solMa57[i] - sol[i]);
@@ -538,6 +553,7 @@ int main(int argc, char** argv) {
     printf("\n");
     printf("MA57 time analyse:                  %.2e\n", ma57_time_analyse);
     printf("MA57 time factorise:                %.2e\n", ma57_time_factorise);
+    printf("MA57 time solve:                    %.2e\n", ma57_time_solve);
     printf("\n\n");
   }
 
