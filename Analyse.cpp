@@ -1091,8 +1091,6 @@ void Analyse::Run(Symbolic& S) {
 
   PrintTimes();
 
-  Check();
-
   // move relevant stuff into S
   S.type = type;
   S.n = n;

@@ -3,8 +3,8 @@
 
 #include "Auxiliary.h"
 #include "Blas_declaration.h"
-#include "Numeric.h"
 #include "DenseFact_declaration.h"
+#include "Numeric.h"
 #include "Symbolic.h"
 
 class Factorise {
@@ -29,6 +29,8 @@ class Factorise {
   // columns of L, stored as dense supernodes
   std::vector<std::vector<double>> SnColumns{};
 
+  std::vector<std::vector<int>> clique_block_start{};
+
  public:
   void Permute(const std::vector<int>& iperm);
   int ProcessSupernode(int sn);
@@ -40,7 +42,7 @@ class Factorise {
             const std::vector<int>& ptrA_input,
             const std::vector<double>& valA_input);
 
-  void Run(Numeric& Num);
+  int Run(Numeric& Num);
 
   std::vector<double> time_per_Sn{};
 

@@ -19,6 +19,11 @@ int DenseFact_pibf(int n, int k, int nb, double* A, int lda, double* B, int ldb,
 int DenseFact_pdbh(int n, int k, int nb, double* A, double* B, double* times);
 int DenseFact_pibh(int n, int k, int nb, double* A, double* B, double* times);
 
+// dense partial factorization, in blocked-hybrid format with hybrid Schur
+// complement
+int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B, double* times);
+int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B, double* times);
+
 // function to convert A from lower packed, to lower-blocked-hybrid format
 int DenseFact_l2h(double* A, int nrow, int ncol, int nb, double* times);
 
@@ -26,7 +31,17 @@ int DenseFact_l2h(double* A, int nrow, int ncol, int nb, double* times);
 }
 #endif
 
-enum times_ind { t_dtrsm, t_dsyrk, t_dgemm, t_fact, t_dcopy, t_dscal, t_size };
+enum times_ind {
+  t_dtrsm,
+  t_dsyrk,
+  t_dgemm,
+  t_fact,
+  t_dcopy,
+  t_dcopy_schur,
+  t_dscal,
+  t_convert,
+  t_size
+};
 
 enum ret_value {
   ret_ok,

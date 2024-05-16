@@ -16,7 +16,7 @@ void Numeric::Lsolve(std::vector<double>& x) const {
   // unit diagonal for augmented system only
   char DD = S->Type() == FactType::NormEq ? 'N' : 'U';
 
-  if (S->Packed() == PackType::Hybrid) {
+  if (S->Packed() == PackType::Hybrid || S->Packed() == PackType::Hybrid2) {
     // supernode columns in hybrid-blocked format
 
     const int nb = S->BlockSize();
@@ -125,7 +125,7 @@ void Numeric::Ltsolve(std::vector<double>& x) const {
   // unit diagonal for augmented system only
   char DD = S->Type() == FactType::NormEq ? 'N' : 'U';
 
-  if (S->Packed() == PackType::Hybrid) {
+  if (S->Packed() == PackType::Hybrid || S->Packed() == PackType::Hybrid2) {
     // supernode columns in hybrid-blocked format
 
     const int nb = S->BlockSize();
@@ -225,7 +225,7 @@ void Numeric::Dsolve(std::vector<double>& x) const {
   // Dsolve performed only for augmented system
   if (S->Type() == FactType::NormEq) return;
 
-  if (S->Packed() == PackType::Hybrid) {
+  if (S->Packed() == PackType::Hybrid || S->Packed() == PackType::Hybrid2) {
     // supernode columns in hybrid-blocked format
 
     const int nb = S->BlockSize();

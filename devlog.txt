@@ -708,7 +708,101 @@ Anyway, now it works.
 However, the operation of computing the Schur complement in hybrid format, and in particular the calls to dcopy to put it into lower-packed format, take a very large amount of time.
 I need to find a better way. Maybe I can hold the Schur complement packed by rows, instead of columns.
 ---
+I cannot leave the Schur complement packed by rows, because then I cannot use daxpy to assemble it into the parent.
+---
+Interesting observation of the time taken for dense operations and for copies:
+for nug08, in full, packed or hybrid format:
+
+nug08-3rd           Normal equations                      Augmented system
+            denseOps    copies    assemClique         denseOps    copies    assemClique
+full            1.08      0.00           0.44             3.80      0.00           1.77
+packed          1.10      0.23           0.45             3.85      1.54           1.69
+hybrid          0.77      0.33           0.41             1.20      1.90           1.39
+
+dense operations are substantially faster when using the hybrid format.
+Assembly of the clique also seems to be faster. I don't know why, maybe it is because the clique is stored in packed format, so accessing it uses shorter chunks of data and causes fewer cache misses. Just a guess though.
+However, there is a lot of copying needed. 
+For augmented system, hybrid format makes sense, because the time for copies plus dense ops is smaller than the time for dense ops with full format.
+For normal equations, they are the same.
+
+Another example, from a2864:
+
+a2864               Normal equations                      Augmented system
+            denseOps    copies    assemClique         denseOps    copies    assemClique
+full            12.8      0.00           3.27             13.4      0.00           9.46
+packed          12.4      2.87           2.88             13.1      6.55           7.33
+hybrid          10.7      2.18           2.49              4.3      9.20           8.66
+
+Dense operartions are massively faster when using the hybrid format, but copying completely destroys the advantage.
+Most of the time spent copying is used for converting the blocks of columns of the Schur complement from full format by rows, to packed format by columns.
+I already noticed that I cannot pack by rows, because it does not allow to use daxpy to assemble.
+I could pack by rows, keeping the zeros in the diagonal block.
+Not the whole upper triangular part, just the zeros in the first block, that stores the diagonal part.
+This would increase slightly the memory requirement.
+However, there is no more copy needed after computing the Schur completent. I can compute it already in place.
+Assemblying becomes more complicated. I need to figure out how to access a specific row/col. 
+I should be able to use daxpy though, because with the zeros, the rows are aligned.
+---
+
+*****
+16 May 2024
+I implemented the Schur complement in hybrid format with full diagonal blocks.
+It works (after some bugs, I didn't notice that PackType is used also in Numeric...).
+However, the assembly is much slower, because the daxpy do not have increment one anymore and they jump around in memory.
+I wonder if keeping the Schur complement by columns, but with full diagonal part (not completely packed) is a better option.
+The daxpy are efficient, but I still need to copy the Schur complement. Only that now the data should be aligned better and this may yield a more efficient copy. Maybe I should copy by rows rather than columns.
+---
+There is a little reduction of the time taken to copy the Schur complement, if I hold it in blocks of columns, by columns, with full diagonal part, and if I do the copy by rows rather than by columns.
+Not much, for a2864 the Scuhr copy time goes from 9.2 to 7.5, but still it's good.
+I wonder if I can assemble the Schur contributions by rows instead of columns. In this way I could leave the Schur complement in hybrid format and assemble in a way that exploits the daxpy with increment one.
+---
+I have made the hybrid format, with Schur complement packed by columns but with zeros in the diagonal part, the default when using PackType::Hybrid.
+Next, I should make PackType::Hybrid2 assemble the Schur complement by rows, rather than columns.
+---
+There is something absurd going on.
+When I run the code on a2864 with augmented system, the code segfaults as soon as it starts factorizing.
+No idea why.
+If I remove all the changes that I made today, it still happens.
+If I git clone the code from yesterday, it runs ok the first time, but if I run it a second time, it segfaults.
+Using normal equations is ok though.
+Wtf?
+I may need to check every single blas call to see if any of them has a buffer overflow. address sanitizer does not do anything, because blas has not been compiled with it...
+---
+I did some test on some of the Mittelman problems (small ones).
+I run both normal equations and augmented system and take the smallest time.
+I then run ipx on the same problems and take the average time per iteration.
+
+                      fact          ipx avg
+cont1                 0.38            3.40
+cont11                0.18           10.42
+ex10                  1.23            0.47
+fome13                0.27            0.43
+irish-e               0.14            0.35
+Linf                  0.27            0.89
+neos                  0.65            0.69
+neos-302              2.70            2.63
+neos-505              0.16            0.67
+neos3                 1.92            0.80
+ns1687                1.38           35.00
+ns1688                0.26            0.60
+nug08-3rd             1.67            8.00
+qap15                 0.27            0.33
+rail02                0.47            0.45
+rail4284              0.30            2.10
+s82                   1.54            6.87
+s100                  0.22            0.56
+s250                  0.17            0.52
+square41              0.02            2.32
+stat96v2              0.03            3.01
+
+Clearly, there are problems where ipx has an advantage.
+However, some of the problems for which ipx takes a large amount of time can be solved much faster by the direct factorization.
+This is very good.
+---
+
+---
 
 *****
 To do:
 - postorder of supernodal tree, to optimize stack size
+- go through blas calls to find segfault

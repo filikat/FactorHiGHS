@@ -149,7 +149,9 @@ int Factorise::ProcessSupernode(int sn) {
       frontal.resize(ldf * sn_size, 0.0);
       break;
     case PackType::Hybrid:
+    case PackType::Hybrid2:
       frontal.resize(ldf * sn_size - sn_size * (sn_size - 1) / 2, 0.0);
+      break;
   }
 
   // clique need not be initialized to zero, provided that the assembly is done
@@ -160,9 +162,21 @@ int Factorise::ProcessSupernode(int sn) {
       break;
 
     case PackType::Packed:
-    case PackType::Hybrid:
       if (ldc > 0) clique = new double[ldc * (ldc + 1) / 2];
       break;
+    case PackType::Hybrid2:
+    case PackType::Hybrid: {
+      int nb = S.BlockSize();
+      int n_blocks = (ldc - 1) / nb + 1;
+      clique_block_start[sn].resize(n_blocks);
+      int schur_size{};
+      for (int j = 0; j < n_blocks; ++j) {
+        clique_block_start[sn][j] = schur_size;
+        int jb = std::min(nb, ldc - j * nb);
+        schur_size += (ldc - j * nb) * jb;
+      }
+      clique = new double[schur_size];
+    } break;
   }
 
   time_prepare += clock.stop();
@@ -187,6 +201,7 @@ int Factorise::ProcessSupernode(int sn) {
           frontal[i + j * ldf] = valA[el];
           break;
         case PackType::Hybrid:
+        case PackType::Hybrid2:
           frontal[i + j * ldf - j * (j + 1) / 2] = valA[el];
           break;
       }
@@ -249,11 +264,29 @@ int Factorise::ProcessSupernode(int sn) {
                     &frontal[i + ldf * j], &i_one);
               break;
 
-            case PackType::Hybrid:
+            case PackType::Hybrid2: {
+              int nb = S.BlockSize();
+              int jblock = col / nb;
+              int jb = std::min(nb, nc - nb * jblock);
+              int row_ = row - jblock * nb;
+              int col_ = col - jblock * nb;
+              int start_block = clique_block_start[child_sn][jblock];
               daxpy(&consecutive, &d_one,
-                    &child_clique[row + nc * col - col * (col + 1) / 2], &i_one,
+                    &child_clique[start_block + col_ + jb * row_], &jb,
                     &frontal[i + ldf * j - j * (j + 1) / 2], &i_one);
-              break;
+            } break;
+
+            case PackType::Hybrid: {
+              int nb = S.BlockSize();
+              int jblock = col / nb;
+              int row_ = row - jblock * nb;
+              int col_ = col - jblock * nb;
+              int start_block = clique_block_start[child_sn][jblock];
+              int ld = nc - nb * jblock;
+              daxpy(&consecutive, &d_one,
+                    &child_clique[start_block + row_ + ld * col_], &i_one,
+                    &frontal[i + ldf * j - j * (j + 1) / 2], &i_one);
+            } break;
           }
           row += consecutive;
         }
@@ -319,7 +352,23 @@ int Factorise::ProcessSupernode(int sn) {
       break;
     }
 
-    case PackType::Hybrid:
+    case PackType::Hybrid2: {
+      int status = DenseFact_l2h(frontal.data(), ldf, sn_size, S.BlockSize(),
+                                 times_dense_fact.data());
+      if (status) return status;
+
+      if (S.Type() == FactType::NormEq) {
+        status = DenseFact_pdbh_2(ldf, sn_size, S.BlockSize(), frontal.data(),
+                                  clique, times_dense_fact.data());
+        if (status) return status;
+      } else {
+        status = DenseFact_pibh_2(ldf, sn_size, S.BlockSize(), frontal.data(),
+                                  clique, times_dense_fact.data());
+        if (status) return status;
+      }
+    } break;
+
+    case PackType::Hybrid: {
       int status = DenseFact_l2h(frontal.data(), ldf, sn_size, S.BlockSize(),
                                  times_dense_fact.data());
       if (status) return status;
@@ -333,7 +382,7 @@ int Factorise::ProcessSupernode(int sn) {
                                 clique, times_dense_fact.data());
         if (status) return status;
       }
-      break;
+    } break;
   }
 
   time_factorise += clock.stop();
@@ -391,11 +440,48 @@ int Factorise::ProcessSupernode(int sn) {
               break;
 
             case PackType::Packed:
-            case PackType::Hybrid:
+
+            case PackType::Hybrid2: {
+              int nb = S.BlockSize();
+
+              int jblock_c = col / nb;
+              int jb_c = std::min(nb, nc - nb * jblock_c);
+              int row_ = row - jblock_c * nb;
+              int col_ = col - jblock_c * nb;
+              int start_block_c = clique_block_start[child_sn][jblock_c];
+
+              int jblock = j / nb;
+              int jb = std::min(nb, ldc - nb * jblock);
+              int i_ = i - jblock * nb;
+              int j_ = j - jblock * nb;
+              int start_block = clique_block_start[sn][jblock];
+
               daxpy(&consecutive, &d_one,
-                    &child_clique[row + nc * col - col * (col + 1) / 2], &i_one,
-                    &clique[i + ldc * j - j * (j + 1) / 2], &i_one);
-              break;
+                    &child_clique[start_block_c + col_ + jb_c * row_], &jb_c,
+                    &clique[start_block + j_ + jb * i_], &jb);
+            } break;
+
+            case PackType::Hybrid: {
+              int nb = S.BlockSize();
+
+              int jblock_c = col / nb;
+              int jb_c = std::min(nb, nc - nb * jblock_c);
+              int row_ = row - jblock_c * nb;
+              int col_ = col - jblock_c * nb;
+              int start_block_c = clique_block_start[child_sn][jblock_c];
+              int ld_c = nc - nb * jblock_c;
+
+              int jblock = j / nb;
+              int jb = std::min(nb, ldc - nb * jblock);
+              int i_ = i - jblock * nb;
+              int j_ = j - jblock * nb;
+              int start_block = clique_block_start[sn][jblock];
+              int ld = ldc - nb * jblock;
+
+              daxpy(&consecutive, &d_one,
+                    &child_clique[start_block_c + row_ + ld_c * col_], &i_one,
+                    &clique[start_block + i_ + ld * j_], &i_one);
+            } break;
           }
           row += consecutive;
         }
@@ -477,8 +563,8 @@ bool Factorise::Check() const {
   }
 
   // Check that sparse factorisation agrees with dense one.
-  // This is done by computing the Frobenius norm of the difference between the
-  // dense and sparse factors, divided by the Frobenius norm of the dense
+  // This is done by computing the Frobenius norm of the difference between
+  // the dense and sparse factors, divided by the Frobenius norm of the dense
   // factor.
 
   double frobenius_dense{};
@@ -536,22 +622,29 @@ void Factorise::PrintTimes() const {
          times_dense_fact[t_fact] / time_factorise * 100);
   printf("\t\t      copy:     %8.4f (%4.1f%%)\n", times_dense_fact[t_dcopy],
          times_dense_fact[t_dcopy] / time_factorise * 100);
+  printf("\t\t      copy sch: %8.4f (%4.1f%%)\n",
+         times_dense_fact[t_dcopy_schur],
+         times_dense_fact[t_dcopy_schur] / time_factorise * 100);
   printf("\t\t      scal:     %8.4f (%4.1f%%)\n", times_dense_fact[t_dscal],
          times_dense_fact[t_dscal] / time_factorise * 100);
+  printf("\t\t      convert:  %8.4f (%4.1f%%)\n", times_dense_fact[t_convert],
+         times_dense_fact[t_convert] / time_factorise * 100);
 }
 
-void Factorise::Run(Numeric& Num) {
+int Factorise::Run(Numeric& Num) {
   Clock clock;
   clock.start();
 
   time_per_Sn.resize(S.Sn());
   times_dense_fact.resize(times_ind::t_size);
+  clique_block_start.resize(S.Sn());
 
   Clock clock_sn;
 
+  int status{};
   for (int sn = 0; sn < S.Sn(); ++sn) {
     clock_sn.start();
-    int status = ProcessSupernode(sn);
+    status = ProcessSupernode(sn);
     time_per_Sn[sn] = clock_sn.stop();
     if (status) break;
   }
@@ -560,9 +653,11 @@ void Factorise::Run(Numeric& Num) {
 
   PrintTimes();
 
-  Check();
+  if (status) return status;
 
   // move factorisation to numerical object
   Num.SnColumns = std::move(SnColumns);
   Num.S = &S;
+
+  return ret_ok;
 }

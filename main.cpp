@@ -285,7 +285,8 @@ int main(int argc, char** argv) {
   // ===========================================================================
   Numeric Num;
   Factorise F(S, rowsLower, ptrLower, valLower);
-  F.Run(Num);
+  int ret_status = F.Run(Num);
+  if (ret_status) return 1;
 
   // ===========================================================================
   // Solve
