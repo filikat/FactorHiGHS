@@ -7,6 +7,8 @@
 #include "Numeric.h"
 #include "Symbolic.h"
 
+#include <cmath>
+
 class Factorise {
  public:
   // matrix to factorise

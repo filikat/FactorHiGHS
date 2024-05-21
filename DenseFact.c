@@ -1,21 +1,26 @@
 #include "DenseFact.h"
 
+#include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "DenseFact_declaration.h"
 
+// #define TIMING
+
 /*
 Names:
 DenseFact_(pf)(di)(bu)(flh)
 
 pf: Partial or Full factorization
-di: (positive) Definite of Indefinite
-bu: Blocked of Unblocked
+di: (positive) Definite or Indefinite
+bu: Blocked or Unblocked
 flh: Full format, Lower packed format, or lower-blocked-Hybrid packed format
 
 */
+
+double t0;
 
 int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
   // ===========================================================================
@@ -267,36 +272,60 @@ int DenseFact_pdbf(int n, int k, int nb, double* restrict A, int lda,
     double* Q = &A[j + N];
     double* R = &A[j + N + lda * j];
 
-    // update diagonal block
-    double t0 = GetTime();
-    dsyrk(&LL, &NN, &N, &K, &d_m_one, P, &lda, &d_one, D, &lda);
-    times[t_dsyrk] += GetTime() - t0;
-
-    // factorize diagonal block
+// update diagonal block
+#ifdef TIMING
     t0 = GetTime();
+#endif
+
+    dsyrk(&LL, &NN, &N, &K, &d_m_one, P, &lda, &d_one, D, &lda);
+
+#ifdef TIMING
+    times[t_dsyrk] += GetTime() - t0;
+#endif
+
+// factorize diagonal block
+#ifdef TIMING
+    t0 = GetTime();
+#endif
+
     int info = DenseFact_fduf('L', N, D, lda);
+
+#ifdef TIMING
     times[t_fact] += GetTime() - t0;
+#endif
     if (info != 0) return info;
 
     if (j + jb < n) {
-      // update block of columns
+// update block of columns
+#ifdef TIMING
       t0 = GetTime();
+#endif
       dgemm(&NN, &TT, &M, &N, &K, &d_m_one, Q, &lda, P, &lda, &d_one, R, &lda);
+#ifdef TIMING
       times[t_dgemm] += GetTime() - t0;
+#endif
 
-      // solve block of columns with diagonal block
+// solve block of columns with diagonal block
+#ifdef TIMING
       t0 = GetTime();
+#endif
       dtrsm(&RR, &LL, &TT, &NN, &M, &N, &d_one, D, &lda, R, &lda);
+#ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
+#endif
     }
   }
 
   // update Schur complement if partial factorization is required
   if (k < n) {
     int N = n - k;
-    double t0 = GetTime();
+#ifdef TIMING
+    t0 = GetTime();
+#endif
     dsyrk(&LL, &NN, &N, &k, &d_m_one, &A[k], &lda, &d_zero, B, &ldb);
+#ifdef TIMING
     times[t_dsyrk] += GetTime() - t0;
+#endif
   }
 
   return ret_ok;
@@ -346,27 +375,43 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
       dscal(&N, &A[i + i * lda], &T[i * ldt], &i_one);
     }
 
-    // update diagonal block using dgemm
-    double t0 = GetTime();
-    dgemm(&NN, &TT, &jb, &jb, &j, &d_m_one, P, &lda, T, &ldt, &d_one, D, &lda);
-    times[t_dgemm] += GetTime() - t0;
-
-    // factorize diagonal block
+// update diagonal block using dgemm
+#ifdef TIMING
     t0 = GetTime();
+#endif
+    dgemm(&NN, &TT, &jb, &jb, &j, &d_m_one, P, &lda, T, &ldt, &d_one, D, &lda);
+#ifdef TIMING
+    times[t_dgemm] += GetTime() - t0;
+#endif
+
+// factorize diagonal block
+#ifdef TIMING
+    t0 = GetTime();
+#endif
     int info = DenseFact_fiuf('L', N, D, lda);
+#ifdef TIMING
     times[t_fact] += GetTime() - t0;
+#endif
     if (info != 0) return info;
 
     if (j + jb < n) {
-      // update block of columns
+// update block of columns
+#ifdef TIMING
       t0 = GetTime();
+#endif
       dgemm(&NN, &TT, &M, &N, &K, &d_m_one, Q, &lda, T, &ldt, &d_one, R, &lda);
+#ifdef TIMING
       times[t_dgemm] += GetTime() - t0;
+#endif
 
-      // solve block of columns with L
+// solve block of columns with L
+#ifdef TIMING
       t0 = GetTime();
+#endif
       dtrsm(&RR, &LL, &TT, &UU, &M, &N, &d_one, D, &lda, R, &lda);
+#ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
+#endif
 
       // solve block of columns with D
       for (int i = 0; i < jb; ++i) {
@@ -425,16 +470,20 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
       }
     }
 
-    // Update schur complement by subtracting contribution of positive columns
-    // and adding contribution of negative columns.
-    // In this way, I can use dsyrk instead of dgemm and avoid updating the
-    // full square schur complement. First call uses beta = 0.0, to clear
-    // content of B. Second call uses beta = 1.0, to not clear the result of
-    // the first call.
-    double t0 = GetTime();
+// Update schur complement by subtracting contribution of positive columns
+// and adding contribution of negative columns.
+// In this way, I can use dsyrk instead of dgemm and avoid updating the
+// full square schur complement. First call uses beta = 0.0, to clear
+// content of B. Second call uses beta = 1.0, to not clear the result of
+// the first call.
+#ifdef TIMING
+    t0 = GetTime();
+#endif
     dsyrk(&LL, &NN, &N, &pos_pivot, &d_m_one, temp_pos, &ldt, &d_zero, B, &ldb);
     dsyrk(&LL, &NN, &N, &neg_pivot, &d_one, temp_neg, &ldt, &d_one, B, &ldb);
+#ifdef TIMING
     times[t_dsyrk] += GetTime() - t0;
+#endif
 
     free(temp_pos);
     free(temp_neg);
@@ -490,8 +539,6 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
     return ret_out_of_memory;
   }
 
-  double t0;
-
   // j is the index of the block column
   for (int j = 0; j < n_blocks; ++j) {
     // jb is the number of columns
@@ -501,15 +548,19 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
     int this_diag_size = jb * (jb + 1) / 2;
     int this_full_size = nb * jb;
 
-    // full copy of diagonal block by rows, in D
+// full copy of diagonal block by rows, in D
+#ifdef TIMING
     t0 = GetTime();
+#endif
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       int N = Drow + 1;
       dcopy(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
       offset += N;
     }
+#ifdef TIMING
     times[t_dcopy] += GetTime() - t0;
+#endif
 
     // number of rows left below block j
     int M = n - nb * j - jb;
@@ -523,41 +574,61 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
       int Ljk_pos = diag_start[k] + diag_size;
       if (j > k + 1) Ljk_pos += full_size * (j - k - 1);
 
+#ifdef TIMING
       t0 = GetTime();
+#endif
       dsyrk(&UU, &TT, &jb, &nb, &d_m_one, &A[Ljk_pos], &nb, &d_one, D, &jb);
+#ifdef TIMING
       times[t_dsyrk] += GetTime() - t0;
+#endif
 
       if (M > 0) {
         int Lik_pos = Ljk_pos + this_full_size;
+#ifdef TIMING
         t0 = GetTime();
+#endif
         dgemm(&TT, &NN, &jb, &M, &nb, &d_m_one, &A[Ljk_pos], &nb, &A[Lik_pos],
               &nb, &d_one, &A[Lij_pos], &jb);
+#ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
+#endif
       }
     }
 
-    // factorize diagonal block
+// factorize diagonal block
+#ifdef TIMING
     t0 = GetTime();
+#endif
     int info = DenseFact_fduf('U', jb, D, jb);
+#ifdef TIMING
     times[t_fact] += GetTime() - t0;
+#endif
     if (info != 0) return info;
 
     if (M > 0) {
-      // solve block of columns with diagonal block
+// solve block of columns with diagonal block
+#ifdef TIMING
       t0 = GetTime();
+#endif
       dtrsm(&LL, &UU, &TT, &NN, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
+#ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
+#endif
     }
 
-    // put D back into packed format
+// put D back into packed format
+#ifdef TIMING
     t0 = GetTime();
+#endif
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       int N = Drow + 1;
       dcopy(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
       offset += N;
     }
+#ifdef TIMING
     times[t_dcopy] += GetTime() - t0;
+#endif
   }
   free(D);
 
@@ -613,20 +684,28 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
         }
         diag_pos += sb * this_full_size;
 
-        // update diagonal block
-        double t0 = GetTime();
+// update diagonal block
+#ifdef TIMING
+        t0 = GetTime();
+#endif
         dsyrk(&UU, &TT, &ncol, &jb, &d_m_one, &A[diag_pos], &jb, &beta,
               schur_buf, &ncol);
+#ifdef TIMING
         times[t_dsyrk] += GetTime() - t0;
+#endif
 
         // update subdiagonal part
         int M = nrow - nb;
         if (M > 0) {
+#ifdef TIMING
           t0 = GetTime();
+#endif
           dgemm(&TT, &NN, &nb, &M, &jb, &d_m_one, &A[diag_pos], &jb,
                 &A[diag_pos + this_full_size], &jb, &beta,
                 &schur_buf[ncol * ncol], &ncol);
+#ifdef TIMING
           times[t_dgemm] += GetTime() - t0;
+#endif
         }
 
         // beta is 0 for the first time (to avoid initializing schur_buf) and
@@ -634,15 +713,11 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
         beta = 1.0;
       }
 
-      // schur_buf contains Schur complement in hybrid format (with full
-      // diagonal blocks). Put it in lower-packed format in B.
-      double t0 = GetTime();
-      /*for (int buf_col = 0; buf_col < ncol; ++buf_col) {
-        int N = nrow;
-        dcopy(&N, &schur_buf[buf_col], &ncol, &B[B_start], &i_one);
-        B_start += N;
-      }*/
-
+// schur_buf contains Schur complement in hybrid format (with full
+// diagonal blocks). Put it in lower-packed format in B.
+#ifdef TIMING
+      t0 = GetTime();
+#endif
       for (int buf_row = 0; buf_row < nrow; ++buf_row) {
         int N = ncol;
         dcopy(&N, &schur_buf[buf_row * ncol], &i_one, &B[B_start + buf_row],
@@ -650,7 +725,9 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
       }
       B_start += nrow * ncol;
 
+#ifdef TIMING
       times[t_dcopy_schur] += GetTime() - t0;
+#endif
     }
 
     free(schur_buf);
@@ -669,6 +746,8 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
   // in B in lower packed format (not lower-blocked-hybrid). BLAS calls:
   // dsyrk, dgemm, dtrsm, dcopy, dscal
   // ===========================================================================
+
+  const int sizeA = n * k - k * (k - 1) / 2;
 
   // check input
   if (n < 0 || k < 0 || !A || (k < n && !B)) {
@@ -715,8 +794,6 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
     return ret_out_of_memory;
   }
 
-  double t0;
-
   // j is the index of the block column
   for (int j = 0; j < n_blocks; ++j) {
     // jb is the number of columns
@@ -726,15 +803,19 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
     int this_diag_size = jb * (jb + 1) / 2;
     int this_full_size = nb * jb;
 
-    // full copy of diagonal block by rows, in D
+// full copy of diagonal block by rows, in D
+#ifdef TIMING
     t0 = GetTime();
+#endif
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       int N = Drow + 1;
       dcopy(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
       offset += N;
     }
+#ifdef TIMING
     times[t_dcopy] += GetTime() - t0;
+#endif
 
     // number of rows left below block j
     int M = n - nb * j - jb;
@@ -748,68 +829,100 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
       int Ljk_pos = diag_start[k] + diag_size;
       if (j > k + 1) Ljk_pos += full_size * (j - k - 1);
 
-      // copy block jk into temp
+// copy block jk into temp
+#ifdef TIMING
       t0 = GetTime();
+#endif
       dcopy(&this_full_size, &A[Ljk_pos], &i_one, T, &i_one);
+#ifdef TIMING
       times[t_dcopy] += GetTime() - t0;
+#endif
 
-      // scale temp by pivots
+// scale temp by pivots
+#ifdef TIMING
       t0 = GetTime();
+#endif
       int pivot_pos = diag_start[k];
       for (int col = 0; col < nb; ++col) {
         dscal(&jb, &A[pivot_pos], &T[col], &nb);
         pivot_pos += col + 2;
       }
+#ifdef TIMING
       times[t_dscal] += GetTime() - t0;
+#endif
 
-      // update diagonal block with dgemm
+// update diagonal block with dgemm
+#ifdef TIMING
       t0 = GetTime();
+#endif
       dgemm(&TT, &NN, &jb, &jb, &nb, &d_m_one, T, &nb, &A[Ljk_pos], &nb, &d_one,
             D, &jb);
+#ifdef TIMING
       times[t_dgemm] += GetTime() - t0;
+#endif
 
       // update rectangular block
       if (M > 0) {
         int Lik_pos = Ljk_pos + this_full_size;
+#ifdef TIMING
         t0 = GetTime();
+#endif
         dgemm(&TT, &NN, &jb, &M, &nb, &d_m_one, T, &nb, &A[Lik_pos], &nb,
               &d_one, &A[Lij_pos], &jb);
+#ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
+#endif
       }
     }
 
-    // factorize diagonal block
+// factorize diagonal block
+#ifdef TIMING
     t0 = GetTime();
+#endif
     int info = DenseFact_fiuf('U', jb, D, jb);
+#ifdef TIMING
     times[t_fact] += GetTime() - t0;
+#endif
     if (info != 0) return info;
 
     if (M > 0) {
-      // solve block of columns with diagonal block
+// solve block of columns with diagonal block
+#ifdef TIMING
       t0 = GetTime();
+#endif
       dtrsm(&LL, &UU, &TT, &UU, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
+#ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
+#endif
 
-      // scale columns by pivots
+// scale columns by pivots
+#ifdef TIMING
       t0 = GetTime();
+#endif
       int pivot_pos = diag_start[j];
       for (int col = 0; col < jb; ++col) {
         double coeff = 1.0 / A[pivot_pos];
         dscal(&M, &coeff, &A[Lij_pos + col], &jb);
         pivot_pos += col + 2;
       }
+#ifdef TIMING
       times[t_dscal] += GetTime() - t0;
+#endif
     }
 
-    // put D back into packed format
+// put D back into packed format
+#ifdef TIMING
     t0 = GetTime();
+#endif
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       int N = Drow + 1;
       dcopy(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
       offset += N;
     }
+#ifdef TIMING
     times[t_dcopy] += GetTime() - t0;
+#endif
   }
   free(D);
 
@@ -867,31 +980,51 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 
         // create copy of block, multiplied by pivots
         int N = ncol * jb;
-        double t0 = GetTime();
-        dcopy(&N, &A[diag_pos], &i_one, T, &i_one);
-        times[t_dcopy] += GetTime() - t0;
-        int pivot_pos = diag_start[j];
+#ifdef TIMING
         t0 = GetTime();
+#endif
+        dcopy(&N, &A[diag_pos], &i_one, T, &i_one);
+#ifdef TIMING
+        times[t_dcopy] += GetTime() - t0;
+#endif
+        int pivot_pos = diag_start[j];
+#ifdef TIMING
+        t0 = GetTime();
+#endif
         for (int col = 0; col < jb; ++col) {
           dscal(&ncol, &A[pivot_pos], &T[col], &jb);
           pivot_pos += col + 2;
         }
+#ifdef TIMING
         times[t_dscal] += GetTime() - t0;
+#endif
 
-        // update diagonal block using dgemm
+// update diagonal block using dgemm
+#ifdef TIMING
         t0 = GetTime();
+#endif
+
+        // printf("%p\n", A);
+        assert(diag_pos + ncol * jb - 1 <= sizeA - 1);
+
         dgemm(&TT, &NN, &ncol, &ncol, &jb, &d_m_one, T, &jb, &A[diag_pos], &jb,
               &beta, schur_buf, &ncol);
+#ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
+#endif
 
         // update subdiagonal part
         int M = nrow - nb;
         if (M > 0) {
+#ifdef TIMING
           t0 = GetTime();
+#endif
           dgemm(&TT, &NN, &ncol, &M, &jb, &d_m_one, T, &jb,
                 &A[diag_pos + this_full_size], &jb, &beta,
                 &schur_buf[ncol * ncol], &ncol);
+#ifdef TIMING
           times[t_dgemm] += GetTime() - t0;
+#endif
         }
 
         // beta is 0 for the first time (to avoid initializing schur_buf) and
@@ -899,16 +1032,20 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
         beta = 1.0;
       }
 
-      // schur_buf contains Schur complement in hybrid format (with full
-      // diagonal blocks). Put it in lower-packed format in B.
-      double t0 = GetTime();
+// schur_buf contains Schur complement in hybrid format (with full
+// diagonal blocks). Put it in lower-packed format in B.
+#ifdef TIMING
+      t0 = GetTime();
+#endif
       for (int buf_row = 0; buf_row < nrow; ++buf_row) {
         int N = ncol;
         dcopy(&N, &schur_buf[buf_row * ncol], &i_one, &B[B_start + buf_row],
               &nrow);
       }
       B_start += nrow * ncol;
+#ifdef TIMING
       times[t_dcopy_schur] += GetTime() - t0;
+#endif
     }
 
     free(schur_buf);
@@ -967,8 +1104,6 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
     return ret_out_of_memory;
   }
 
-  double t0;
-
   // j is the index of the block column
   for (int j = 0; j < n_blocks; ++j) {
     // jb is the number of columns
@@ -978,15 +1113,19 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
     int this_diag_size = jb * (jb + 1) / 2;
     int this_full_size = nb * jb;
 
-    // full copy of diagonal block by rows, in D
+// full copy of diagonal block by rows, in D
+#ifdef TIMING
     t0 = GetTime();
+#endif
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       int N = Drow + 1;
       dcopy(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
       offset += N;
     }
+#ifdef TIMING
     times[t_dcopy] += GetTime() - t0;
+#endif
 
     // number of rows left below block j
     int M = n - nb * j - jb;
@@ -1000,41 +1139,61 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
       int Ljk_pos = diag_start[k] + diag_size;
       if (j > k + 1) Ljk_pos += full_size * (j - k - 1);
 
+#ifdef TIMING
       t0 = GetTime();
+#endif
       dsyrk(&UU, &TT, &jb, &nb, &d_m_one, &A[Ljk_pos], &nb, &d_one, D, &jb);
+#ifdef TIMING
       times[t_dsyrk] += GetTime() - t0;
+#endif
 
       if (M > 0) {
         int Lik_pos = Ljk_pos + this_full_size;
+#ifdef TIMING
         t0 = GetTime();
+#endif
         dgemm(&TT, &NN, &jb, &M, &nb, &d_m_one, &A[Ljk_pos], &nb, &A[Lik_pos],
               &nb, &d_one, &A[Lij_pos], &jb);
+#ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
+#endif
       }
     }
 
-    // factorize diagonal block
+// factorize diagonal block
+#ifdef TIMING
     t0 = GetTime();
+#endif
     int info = DenseFact_fduf('U', jb, D, jb);
+#ifdef TIMING
     times[t_fact] += GetTime() - t0;
+#endif
     if (info != 0) return info;
 
     if (M > 0) {
-      // solve block of columns with diagonal block
+// solve block of columns with diagonal block
+#ifdef TIMING
       t0 = GetTime();
+#endif
       dtrsm(&LL, &UU, &TT, &NN, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
+#ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
+#endif
     }
 
-    // put D back into packed format
+// put D back into packed format
+#ifdef TIMING
     t0 = GetTime();
+#endif
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       int N = Drow + 1;
       dcopy(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
       offset += N;
     }
+#ifdef TIMING
     times[t_dcopy] += GetTime() - t0;
+#endif
   }
   free(D);
 
@@ -1083,20 +1242,28 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
         }
         diag_pos += sb * this_full_size;
 
-        // update diagonal block
-        double t0 = GetTime();
+// update diagonal block
+#ifdef TIMING
+        t0 = GetTime();
+#endif
         dsyrk(&UU, &TT, &ncol, &jb, &d_m_one, &A[diag_pos], &jb, &beta,
               schur_buf, &ncol);
+#ifdef TIMING
         times[t_dsyrk] += GetTime() - t0;
+#endif
 
         // update subdiagonal part
         int M = nrow - nb;
         if (M > 0) {
+#ifdef TIMING
           t0 = GetTime();
+#endif
           dgemm(&TT, &NN, &nb, &M, &jb, &d_m_one, &A[diag_pos], &jb,
                 &A[diag_pos + this_full_size], &jb, &beta,
                 &schur_buf[ncol * ncol], &ncol);
+#ifdef TIMING
           times[t_dgemm] += GetTime() - t0;
+#endif
         }
 
         // beta is 0 for the first time (to avoid initializing schur_buf) and
@@ -1167,8 +1334,6 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
     return ret_out_of_memory;
   }
 
-  double t0;
-
   // j is the index of the block column
   for (int j = 0; j < n_blocks; ++j) {
     // jb is the number of columns
@@ -1178,15 +1343,19 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
     int this_diag_size = jb * (jb + 1) / 2;
     int this_full_size = nb * jb;
 
-    // full copy of diagonal block by rows, in D
+// full copy of diagonal block by rows, in D
+#ifdef TIMING
     t0 = GetTime();
+#endif
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       int N = Drow + 1;
       dcopy(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
       offset += N;
     }
+#ifdef TIMING
     times[t_dcopy] += GetTime() - t0;
+#endif
 
     // number of rows left below block j
     int M = n - nb * j - jb;
@@ -1200,68 +1369,100 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
       int Ljk_pos = diag_start[k] + diag_size;
       if (j > k + 1) Ljk_pos += full_size * (j - k - 1);
 
-      // copy block jk into temp
+// copy block jk into temp
+#ifdef TIMING
       t0 = GetTime();
+#endif
       dcopy(&this_full_size, &A[Ljk_pos], &i_one, T, &i_one);
+#ifdef TIMING
       times[t_dcopy] += GetTime() - t0;
+#endif
 
-      // scale temp by pivots
+// scale temp by pivots
+#ifdef TIMING
       t0 = GetTime();
+#endif
       int pivot_pos = diag_start[k];
       for (int col = 0; col < nb; ++col) {
         dscal(&jb, &A[pivot_pos], &T[col], &nb);
         pivot_pos += col + 2;
       }
+#ifdef TIMING
       times[t_dscal] += GetTime() - t0;
+#endif
 
-      // update diagonal block with dgemm
+// update diagonal block with dgemm
+#ifdef TIMING
       t0 = GetTime();
+#endif
       dgemm(&TT, &NN, &jb, &jb, &nb, &d_m_one, T, &nb, &A[Ljk_pos], &nb, &d_one,
             D, &jb);
+#ifdef TIMING
       times[t_dgemm] += GetTime() - t0;
+#endif
 
       // update rectangular block
       if (M > 0) {
         int Lik_pos = Ljk_pos + this_full_size;
+#ifdef TIMING
         t0 = GetTime();
+#endif
         dgemm(&TT, &NN, &jb, &M, &nb, &d_m_one, T, &nb, &A[Lik_pos], &nb,
               &d_one, &A[Lij_pos], &jb);
+#ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
+#endif
       }
     }
 
-    // factorize diagonal block
+// factorize diagonal block
+#ifdef TIMING
     t0 = GetTime();
+#endif
     int info = DenseFact_fiuf('U', jb, D, jb);
+#ifdef TIMING
     times[t_fact] += GetTime() - t0;
+#endif
     if (info != 0) return info;
 
     if (M > 0) {
-      // solve block of columns with diagonal block
+// solve block of columns with diagonal block
+#ifdef TIMING
       t0 = GetTime();
+#endif
       dtrsm(&LL, &UU, &TT, &UU, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
+#ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
+#endif
 
-      // scale columns by pivots
+// scale columns by pivots
+#ifdef TIMING
       t0 = GetTime();
+#endif
       int pivot_pos = diag_start[j];
       for (int col = 0; col < jb; ++col) {
         double coeff = 1.0 / A[pivot_pos];
         dscal(&M, &coeff, &A[Lij_pos + col], &jb);
         pivot_pos += col + 2;
       }
+#ifdef TIMING
       times[t_dscal] += GetTime() - t0;
+#endif
     }
 
     // put D back into packed format
+#ifdef TIMING
     t0 = GetTime();
+#endif
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       int N = Drow + 1;
       dcopy(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
       offset += N;
     }
+#ifdef TIMING
     times[t_dcopy] += GetTime() - t0;
+#endif
   }
   free(D);
 
@@ -1312,31 +1513,47 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 
         // create copy of block, multiplied by pivots
         int N = ncol * jb;
-        double t0 = GetTime();
-        dcopy(&N, &A[diag_pos], &i_one, T, &i_one);
-        times[t_dcopy] += GetTime() - t0;
-        int pivot_pos = diag_start[j];
+#ifdef TIMING
         t0 = GetTime();
+#endif
+        dcopy(&N, &A[diag_pos], &i_one, T, &i_one);
+#ifdef TIMING
+        times[t_dcopy] += GetTime() - t0;
+#endif
+        int pivot_pos = diag_start[j];
+#ifdef TIMING
+        t0 = GetTime();
+#endif
         for (int col = 0; col < jb; ++col) {
           dscal(&ncol, &A[pivot_pos], &T[col], &jb);
           pivot_pos += col + 2;
         }
+#ifdef TIMING
         times[t_dscal] += GetTime() - t0;
+#endif
 
-        // update diagonal block using dgemm
+// update diagonal block using dgemm
+#ifdef TIMING
         t0 = GetTime();
+#endif
         dgemm(&TT, &NN, &ncol, &ncol, &jb, &d_m_one, T, &jb, &A[diag_pos], &jb,
               &beta, schur_buf, &ncol);
+#ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
+#endif
 
         // update subdiagonal part
         int M = nrow - nb;
         if (M > 0) {
+#ifdef TIMING
           t0 = GetTime();
+#endif
           dgemm(&TT, &NN, &ncol, &M, &jb, &d_m_one, T, &jb,
                 &A[diag_pos + this_full_size], &jb, &beta,
                 &schur_buf[ncol * ncol], &ncol);
+#ifdef TIMING
           times[t_dgemm] += GetTime() - t0;
+#endif
         }
 
         // beta is 0 for the first time (to avoid initializing schur_buf) and
@@ -1362,7 +1579,9 @@ int DenseFact_l2h(double* restrict A, int nrow, int ncol, int nb,
   // BLAS calls: dcopy
   // ===========================================================================
 
-  double t0 = GetTime();
+#ifdef TIMING
+  t0 = GetTime();
+#endif
 
   double* buf = malloc(nrow * nb * sizeof(double));
   if (!buf) {
@@ -1408,7 +1627,9 @@ int DenseFact_l2h(double* restrict A, int nrow, int ncol, int nb,
 
   free(buf);
 
+#ifdef TIMING
   times[t_convert] += GetTime() - t0;
+#endif
 
   return ret_ok;
 }

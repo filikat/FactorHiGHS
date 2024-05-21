@@ -2,6 +2,7 @@
 #define ANALYSE_H
 
 #include <vector>
+#include <algorithm>
 
 #include "Auxiliary.h"
 #include "GKlib.h"

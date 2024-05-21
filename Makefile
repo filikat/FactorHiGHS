@@ -27,8 +27,8 @@ CPP = /opt/homebrew/Cellar/llvm/17.0.6_1/bin/clang++
 CC = /opt/homebrew/Cellar/llvm/17.0.6_1/bin/clang
 
 # compiler flags
-CPPFLAGS = -std=c++11 -O3 -Wno-deprecated #-fsanitize=address
-CFLAGS = -O3 #-fsanitize=address
+CPPFLAGS = -std=c++11 -O3 -g3 -Wno-deprecated #-fsanitize=address
+CFLAGS = -O3 -g3 #-fsanitize=address
 
 # includes and libraries
 includes = -I$(highs_path)/build -I$(highs_path)/src/ -I$(metis_path)/include -I$(local_path)/include

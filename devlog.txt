@@ -799,10 +799,29 @@ Clearly, there are problems where ipx has an advantage.
 However, some of the problems for which ipx takes a large amount of time can be solved much faster by the direct factorization.
 This is very good.
 ---
+I noticed that timing the BLAS calls takes quite a bit of time for larger problems.
+I couldn't understand why the percentage did not sum to 100. It's because plenty of time is taken by the timing routine.
+I wrapped each call of GetTime() in a #ifdef, so that I can trigger timing on or off.
+Quite a bit of saving for some of the larger problems.
+---
 
+*****
+17 May 2024
+A different problem now gives segfault...
+The crash report indicates a specific dgemm call that crashes.
+It also seems to indicate (?) than it segfaults because it is 1 byte outside of a valid memory segment.
+However, it I run the code without -O3, or with -sanitize=address, or if I add some printing to see the indices of memory access, the problem disappears.
+I added checks before that specific dgemm call to see if the memory accesses go outside the buffer, but they do not!
+Also, sometimes if I recompile or simply re-run the code, the problem goes away and then comes back...
+And the problem that was giving segfault yesterday now runs fine.
+Wtf
+---
+I plotted some of the supernodal trees on Matlab, showing the percentage of time taken to process the subtree below each node.
+There seems to be a lot of parallelism to exploit, for most of the problems.
+Almost identical behaviour if I plot the number of operations per subtree.
+I can incorporate the assembly operations at each node by counting them as 100 times more expensive as normal dense opeartions, as a rough estimate.
 ---
 
 *****
 To do:
 - postorder of supernodal tree, to optimize stack size
-- go through blas calls to find segfault

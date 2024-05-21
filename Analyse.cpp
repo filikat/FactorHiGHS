@@ -577,7 +577,7 @@ void Analyse::RelaxSupernodes_2() {
         child = next_child[child];
       }
 
-      if (size_smallest < 8) {
+      if (size_smallest < 8 && sn_size[sn] < 8) {
         // smallest supernode is small enough to be merged with parent
 
         // update information of parent
