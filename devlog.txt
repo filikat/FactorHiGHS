@@ -823,5 +823,15 @@ I can incorporate the assembly operations at each node by counting them as 100 t
 ---
 
 *****
+21 May 2024
+I implemented the assembly by rows for hybrid2, where the clique is kept in blocked-hybrid format instead of being copied into packed format.
+It improves massively the assembly compared to the previous assembly in hybrid2, since the memory accesses are more efficient.
+The assembly is still a bit more expensive than the standard hybrid format. However, it avoid any copy of the Schur complement, so it has an advantage against hybrid.
+Sometimes it beats Full, but in general it seems to be in between.
+It's good, even though the code is getting a bit complicated.
+I will keep both for now, to see which one performs better when I do some proper testing.
+---
+
+*****
 To do:
 - postorder of supernodal tree, to optimize stack size
