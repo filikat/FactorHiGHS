@@ -2,7 +2,7 @@
 
 void Numeric::Lsolve(std::vector<double>& x) const {
   // Forward solve.
-  // Blas calls: dtrsv, dgemv
+  // Blas calls: dtrsv_, dgemv_
 
   // variables for BLAS calls
   char LL = 'L';
@@ -51,7 +51,7 @@ void Numeric::Lsolve(std::vector<double>& x) const {
         // index to access vector x
         int x_start = sn_start + nb * j;
 
-        dtpsv(&UU, &TT, &DD, &jb, &SnColumns[sn][SnCol_ind], &x[x_start],
+        dtpsv_(&UU, &TT, &DD, &jb, &SnColumns[sn][SnCol_ind], &x[x_start],
               &i_one);
         SnCol_ind += diag_entries;
 
@@ -59,7 +59,7 @@ void Numeric::Lsolve(std::vector<double>& x) const {
         int gemv_space = ldSn - nb * j - jb;
         std::vector<double> y(gemv_space);
 
-        dgemv(&TT, &jb, &gemv_space, &d_one, &SnColumns[sn][SnCol_ind], &jb,
+        dgemv_(&TT, &jb, &gemv_space, &d_one, &SnColumns[sn][SnCol_ind], &jb,
               &x[x_start], &i_one, &d_zero, y.data(), &i_one);
         SnCol_ind += jb * gemv_space;
 
@@ -90,13 +90,13 @@ void Numeric::Lsolve(std::vector<double>& x) const {
       // index to access S->rows for this supernode
       int start_row = S->Ptr(sn);
 
-      dtrsv(&LL, &NN, &DD, &sn_size, SnColumns[sn].data(), &ldSn, &x[sn_start],
+      dtrsv_(&LL, &NN, &DD, &sn_size, SnColumns[sn].data(), &ldSn, &x[sn_start],
             &i_one);
 
       // temporary space for gemv
       std::vector<double> y(clique_size);
 
-      dgemv(&NN, &clique_size, &sn_size, &d_one, &SnColumns[sn][sn_size], &ldSn,
+      dgemv_(&NN, &clique_size, &sn_size, &d_one, &SnColumns[sn][sn_size], &ldSn,
             &x[sn_start], &i_one, &d_zero, y.data(), &i_one);
 
       // scatter solution of gemv
@@ -110,7 +110,7 @@ void Numeric::Lsolve(std::vector<double>& x) const {
 
 void Numeric::Ltsolve(std::vector<double>& x) const {
   // Backward solve.
-  // Blas calls: dgemv, dtrsv
+  // Blas calls: dgemv_, dtrsv_
 
   // variables for BLAS calls
   char LL = 'L';
@@ -173,11 +173,11 @@ void Numeric::Ltsolve(std::vector<double>& x) const {
         }
 
         SnCol_ind -= jb * gemv_space;
-        dgemv(&NN, &jb, &gemv_space, &d_m_one, &SnColumns[sn][SnCol_ind], &jb,
+        dgemv_(&NN, &jb, &gemv_space, &d_m_one, &SnColumns[sn][SnCol_ind], &jb,
               y.data(), &i_one, &d_one, &x[x_start], &i_one);
 
         SnCol_ind -= diag_entries;
-        dtpsv(&UU, &NN, &DD, &jb, &SnColumns[sn][SnCol_ind], &x[x_start],
+        dtpsv_(&UU, &NN, &DD, &jb, &SnColumns[sn][SnCol_ind], &x[x_start],
               &i_one);
       }
     }
@@ -210,10 +210,10 @@ void Numeric::Ltsolve(std::vector<double>& x) const {
         y[i] = x[row];
       }
 
-      dgemv(&TT, &clique_size, &sn_size, &d_m_one, &SnColumns[sn][sn_size],
+      dgemv_(&TT, &clique_size, &sn_size, &d_m_one, &SnColumns[sn][sn_size],
             &ldSn, y.data(), &i_one, &d_one, &x[sn_start], &i_one);
 
-      dtrsv(&LL, &TT, &DD, &sn_size, SnColumns[sn].data(), &ldSn, &x[sn_start],
+      dtrsv_(&LL, &TT, &DD, &sn_size, SnColumns[sn].data(), &ldSn, &x[sn_start],
             &i_one);
     }
   }

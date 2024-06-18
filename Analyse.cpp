@@ -982,7 +982,7 @@ bool Analyse::Check() const {
   char uplo = 'U';
   int N = n;
   int info;
-  dpotrf(&uplo, &N, M.data(), &N, &info);
+  dpotrf_(&uplo, &N, M.data(), &N, &info);
   if (info != 0) {
     printf("\n==> dpotrf failed\n\n");
     return false;
@@ -1091,6 +1091,8 @@ void Analyse::Run(Symbolic& S) {
 
   PrintTimes();
 
+  GenerateLayer0(4, 0.7);
+
   // move relevant stuff into S
   S.type = type;
   S.n = n;
@@ -1118,10 +1120,12 @@ void Analyse::Run(Symbolic& S) {
   S.consecutiveSums = std::move(consecutiveSums);
 }
 
-void Analyse::GenerateLayer0() {
+void Analyse::GenerateLayer0(int n_threads, double imbalance_ratio) {
   // linked lists of children
   std::vector<int> head, next;
   ChildrenLinkedList(snParent, head, next);
+
+  double total_ops = operations;
 
   // compute number of operations for each supernode
   std::vector<double> sn_ops(snCount);
@@ -1132,9 +1136,16 @@ void Analyse::GenerateLayer0() {
     // frontal size
     int fr = ptrLsn[sn + 1] - ptrLsn[sn];
 
-    // number of dense operations for this supernode
+    // number of operations for this supernode
     for (int i = 0; i < sz; ++i) {
       sn_ops[sn] += (double)(fr - i - 1) * (fr - i - 1);
+    }
+
+    // add assembly operations times 100 to the parent
+    if (snParent[sn] != -1) {
+      int ldc = fr - sz;
+      sn_ops[snParent[sn]] += ldc * (ldc + 1) / 2 * 100;
+      total_ops += ldc * (ldc + 1) / 2 * 100;
     }
   }
 
@@ -1153,14 +1164,10 @@ void Analyse::GenerateLayer0() {
     }
   }
 
-  for (int iter = 0; iter < 10; ++iter) {
-    printf("\nlayer0: ");
-    for (int i : layer0) printf("%d ", i + 1);
-    printf("\n");
-    // for (int i = 0; i < layer0.size(); ++i)
-    // printf("%d %f\n", layer0[i], subtree_ops[layer0[i]]);
+  std::vector<double> processors(n_threads, 0.0);
 
-    std::vector<double> processors(3, 0.0);
+  for (int iter = 0; iter < 10; ++iter) {
+    processors.assign(n_threads, 0.0);
 
     // sort nodes in layer0 according to cost in subtree_ops
     std::sort(layer0.begin(), layer0.end(),
@@ -1174,21 +1181,13 @@ void Analyse::GenerateLayer0() {
                         std::min_element(processors.begin(), processors.end()));
 
       processors[proc_least_load] += subtree_ops[layer0[i]];
-      // printf("Put %d in proc %d\n", layer0[i], proc_least_load);
     }
 
     // compute imbalance ratio
     double imbalance = *std::min_element(processors.begin(), processors.end()) /
                        *std::max_element(processors.begin(), processors.end());
 
-    printf("Imbalance: %f\n", imbalance);
-    if (imbalance > 0.5) {
-      double left = operations;
-      for (int i = 0; i < processors.size(); ++i) {
-        printf("Proc %d: %e\n", i, processors[i]);
-        left -= processors[i];
-      }
-      printf("Left  : %e\n", left);
+    if (imbalance > imbalance_ratio) {
       break;
     }
 
@@ -1198,7 +1197,8 @@ void Analyse::GenerateLayer0() {
         [&](int a, int b) { return subtree_ops[a] < subtree_ops[b]; });
     int node_most_exp = *it_node_most_exp;
 
-    // printf("Node to remove: %d\n", node_most_exp);
+    // if node to be removed does not have children, stop
+    if (head[node_most_exp] == -1) break;
 
     // remove it from layer0
     layer0.erase(it_node_most_exp);
@@ -1210,4 +1210,16 @@ void Analyse::GenerateLayer0() {
       child = next[child];
     }
   }
+
+  double max_load = *std::max_element(processors.begin(), processors.end());
+  double left = total_ops;
+  printf("\nProcessors loads: ");
+  for (int i = 0; i < processors.size(); ++i) {
+    printf("%.2f ", processors[i] / max_load);
+    left -= processors[i];
+  }
+  printf("\n");
+
+  printf("Left / total %%: %.2f\n", left / total_ops * 100);
+  printf("Speedup: %.2f\n\n", total_ops / (left + max_load));
 }

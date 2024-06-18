@@ -831,6 +831,40 @@ Sometimes it beats Full, but in general it seems to be in between.
 It's good, even though the code is getting a bit complicated.
 I will keep both for now, to see which one performs better when I do some proper testing.
 ---
+I made some changes to the function to generate the starting layer for tree parallelism.
+It now prints the expected speedup using a certain number of processors.
+The total number of operations used is equal to the number of dense operations, plus the number of assemble operations multiplied by 100.
+This is because, on my computer, I observed that assembly ops are roughly 2 orders of magnitude slower than dense ops.
+This may be different on other computers though.
+The speedup depends a lot on the specific problem and on the structure of the matrix.
+Some problems have a very large speedup, close to the number of processors used.
+Some problems have almost no speedup possible.
+Better performance will be obtained using node parallelism as well.
+---
+
+*****
+28 May 2024
+I switched the BLAS calls to use the underscore. Native BLAS makes no difference, but to use openblas it only works with underscore.
+I tried openblas and indeed it reached 450-500% cpu usage. Native blas reach 100%.
+openblas is much slower, even if it is parallel. 
+Using native should always be preferred, unless there is a reason not to.
+It looks like syrk in openblas is worse than gemm. I may need to switch all syrk to gemm, just in case. gemm is usually the most optimized function.
+I need to implement node parallelism by hand, because BLAS may or may not be parallelized. Also, it is more easily controllable.
+---
+
+*****
+30 May 2024
+Openblas actually works better when run in serial. Maybe the problems are too small, or the block size. I tried changing it, but it does not seem to improve much.
+It does not seem to give segfault though. But I need more tests.
+I also tried slightly increasing the size of the buffers (by a few bytes), using native blas, and I don't get segfault. But again I need more tests.
+---
+
+*****
+18 Jun 2024
+Segfault in GenerateLayer0 fixed.
+I had to check that the node to be removed is not a leaf and in that case break.
+---
+
 
 *****
 To do:

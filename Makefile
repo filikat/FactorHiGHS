@@ -3,6 +3,7 @@
 highs_path = $(HOME)/Documents/HiGHS
 metis_path = $(HOME)/Documents/METIS
 local_path = $(HOME)/local
+openblas_path = /opt/homebrew/Cellar/openblas/0.3.26/
 
 cpp_sources = \
 	Analyse.cpp \

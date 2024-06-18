@@ -1,8 +1,8 @@
 #ifndef ANALYSE_H
 #define ANALYSE_H
 
-#include <vector>
 #include <algorithm>
+#include <vector>
 
 #include "Auxiliary.h"
 #include "GKlib.h"
@@ -87,7 +87,7 @@ class Analyse {
   void RelativeIndClique();
   bool Check() const;
 
-  void GenerateLayer0();
+  void GenerateLayer0(int n_threads, double imbalance_ratio);
 
   void PrintTimes() const;
 

@@ -313,7 +313,7 @@ int main(int argc, char** argv) {
 
   clock.start();
   Num.Solve(sol);
-  printf("Solve time %f\n\n", clock.stop());
+  printf("\nSolve time %f\n\n", clock.stop());
 
   // ===========================================================================
   // Factorise with MA86
@@ -563,10 +563,10 @@ int main(int argc, char** argv) {
   // ===========================================================================
   if (atoi(argv[5]) == 1) {
     std::ofstream out_file;
-    //Print(out_file, ptrLower, "ptr");
-    //Print(out_file, rowsLower, "rows");
-    //Print(out_file, valLower, "vals");
-    //Print(out_file, S.Perm(), "perm");
+    Print(out_file, ptrLower, "ptr");
+    Print(out_file, rowsLower, "rows");
+    Print(out_file, valLower, "vals");
+    Print(out_file, S.Perm(), "perm");
     Print(out_file, S.SnStart(), "sn_start");
     Print(out_file, S.SnParent(), "sn_parent");
     Print(out_file, S.Ptr(), "ptrsn");

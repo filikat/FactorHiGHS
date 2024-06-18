@@ -25,7 +25,7 @@ double t0;
 int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
   // ===========================================================================
   // Positive definite factorization without blocks.
-  // BLAS calls: ddot, dgemv, dscal.
+  // BLAS calls: ddot_, dgemv_, dscal_.
   // ===========================================================================
 
   // check input
@@ -44,7 +44,7 @@ int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
       int M = n - j - 1;
 
       // update diagonal element
-      double Ajj = A[j + lda * j] - ddot(&N, &A[j], &lda, &A[j], &lda);
+      double Ajj = A[j + lda * j] - ddot_(&N, &A[j], &lda, &A[j], &lda);
       if (Ajj <= 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
         printf("\nDenseFact_fduf: invalid pivot\n");
@@ -58,9 +58,9 @@ int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
 
       // compute column j
       if (j < n - 1) {
-        dgemv(&NN, &M, &N, &d_m_one, &A[j + 1], &lda, &A[j], &lda, &d_one,
-              &A[j + 1 + j * lda], &i_one);
-        dscal(&M, &coeff, &A[j + 1 + j * lda], &i_one);
+        dgemv_(&NN, &M, &N, &d_m_one, &A[j + 1], &lda, &A[j], &lda, &d_one,
+               &A[j + 1 + j * lda], &i_one);
+        dscal_(&M, &coeff, &A[j + 1 + j * lda], &i_one);
       }
     }
   } else {
@@ -70,7 +70,7 @@ int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
 
       // update diagonal element
       double Ajj =
-          A[j + lda * j] - ddot(&N, &A[lda * j], &i_one, &A[lda * j], &i_one);
+          A[j + lda * j] - ddot_(&N, &A[lda * j], &i_one, &A[lda * j], &i_one);
       if (Ajj <= 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
         printf("\nDenseFact_fduf: invalid pivot\n");
@@ -84,9 +84,9 @@ int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
 
       // compute column j
       if (j < n - 1) {
-        dgemv(&TT, &N, &M, &d_m_one, &A[lda * (j + 1)], &lda, &A[lda * j],
-              &i_one, &d_one, &A[j + (j + 1) * lda], &lda);
-        dscal(&M, &coeff, &A[j + (j + 1) * lda], &lda);
+        dgemv_(&TT, &N, &M, &d_m_one, &A[lda * (j + 1)], &lda, &A[lda * j],
+               &i_one, &d_one, &A[j + (j + 1) * lda], &lda);
+        dscal_(&M, &coeff, &A[j + (j + 1) * lda], &lda);
       }
     }
   }
@@ -97,7 +97,7 @@ int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
 int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
   // ===========================================================================
   // Infedinite factorization without blocks.
-  // BLAS calls: ddot, dgemv, dscal.
+  // BLAS calls: ddot_, dgemv_, dscal_.
   // ===========================================================================
 
   // check input
@@ -128,7 +128,7 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
       }
 
       // update diagonal element
-      double Ajj = A[j + lda * j] - ddot(&N, &A[j], &lda, temp, &i_one);
+      double Ajj = A[j + lda * j] - ddot_(&N, &A[j], &lda, temp, &i_one);
       if (Ajj == 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
         printf("\nDenseFact_fiuf: invalid pivot\n");
@@ -141,9 +141,9 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
 
       // compute column j
       if (j < n - 1) {
-        dgemv(&NN, &M, &N, &d_m_one, &A[j + 1], &lda, temp, &i_one, &d_one,
-              &A[j + 1 + j * lda], &i_one);
-        dscal(&M, &coeff, &A[j + 1 + j * lda], &i_one);
+        dgemv_(&NN, &M, &N, &d_m_one, &A[j + 1], &lda, temp, &i_one, &d_one,
+               &A[j + 1 + j * lda], &i_one);
+        dscal_(&M, &coeff, &A[j + 1 + j * lda], &i_one);
       }
     }
     // free temporary copy of row
@@ -166,7 +166,8 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
       }
 
       // update diagonal element
-      double Ajj = A[j + lda * j] - ddot(&N, &A[j * lda], &i_one, temp, &i_one);
+      double Ajj =
+          A[j + lda * j] - ddot_(&N, &A[j * lda], &i_one, temp, &i_one);
       if (Ajj == 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
         printf("\nDenseFact_fiuf: invalid pivot\n");
@@ -179,9 +180,9 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
 
       // compute column j
       if (j < n - 1) {
-        dgemv(&TT, &N, &M, &d_m_one, &A[(j + 1) * lda], &lda, temp, &i_one,
-              &d_one, &A[j + (j + 1) * lda], &lda);
-        dscal(&M, &coeff, &A[j + (j + 1) * lda], &lda);
+        dgemv_(&TT, &N, &M, &d_m_one, &A[(j + 1) * lda], &lda, temp, &i_one,
+               &d_one, &A[j + (j + 1) * lda], &lda);
+        dscal_(&M, &coeff, &A[j + (j + 1) * lda], &lda);
       }
     }
 
@@ -239,7 +240,7 @@ int DenseFact_pdbf(int n, int k, int nb, double* restrict A, int lda,
                    double* restrict B, int ldb, double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks.
-  // BLAS calls: dsyrk, dgemm, dtrsm.
+  // BLAS calls: dsyrk_, dgemm_, dtrsm_.
   // ===========================================================================
 
   // check input
@@ -277,7 +278,7 @@ int DenseFact_pdbf(int n, int k, int nb, double* restrict A, int lda,
     t0 = GetTime();
 #endif
 
-    dsyrk(&LL, &NN, &N, &K, &d_m_one, P, &lda, &d_one, D, &lda);
+    dsyrk_(&LL, &NN, &N, &K, &d_m_one, P, &lda, &d_one, D, &lda);
 
 #ifdef TIMING
     times[t_dsyrk] += GetTime() - t0;
@@ -300,7 +301,7 @@ int DenseFact_pdbf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dgemm(&NN, &TT, &M, &N, &K, &d_m_one, Q, &lda, P, &lda, &d_one, R, &lda);
+      dgemm_(&NN, &TT, &M, &N, &K, &d_m_one, Q, &lda, P, &lda, &d_one, R, &lda);
 #ifdef TIMING
       times[t_dgemm] += GetTime() - t0;
 #endif
@@ -309,7 +310,7 @@ int DenseFact_pdbf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dtrsm(&RR, &LL, &TT, &NN, &M, &N, &d_one, D, &lda, R, &lda);
+      dtrsm_(&RR, &LL, &TT, &NN, &M, &N, &d_one, D, &lda, R, &lda);
 #ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
 #endif
@@ -322,7 +323,7 @@ int DenseFact_pdbf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    dsyrk(&LL, &NN, &N, &k, &d_m_one, &A[k], &lda, &d_zero, B, &ldb);
+    dsyrk_(&LL, &NN, &N, &k, &d_m_one, &A[k], &lda, &d_zero, B, &ldb);
 #ifdef TIMING
     times[t_dsyrk] += GetTime() - t0;
 #endif
@@ -335,7 +336,7 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
                    double* restrict B, int ldb, double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks.
-  // BLAS calls: dcopy, dscal, dgemm, dtrsm, dsyrk
+  // BLAS calls: dcopy_, dscal_, dgemm_, dtrsm_, dsyrk_
   // ===========================================================================
 
   // check input
@@ -371,15 +372,15 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
     }
     int ldt = jb;
     for (int i = 0; i < j; ++i) {
-      dcopy(&N, &A[j + i * lda], &i_one, &T[i * ldt], &i_one);
-      dscal(&N, &A[i + i * lda], &T[i * ldt], &i_one);
+      dcopy_(&N, &A[j + i * lda], &i_one, &T[i * ldt], &i_one);
+      dscal_(&N, &A[i + i * lda], &T[i * ldt], &i_one);
     }
 
-// update diagonal block using dgemm
+// update diagonal block using dgemm_
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    dgemm(&NN, &TT, &jb, &jb, &j, &d_m_one, P, &lda, T, &ldt, &d_one, D, &lda);
+    dgemm_(&NN, &TT, &jb, &jb, &j, &d_m_one, P, &lda, T, &ldt, &d_one, D, &lda);
 #ifdef TIMING
     times[t_dgemm] += GetTime() - t0;
 #endif
@@ -399,7 +400,7 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dgemm(&NN, &TT, &M, &N, &K, &d_m_one, Q, &lda, T, &ldt, &d_one, R, &lda);
+      dgemm_(&NN, &TT, &M, &N, &K, &d_m_one, Q, &lda, T, &ldt, &d_one, R, &lda);
 #ifdef TIMING
       times[t_dgemm] += GetTime() - t0;
 #endif
@@ -408,7 +409,7 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dtrsm(&RR, &LL, &TT, &UU, &M, &N, &d_one, D, &lda, R, &lda);
+      dtrsm_(&RR, &LL, &TT, &UU, &M, &N, &d_one, D, &lda, R, &lda);
 #ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
 #endif
@@ -416,7 +417,7 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
       // solve block of columns with D
       for (int i = 0; i < jb; ++i) {
         double coeff = 1.0 / A[j + i + (j + i) * lda];
-        dscal(&M, &coeff, &A[j + jb + lda * (j + i)], &i_one);
+        dscal_(&M, &coeff, &A[j + jb + lda * (j + i)], &i_one);
       }
     }
 
@@ -459,28 +460,29 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
       double Ajj = A[j + lda * j];
       if (Ajj >= 0.0) {
         Ajj = sqrt(Ajj);
-        dcopy(&N, &A[k + j * lda], &i_one, &temp_pos[start_pos * ldt], &i_one);
-        dscal(&N, &Ajj, &temp_pos[start_pos * ldt], &i_one);
+        dcopy_(&N, &A[k + j * lda], &i_one, &temp_pos[start_pos * ldt], &i_one);
+        dscal_(&N, &Ajj, &temp_pos[start_pos * ldt], &i_one);
         ++start_pos;
       } else {
         Ajj = sqrt(-Ajj);
-        dcopy(&N, &A[k + j * lda], &i_one, &temp_neg[start_neg * ldt], &i_one);
-        dscal(&N, &Ajj, &temp_neg[start_neg * ldt], &i_one);
+        dcopy_(&N, &A[k + j * lda], &i_one, &temp_neg[start_neg * ldt], &i_one);
+        dscal_(&N, &Ajj, &temp_neg[start_neg * ldt], &i_one);
         ++start_neg;
       }
     }
 
 // Update schur complement by subtracting contribution of positive columns
 // and adding contribution of negative columns.
-// In this way, I can use dsyrk instead of dgemm and avoid updating the
+// In this way, I can use dsyrk_ instead of dgemm_ and avoid updating the
 // full square schur complement. First call uses beta = 0.0, to clear
 // content of B. Second call uses beta = 1.0, to not clear the result of
 // the first call.
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    dsyrk(&LL, &NN, &N, &pos_pivot, &d_m_one, temp_pos, &ldt, &d_zero, B, &ldb);
-    dsyrk(&LL, &NN, &N, &neg_pivot, &d_one, temp_neg, &ldt, &d_one, B, &ldb);
+    dsyrk_(&LL, &NN, &N, &pos_pivot, &d_m_one, temp_pos, &ldt, &d_zero, B,
+           &ldb);
+    dsyrk_(&LL, &NN, &N, &neg_pivot, &d_one, temp_neg, &ldt, &d_one, B, &ldb);
 #ifdef TIMING
     times[t_dsyrk] += GetTime() - t0;
 #endif
@@ -498,7 +500,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
   // Positive definite factorization with blocks in lower-blocked-hybrid
   // format. A should be in lower-blocked-hybrid format. Schur complement is
   // returned in B in lower packed format (not lower-blocked-hybrid).
-  // BLAS calls: dsyrk, dgemm, dtrsm, dcopy
+  // BLAS calls: dsyrk_, dgemm_, dtrsm_, dcopy_
   // ===========================================================================
 
   // check input
@@ -555,7 +557,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       int N = Drow + 1;
-      dcopy(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
+      dcopy_(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
       offset += N;
     }
 #ifdef TIMING
@@ -570,14 +572,14 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 
     // update diagonal block and block of columns
     for (int k = 0; k < j; ++k) {
-      // starting position of block to input to dsyrk
+      // starting position of block to input to dsyrk_
       int Ljk_pos = diag_start[k] + diag_size;
       if (j > k + 1) Ljk_pos += full_size * (j - k - 1);
 
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dsyrk(&UU, &TT, &jb, &nb, &d_m_one, &A[Ljk_pos], &nb, &d_one, D, &jb);
+      dsyrk_(&UU, &TT, &jb, &nb, &d_m_one, &A[Ljk_pos], &nb, &d_one, D, &jb);
 #ifdef TIMING
       times[t_dsyrk] += GetTime() - t0;
 #endif
@@ -587,8 +589,8 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dgemm(&TT, &NN, &jb, &M, &nb, &d_m_one, &A[Ljk_pos], &nb, &A[Lik_pos],
-              &nb, &d_one, &A[Lij_pos], &jb);
+        dgemm_(&TT, &NN, &jb, &M, &nb, &d_m_one, &A[Ljk_pos], &nb, &A[Lik_pos],
+               &nb, &d_one, &A[Lij_pos], &jb);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
 #endif
@@ -610,7 +612,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dtrsm(&LL, &UU, &TT, &NN, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
+      dtrsm_(&LL, &UU, &TT, &NN, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
 #ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
 #endif
@@ -623,7 +625,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       int N = Drow + 1;
-      dcopy(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
+      dcopy_(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
       offset += N;
     }
 #ifdef TIMING
@@ -688,8 +690,8 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dsyrk(&UU, &TT, &ncol, &jb, &d_m_one, &A[diag_pos], &jb, &beta,
-              schur_buf, &ncol);
+        dsyrk_(&UU, &TT, &ncol, &jb, &d_m_one, &A[diag_pos], &jb, &beta,
+               schur_buf, &ncol);
 #ifdef TIMING
         times[t_dsyrk] += GetTime() - t0;
 #endif
@@ -700,9 +702,9 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
           t0 = GetTime();
 #endif
-          dgemm(&TT, &NN, &nb, &M, &jb, &d_m_one, &A[diag_pos], &jb,
-                &A[diag_pos + this_full_size], &jb, &beta,
-                &schur_buf[ncol * ncol], &ncol);
+          dgemm_(&TT, &NN, &nb, &M, &jb, &d_m_one, &A[diag_pos], &jb,
+                 &A[diag_pos + this_full_size], &jb, &beta,
+                 &schur_buf[ncol * ncol], &ncol);
 #ifdef TIMING
           times[t_dgemm] += GetTime() - t0;
 #endif
@@ -720,8 +722,8 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 #endif
       for (int buf_row = 0; buf_row < nrow; ++buf_row) {
         int N = ncol;
-        dcopy(&N, &schur_buf[buf_row * ncol], &i_one, &B[B_start + buf_row],
-              &nrow);
+        dcopy_(&N, &schur_buf[buf_row * ncol], &i_one, &B[B_start + buf_row],
+               &nrow);
       }
       B_start += nrow * ncol;
 
@@ -744,7 +746,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
   // Indefinite factorization with blocks in lower-blocked-hybrid format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
   // in B in lower packed format (not lower-blocked-hybrid). BLAS calls:
-  // dsyrk, dgemm, dtrsm, dcopy, dscal
+  // dsyrk_, dgemm_, dtrsm_, dcopy_, dscal_
   // ===========================================================================
 
   const int sizeA = n * k - k * (k - 1) / 2;
@@ -788,7 +790,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
   }
 
   // buffer for copy of block scaled by pivots
-  double* T = malloc(nb * nb * sizeof(double));
+  double* T = malloc(nb * nb * sizeof(double) + 10);
   if (!T) {
     printf("\nDenseFact_pibh: out of memory\n");
     return ret_out_of_memory;
@@ -810,7 +812,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       int N = Drow + 1;
-      dcopy(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
+      dcopy_(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
       offset += N;
     }
 #ifdef TIMING
@@ -825,7 +827,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 
     // update diagonal block and block of columns
     for (int k = 0; k < j; ++k) {
-      // starting position of block to input to dsyrk
+      // starting position of block to input to dsyrk_
       int Ljk_pos = diag_start[k] + diag_size;
       if (j > k + 1) Ljk_pos += full_size * (j - k - 1);
 
@@ -833,7 +835,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dcopy(&this_full_size, &A[Ljk_pos], &i_one, T, &i_one);
+      dcopy_(&this_full_size, &A[Ljk_pos], &i_one, T, &i_one);
 #ifdef TIMING
       times[t_dcopy] += GetTime() - t0;
 #endif
@@ -844,19 +846,19 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #endif
       int pivot_pos = diag_start[k];
       for (int col = 0; col < nb; ++col) {
-        dscal(&jb, &A[pivot_pos], &T[col], &nb);
+        dscal_(&jb, &A[pivot_pos], &T[col], &nb);
         pivot_pos += col + 2;
       }
 #ifdef TIMING
       times[t_dscal] += GetTime() - t0;
 #endif
 
-// update diagonal block with dgemm
+// update diagonal block with dgemm_
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dgemm(&TT, &NN, &jb, &jb, &nb, &d_m_one, T, &nb, &A[Ljk_pos], &nb, &d_one,
-            D, &jb);
+      dgemm_(&TT, &NN, &jb, &jb, &nb, &d_m_one, T, &nb, &A[Ljk_pos], &nb,
+             &d_one, D, &jb);
 #ifdef TIMING
       times[t_dgemm] += GetTime() - t0;
 #endif
@@ -867,8 +869,8 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dgemm(&TT, &NN, &jb, &M, &nb, &d_m_one, T, &nb, &A[Lik_pos], &nb,
-              &d_one, &A[Lij_pos], &jb);
+        dgemm_(&TT, &NN, &jb, &M, &nb, &d_m_one, T, &nb, &A[Lik_pos], &nb,
+               &d_one, &A[Lij_pos], &jb);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
 #endif
@@ -890,7 +892,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dtrsm(&LL, &UU, &TT, &UU, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
+      dtrsm_(&LL, &UU, &TT, &UU, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
 #ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
 #endif
@@ -902,7 +904,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
       int pivot_pos = diag_start[j];
       for (int col = 0; col < jb; ++col) {
         double coeff = 1.0 / A[pivot_pos];
-        dscal(&M, &coeff, &A[Lij_pos + col], &jb);
+        dscal_(&M, &coeff, &A[Lij_pos + col], &jb);
         pivot_pos += col + 2;
       }
 #ifdef TIMING
@@ -917,7 +919,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       int N = Drow + 1;
-      dcopy(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
+      dcopy_(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
       offset += N;
     }
 #ifdef TIMING
@@ -938,7 +940,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
     double beta = 0.0;
 
     // buffer for full-format of block of columns of Schur complement
-    double* schur_buf = malloc(ns * nb * sizeof(double));
+    double* schur_buf = malloc(ns * nb * sizeof(double) + 10);
     if (!schur_buf) {
       printf("\nDenseFact_pibh: out of memory\n");
       return ret_out_of_memory;
@@ -983,7 +985,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dcopy(&N, &A[diag_pos], &i_one, T, &i_one);
+        dcopy_(&N, &A[diag_pos], &i_one, T, &i_one);
 #ifdef TIMING
         times[t_dcopy] += GetTime() - t0;
 #endif
@@ -992,23 +994,22 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
         t0 = GetTime();
 #endif
         for (int col = 0; col < jb; ++col) {
-          dscal(&ncol, &A[pivot_pos], &T[col], &jb);
+          dscal_(&ncol, &A[pivot_pos], &T[col], &jb);
           pivot_pos += col + 2;
         }
 #ifdef TIMING
         times[t_dscal] += GetTime() - t0;
 #endif
 
-// update diagonal block using dgemm
+// update diagonal block using dgemm_
 #ifdef TIMING
         t0 = GetTime();
 #endif
 
         // printf("%p\n", A);
-        assert(diag_pos + ncol * jb - 1 <= sizeA - 1);
 
-        dgemm(&TT, &NN, &ncol, &ncol, &jb, &d_m_one, T, &jb, &A[diag_pos], &jb,
-              &beta, schur_buf, &ncol);
+        dgemm_(&TT, &NN, &ncol, &ncol, &jb, &d_m_one, T, &jb, &A[diag_pos], &jb,
+               &beta, schur_buf, &ncol);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
 #endif
@@ -1019,9 +1020,9 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
           t0 = GetTime();
 #endif
-          dgemm(&TT, &NN, &ncol, &M, &jb, &d_m_one, T, &jb,
-                &A[diag_pos + this_full_size], &jb, &beta,
-                &schur_buf[ncol * ncol], &ncol);
+          dgemm_(&TT, &NN, &ncol, &M, &jb, &d_m_one, T, &jb,
+                 &A[diag_pos + this_full_size], &jb, &beta,
+                 &schur_buf[ncol * ncol], &ncol);
 #ifdef TIMING
           times[t_dgemm] += GetTime() - t0;
 #endif
@@ -1039,8 +1040,8 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #endif
       for (int buf_row = 0; buf_row < nrow; ++buf_row) {
         int N = ncol;
-        dcopy(&N, &schur_buf[buf_row * ncol], &i_one, &B[B_start + buf_row],
-              &nrow);
+        dcopy_(&N, &schur_buf[buf_row * ncol], &i_one, &B[B_start + buf_row],
+               &nrow);
       }
       B_start += nrow * ncol;
 #ifdef TIMING
@@ -1063,7 +1064,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
   // Positive definite factorization with blocks in lower-blocked-hybrid
   // format. A should be in lower-blocked-hybrid format. Schur complement is
   // returned in B in lower-block-hybrid format, with full diagonal blocks.
-  // BLAS calls: dsyrk, dgemm, dtrsm, dcopy
+  // BLAS calls: dsyrk_, dgemm_, dtrsm_, dcopy_
   // ===========================================================================
 
   // check input
@@ -1120,7 +1121,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       int N = Drow + 1;
-      dcopy(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
+      dcopy_(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
       offset += N;
     }
 #ifdef TIMING
@@ -1135,14 +1136,14 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 
     // update diagonal block and block of columns
     for (int k = 0; k < j; ++k) {
-      // starting position of block to input to dsyrk
+      // starting position of block to input to dsyrk_
       int Ljk_pos = diag_start[k] + diag_size;
       if (j > k + 1) Ljk_pos += full_size * (j - k - 1);
 
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dsyrk(&UU, &TT, &jb, &nb, &d_m_one, &A[Ljk_pos], &nb, &d_one, D, &jb);
+      dsyrk_(&UU, &TT, &jb, &nb, &d_m_one, &A[Ljk_pos], &nb, &d_one, D, &jb);
 #ifdef TIMING
       times[t_dsyrk] += GetTime() - t0;
 #endif
@@ -1152,8 +1153,8 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dgemm(&TT, &NN, &jb, &M, &nb, &d_m_one, &A[Ljk_pos], &nb, &A[Lik_pos],
-              &nb, &d_one, &A[Lij_pos], &jb);
+        dgemm_(&TT, &NN, &jb, &M, &nb, &d_m_one, &A[Ljk_pos], &nb, &A[Lik_pos],
+               &nb, &d_one, &A[Lij_pos], &jb);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
 #endif
@@ -1175,7 +1176,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dtrsm(&LL, &UU, &TT, &NN, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
+      dtrsm_(&LL, &UU, &TT, &NN, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
 #ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
 #endif
@@ -1188,7 +1189,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       int N = Drow + 1;
-      dcopy(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
+      dcopy_(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
       offset += N;
     }
 #ifdef TIMING
@@ -1246,8 +1247,8 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dsyrk(&UU, &TT, &ncol, &jb, &d_m_one, &A[diag_pos], &jb, &beta,
-              schur_buf, &ncol);
+        dsyrk_(&UU, &TT, &ncol, &jb, &d_m_one, &A[diag_pos], &jb, &beta,
+               schur_buf, &ncol);
 #ifdef TIMING
         times[t_dsyrk] += GetTime() - t0;
 #endif
@@ -1258,9 +1259,9 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
           t0 = GetTime();
 #endif
-          dgemm(&TT, &NN, &nb, &M, &jb, &d_m_one, &A[diag_pos], &jb,
-                &A[diag_pos + this_full_size], &jb, &beta,
-                &schur_buf[ncol * ncol], &ncol);
+          dgemm_(&TT, &NN, &nb, &M, &jb, &d_m_one, &A[diag_pos], &jb,
+                 &A[diag_pos + this_full_size], &jb, &beta,
+                 &schur_buf[ncol * ncol], &ncol);
 #ifdef TIMING
           times[t_dgemm] += GetTime() - t0;
 #endif
@@ -1286,7 +1287,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
   // Indefinite factorization with blocks in lower-blocked-hybrid format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
   // in B in in lower-block-hybrid format, with full diagonal blocks.
-  // BLAS calls: dsyrk, dgemm, dtrsm, dcopy, dscal
+  // BLAS calls: dsyrk_, dgemm_, dtrsm_, dcopy_, dscal_
   // ===========================================================================
 
   // check input
@@ -1350,7 +1351,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       int N = Drow + 1;
-      dcopy(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
+      dcopy_(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
       offset += N;
     }
 #ifdef TIMING
@@ -1365,7 +1366,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 
     // update diagonal block and block of columns
     for (int k = 0; k < j; ++k) {
-      // starting position of block to input to dsyrk
+      // starting position of block to input to dsyrk_
       int Ljk_pos = diag_start[k] + diag_size;
       if (j > k + 1) Ljk_pos += full_size * (j - k - 1);
 
@@ -1373,7 +1374,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dcopy(&this_full_size, &A[Ljk_pos], &i_one, T, &i_one);
+      dcopy_(&this_full_size, &A[Ljk_pos], &i_one, T, &i_one);
 #ifdef TIMING
       times[t_dcopy] += GetTime() - t0;
 #endif
@@ -1384,19 +1385,19 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #endif
       int pivot_pos = diag_start[k];
       for (int col = 0; col < nb; ++col) {
-        dscal(&jb, &A[pivot_pos], &T[col], &nb);
+        dscal_(&jb, &A[pivot_pos], &T[col], &nb);
         pivot_pos += col + 2;
       }
 #ifdef TIMING
       times[t_dscal] += GetTime() - t0;
 #endif
 
-// update diagonal block with dgemm
+// update diagonal block with dgemm_
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dgemm(&TT, &NN, &jb, &jb, &nb, &d_m_one, T, &nb, &A[Ljk_pos], &nb, &d_one,
-            D, &jb);
+      dgemm_(&TT, &NN, &jb, &jb, &nb, &d_m_one, T, &nb, &A[Ljk_pos], &nb,
+             &d_one, D, &jb);
 #ifdef TIMING
       times[t_dgemm] += GetTime() - t0;
 #endif
@@ -1407,8 +1408,8 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dgemm(&TT, &NN, &jb, &M, &nb, &d_m_one, T, &nb, &A[Lik_pos], &nb,
-              &d_one, &A[Lij_pos], &jb);
+        dgemm_(&TT, &NN, &jb, &M, &nb, &d_m_one, T, &nb, &A[Lik_pos], &nb,
+               &d_one, &A[Lij_pos], &jb);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
 #endif
@@ -1430,7 +1431,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dtrsm(&LL, &UU, &TT, &UU, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
+      dtrsm_(&LL, &UU, &TT, &UU, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
 #ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
 #endif
@@ -1442,7 +1443,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
       int pivot_pos = diag_start[j];
       for (int col = 0; col < jb; ++col) {
         double coeff = 1.0 / A[pivot_pos];
-        dscal(&M, &coeff, &A[Lij_pos + col], &jb);
+        dscal_(&M, &coeff, &A[Lij_pos + col], &jb);
         pivot_pos += col + 2;
       }
 #ifdef TIMING
@@ -1457,7 +1458,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       int N = Drow + 1;
-      dcopy(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
+      dcopy_(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
       offset += N;
     }
 #ifdef TIMING
@@ -1516,7 +1517,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dcopy(&N, &A[diag_pos], &i_one, T, &i_one);
+        dcopy_(&N, &A[diag_pos], &i_one, T, &i_one);
 #ifdef TIMING
         times[t_dcopy] += GetTime() - t0;
 #endif
@@ -1525,19 +1526,19 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
         t0 = GetTime();
 #endif
         for (int col = 0; col < jb; ++col) {
-          dscal(&ncol, &A[pivot_pos], &T[col], &jb);
+          dscal_(&ncol, &A[pivot_pos], &T[col], &jb);
           pivot_pos += col + 2;
         }
 #ifdef TIMING
         times[t_dscal] += GetTime() - t0;
 #endif
 
-// update diagonal block using dgemm
+// update diagonal block using dgemm_
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dgemm(&TT, &NN, &ncol, &ncol, &jb, &d_m_one, T, &jb, &A[diag_pos], &jb,
-              &beta, schur_buf, &ncol);
+        dgemm_(&TT, &NN, &ncol, &ncol, &jb, &d_m_one, T, &jb, &A[diag_pos], &jb,
+               &beta, schur_buf, &ncol);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
 #endif
@@ -1548,9 +1549,9 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
           t0 = GetTime();
 #endif
-          dgemm(&TT, &NN, &ncol, &M, &jb, &d_m_one, T, &jb,
-                &A[diag_pos + this_full_size], &jb, &beta,
-                &schur_buf[ncol * ncol], &ncol);
+          dgemm_(&TT, &NN, &ncol, &M, &jb, &d_m_one, T, &jb,
+                 &A[diag_pos + this_full_size], &jb, &beta,
+                 &schur_buf[ncol * ncol], &ncol);
 #ifdef TIMING
           times[t_dgemm] += GetTime() - t0;
 #endif
@@ -1576,7 +1577,7 @@ int DenseFact_l2h(double* restrict A, int nrow, int ncol, int nb,
   // Takes a matrix in lower-packed format, with nrow rows.
   // Converts the first ncol columns into lower-blocked-hybrid format, with
   // block size nb.
-  // BLAS calls: dcopy
+  // BLAS calls: dcopy_
   // ===========================================================================
 
 #ifdef TIMING
@@ -1608,7 +1609,7 @@ int DenseFact_l2h(double* restrict A, int nrow, int ncol, int nb,
       // Copy each column in the block
       int N = row_size - j;
       int i_one = 1;
-      dcopy(&N, &A[startAtoBuf], &i_one, &buf[startBuf], &i_one);
+      dcopy_(&N, &A[startAtoBuf], &i_one, &buf[startBuf], &i_one);
       startAtoBuf += N;
 
       // +1 to align rows
@@ -1616,11 +1617,11 @@ int DenseFact_l2h(double* restrict A, int nrow, int ncol, int nb,
     }
 
     // Copy columns back into A, row by row.
-    // One call of dcopy for each row of the block of columns.
+    // One call of dcopy_ for each row of the block of columns.
     for (int i = 0; i < row_size; ++i) {
       int N = min(i + 1, block_size);
       int i_one = 1;
-      dcopy(&N, &buf[i], &row_size, &A[startBuftoA], &i_one);
+      dcopy_(&N, &buf[i], &row_size, &A[startBuftoA], &i_one);
       startBuftoA += N;
     }
   }

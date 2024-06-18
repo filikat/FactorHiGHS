@@ -53,6 +53,6 @@ class Clock {
 };
 
 // declaration for Lapack dpotrf
-extern "C" void dpotrf(char* uplo, int* n, double* A, int* ldA, int* info);
+extern "C" void dpotrf_(char* uplo, int* n, double* A, int* ldA, int* info);
 
 #endif

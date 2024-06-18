@@ -145,7 +145,6 @@ int Factorise::ProcessSupernode(int sn) {
   // frontal is initialized to zero
   switch (S.Packed()) {
     case PackType::Full:
-    case PackType::Packed:
       frontal.resize(ldf * sn_size, 0.0);
       break;
     case PackType::Hybrid:
@@ -161,9 +160,6 @@ int Factorise::ProcessSupernode(int sn) {
       if (ldc > 0) clique = new double[ldc * ldc];
       break;
 
-    case PackType::Packed:
-      if (ldc > 0) clique = new double[ldc * (ldc + 1) / 2];
-      break;
     case PackType::Hybrid2:
     case PackType::Hybrid: {
       int nb = S.BlockSize();
@@ -198,7 +194,6 @@ int Factorise::ProcessSupernode(int sn) {
 
       switch (S.Packed()) {
         case PackType::Full:
-        case PackType::Packed:
           frontal[i + j * ldf] = valA[el];
           break;
         case PackType::Hybrid:
@@ -250,18 +245,12 @@ int Factorise::ProcessSupernode(int sn) {
           // how many entries to sum
           int consecutive = S.ConsecutiveSums(child_sn, row);
 
-          // use daxpy for summing consecutive entries
+          // use daxpy_ for summing consecutive entries
           int i_one = 1;
           double d_one = 1.0;
           switch (S.Packed()) {
             case PackType::Full:
-              daxpy(&consecutive, &d_one, &child_clique[row + nc * col], &i_one,
-                    &frontal[i + ldf * j], &i_one);
-              break;
-
-            case PackType::Packed:
-              daxpy(&consecutive, &d_one,
-                    &child_clique[row + nc * col - col * (col + 1) / 2], &i_one,
+              daxpy_(&consecutive, &d_one, &child_clique[row + nc * col], &i_one,
                     &frontal[i + ldf * j], &i_one);
               break;
 
@@ -272,7 +261,7 @@ int Factorise::ProcessSupernode(int sn) {
               int row_ = row - jblock * nb;
               int col_ = col - jblock * nb;
               int start_block = clique_block_start[child_sn][jblock];
-              daxpy(&consecutive, &d_one,
+              daxpy_(&consecutive, &d_one,
                     &child_clique[start_block + col_ + jb * row_], &jb,
                     &frontal[i + ldf * j - j * (j + 1) / 2], &i_one);
             } break;
@@ -284,7 +273,7 @@ int Factorise::ProcessSupernode(int sn) {
               int col_ = col - jblock * nb;
               int start_block = clique_block_start[child_sn][jblock];
               int ld = nc - nb * jblock;
-              daxpy(&consecutive, &d_one,
+              daxpy_(&consecutive, &d_one,
                     &child_clique[start_block + row_ + ld * col_], &i_one,
                     &frontal[i + ldf * j - j * (j + 1) / 2], &i_one);
             } break;
@@ -320,38 +309,6 @@ int Factorise::ProcessSupernode(int sn) {
         if (status) return status;
       }
       break;
-
-    case PackType::Packed: {
-      // uninitialized temporary full format clique
-      double* temp_clique = new double[ldc * ldc];
-
-      if (S.Type() == FactType::NormEq) {
-        int status =
-            DenseFact_pdbf(ldf, sn_size, S.BlockSize(), frontal.data(), ldf,
-                           temp_clique, ldc, times_dense_fact.data());
-        if (status) return status;
-
-      } else {
-        int status =
-            DenseFact_pibf(ldf, sn_size, S.BlockSize(), frontal.data(), ldf,
-                           temp_clique, ldc, times_dense_fact.data());
-        if (status) return status;
-      }
-
-      Clock clock2;
-      clock2.start();
-      // pack temp_clique into clique
-      int pos{};
-      for (int j = 0; j < ldc; ++j) {
-        int nn = ldc - j;
-        int i_one = 1;
-        dcopy(&nn, &temp_clique[j + j * ldc], &i_one, &clique[pos], &i_one);
-        pos += nn;
-      }
-      delete[] temp_clique;
-      times_dense_fact[t_dcopy] += clock2.stop();
-      break;
-    }
 
     case PackType::Hybrid2: {
       int status = DenseFact_l2h(frontal.data(), ldf, sn_size, S.BlockSize(),
@@ -433,16 +390,14 @@ int Factorise::ProcessSupernode(int sn) {
             // how many entries to sum
             int consecutive = S.ConsecutiveSums(child_sn, row);
 
-            // use daxpy for summing consecutive entries
+            // use daxpy_ for summing consecutive entries
             int i_one = 1;
             double d_one = 1.0;
             switch (S.Packed()) {
               case PackType::Full:
-                daxpy(&consecutive, &d_one, &child_clique[row + nc * col],
+                daxpy_(&consecutive, &d_one, &child_clique[row + nc * col],
                       &i_one, &clique[i + ldc * j], &i_one);
                 break;
-
-              case PackType::Packed:
 
               case PackType::Hybrid2: {
                 int nb = S.BlockSize();
@@ -459,7 +414,7 @@ int Factorise::ProcessSupernode(int sn) {
                 int j_ = j - jblock * nb;
                 int start_block = clique_block_start[sn][jblock];
 
-                daxpy(&consecutive, &d_one,
+                daxpy_(&consecutive, &d_one,
                       &child_clique[start_block_c + col_ + jb_c * row_], &jb_c,
                       &clique[start_block + j_ + jb * i_], &jb);
               } break;
@@ -481,7 +436,7 @@ int Factorise::ProcessSupernode(int sn) {
                 int start_block = clique_block_start[sn][jblock];
                 int ld = ldc - nb * jblock;
 
-                daxpy(&consecutive, &d_one,
+                daxpy_(&consecutive, &d_one,
                       &child_clique[start_block_c + row_ + ld_c * col_], &i_one,
                       &clique[start_block + i_ + ld * j_], &i_one);
               } break;
@@ -559,7 +514,7 @@ int Factorise::ProcessSupernode(int sn) {
 
             double d_one = 1.0;
             int i_one = 1;
-            daxpy(&consecutive, &d_one,
+            daxpy_(&consecutive, &d_one,
                   &child_clique[start_block_c + col_ + jb_c * row_], &i_one,
                   &clique[start_block + j_ + jb * i_], &i_one);
 
@@ -613,7 +568,7 @@ bool Factorise::Check() const {
   char uplo = 'L';
   int N = n;
   int info;
-  dpotrf(&uplo, &N, M.data(), &N, &info);
+  dpotrf_(&uplo, &N, M.data(), &N, &info);
   if (info != 0) {
     printf("\n==> dpotrf failed\n\n");
     return false;
@@ -689,6 +644,14 @@ void Factorise::PrintTimes() const {
          time_assemble_children_C, time_assemble_children_C / time_total * 100);
   printf("\tDense factorisation:    %8.4f (%4.1f%%)\n", time_factorise,
          time_factorise / time_total * 100);
+
+  if (times_dense_fact[t_dtrsm] + times_dense_fact[t_dsyrk] +
+          times_dense_fact[t_dgemm] + times_dense_fact[t_fact] +
+          times_dense_fact[t_dcopy] + times_dense_fact[t_dscal] +
+          times_dense_fact[t_convert] ==
+      0.0) {
+    return;
+  }
 
   printf("\t\t  |\n");
   printf("\t\t  |   trsm:     %8.4f (%4.1f%%)\n", times_dense_fact[t_dtrsm],
