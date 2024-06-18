@@ -73,6 +73,9 @@ class Analyse {
   // information about consecutive indices in relindClique
   std::vector<std::vector<int>> consecutiveSums{};
 
+  // estimate of maximum storage
+  double maxStorage{};
+
   void GetPermutation();
   void Permute(const std::vector<int>& iperm);
   void ETree();
@@ -88,6 +91,7 @@ class Analyse {
   bool Check() const;
 
   void GenerateLayer0(int n_threads, double imbalance_ratio);
+  void ReorderChildren();
 
   void PrintTimes() const;
 
@@ -105,8 +109,10 @@ class Analyse {
   double time_count{};
   double time_pattern{};
   double time_sn{};
+  double time_reorder{};
   double time_relind{};
   double time_total{};
+  double time_layer0{};
 
   // save metis iperm to be used by hsl codes for comparison
   std::vector<int> metis_order{};

@@ -389,7 +389,7 @@ void Analyse::RelaxSupernodes() {
 
   for (int iter = 0; iter < k_max_iter_relax; ++iter) {
     // =================================================
-    // build information about supernodes
+    // Build information about supernodes
     // =================================================
     std::vector<int> sn_size(snCount);
     std::vector<int> clique_size(snCount);
@@ -678,7 +678,7 @@ void Analyse::AfterRelaxSn() {
       // keep track of total number of artificial nonzeros
       artificialNz += fakeNonzeros[sn];
 
-      // Compure number of indices for new sn.
+      // Compute number of indices for new sn.
       // This is equal to the number of columns in the new sn plus the clique
       // size of the original supernode where the children where merged.
       snIndices[next_id] = new_snStart[snStart_ind] + colCount[snStart[sn]] -
@@ -748,13 +748,15 @@ void Analyse::AfterRelaxSn() {
   // Save new information
   // =================================================
 
-  // build new snBelong, i.e., the sn to which each columb belongs
+  // build new snBelong, i.e., the sn to which each colum belongs
   for (int sn = 0; sn < snCount; ++sn) {
     for (int i = snStart[sn]; i < snStart[sn + 1]; ++i) {
       snBelong[i] = new_id[sn];
     }
   }
   PermuteVector(snBelong, new_perm);
+
+  PermuteVector(colCount, new_perm);
 
   // Overwrite previous data
   snParent = std::move(new_snParent);
@@ -1041,10 +1043,14 @@ void Analyse::PrintTimes() const {
          time_count / time_total * 100);
   printf("\tSupernodes:             %8.4f (%4.1f%%)\n", time_sn,
          time_sn / time_total * 100);
+  printf("\tReorder:                %8.4f (%4.1f%%)\n", time_reorder,
+         time_reorder / time_total * 100);
   printf("\tSn sparsity pattern:    %8.4f (%4.1f%%)\n", time_pattern,
          time_pattern / time_total * 100);
   printf("\tRelative indices:       %8.4f (%4.1f%%)\n", time_relind,
          time_relind / time_total * 100);
+  printf("\tLayer 0:                %8.4f (%4.1f%%)\n", time_layer0,
+         time_layer0 / time_total * 100);
 }
 
 void Analyse::Run(Symbolic& S) {
@@ -1079,6 +1085,10 @@ void Analyse::Run(Symbolic& S) {
   time_sn = clock.stop();
 
   clock.start();
+  ReorderChildren();
+  time_reorder = clock.stop();
+
+  clock.start();
   SnPattern();
   time_pattern = clock.stop();
 
@@ -1087,11 +1097,13 @@ void Analyse::Run(Symbolic& S) {
   RelativeIndClique();
   time_relind = clock.stop();
 
+  clock.start();
+  GenerateLayer0(4, 0.7);
+  time_layer0 = clock.stop();
+
   time_total = clock0.stop();
 
   PrintTimes();
-
-  GenerateLayer0(4, 0.7);
 
   // move relevant stuff into S
   S.type = type;
@@ -1103,6 +1115,7 @@ void Analyse::Run(Symbolic& S) {
   S.artificialOp = (double)operations - operationsNorelax;
   S.assemblyOp = operationsAssembly;
   S.largestFront = *std::max_element(snIndices.begin(), snIndices.end());
+  S.maxStorage = maxStorage;
 
   std::vector<int> temp(snStart);
   for (int i = snCount; i > 0; --i) temp[i] -= temp[i - 1];
@@ -1169,12 +1182,14 @@ void Analyse::GenerateLayer0(int n_threads, double imbalance_ratio) {
   for (int iter = 0; iter < 10; ++iter) {
     processors.assign(n_threads, 0.0);
 
-    // sort nodes in layer0 according to cost in subtree_ops
+    // sort nodes in layer0 according to cost in subtree_ops.
+    // expensive nodes are ordered last
     std::sort(layer0.begin(), layer0.end(),
-              [&](int a, int b) { return subtree_ops[a] > subtree_ops[b]; });
+              [&](int a, int b) { return subtree_ops[a] < subtree_ops[b]; });
 
-    // allocate nodes in layer0 to processors
-    for (int i = 0; i < layer0.size(); ++i) {
+    // allocate nodes in layer0 to processors:
+    // least loaded processor receives the next most expensive node
+    for (int i = layer0.size() - 1; i >= 0; --i) {
       // find processor with lowest load
       int proc_least_load =
           std::distance(processors.begin(),
@@ -1191,17 +1206,14 @@ void Analyse::GenerateLayer0(int n_threads, double imbalance_ratio) {
       break;
     }
 
-    // find most expensive node in layer0
-    auto it_node_most_exp = std::max_element(
-        layer0.begin(), layer0.end(),
-        [&](int a, int b) { return subtree_ops[a] < subtree_ops[b]; });
-    int node_most_exp = *it_node_most_exp;
+    // most expensive node in layer0 is the last one, because layer0 is sorted
+    int node_most_exp = layer0.back();
 
     // if node to be removed does not have children, stop
     if (head[node_most_exp] == -1) break;
 
     // remove it from layer0
-    layer0.erase(it_node_most_exp);
+    layer0.pop_back();
 
     // and add its children
     int child = head[node_most_exp];
@@ -1222,4 +1234,199 @@ void Analyse::GenerateLayer0(int n_threads, double imbalance_ratio) {
 
   printf("Left / total %%: %.2f\n", left / total_ops * 100);
   printf("Speedup: %.2f\n\n", total_ops / (left + max_load));
+}
+
+void Analyse::ReorderChildren() {
+  std::vector<double> clique_entries(snCount);
+  std::vector<double> frontal_entries(snCount);
+  std::vector<double> storage(snCount, 0.0);
+  std::vector<double> storage_factors(snCount, 0.0);
+
+  // initialize data of supernodes
+  for (int sn = 0; sn < snCount; ++sn) {
+    // supernode size
+    int sz = snStart[sn + 1] - snStart[sn];
+
+    // frontal size
+    int fr = colCount[snStart[sn]];
+
+    // clique size
+    int cl = fr - sz;
+
+    // entries in frontal matrix and schur complement
+    frontal_entries[sn] = (double)fr * (fr + 1) / 2;
+    clique_entries[sn] = (double)cl * (cl + 1) / 2;
+
+    // compute number of entries in factors within the subtree
+    storage_factors[sn] += frontal_entries[sn] - clique_entries[sn];
+    if (snParent[sn] != -1)
+      storage_factors[snParent[sn]] += storage_factors[sn];
+  }
+
+  // linked lists of children
+  std::vector<int> head, next;
+  ChildrenLinkedList(snParent, head, next);
+
+  // go through the supernodes
+  for (int sn = 0; sn < snCount; ++sn) {
+    // leaf node
+    if (head[sn] == -1) {
+      storage[sn] = frontal_entries[sn];
+      continue;
+    }
+
+    // save children and values to sort
+    std::vector<std::pair<int, double>> children{};
+    double clique_total_entries{};
+    double factors_total_entries{};
+    int child = head[sn];
+    while (child != -1) {
+      double value =
+          storage[child] - clique_entries[child] - storage_factors[child];
+      children.push_back({child, value});
+      clique_total_entries += clique_entries[child];
+      factors_total_entries += storage_factors[child];
+      child = next[child];
+    }
+
+    // sort children in decreasing order of the values
+    std::sort(children.begin(), children.end(),
+              [&](std::pair<int, double>& a, std::pair<int, double>& b) {
+                return a.second > b.second;
+              });
+
+    // Compute storage, based on order just found.
+    // storage is found as max(storage_1,storage_2), where
+    // storage_1 = max_j storage[j] + \sum_{k up to j-1} clique_entries[k] +
+    //                                                   storage_factors[k]
+    // storage_2 = frontal_entries + clique_total_entries +
+    //             factors_total_entries
+    double storage_1{};
+    double storage_2 =
+        frontal_entries[sn] + clique_total_entries + factors_total_entries;
+
+    double clique_partial_entries{};
+    double factors_partial_entries{};
+    for (int i = 0; i < children.size(); ++i) {
+      int child = children[i].first;
+      double current =
+          storage[child] + clique_partial_entries + factors_partial_entries;
+      clique_partial_entries += clique_entries[child];
+      factors_partial_entries += storage_factors[child];
+      storage_1 = std::max(storage_1, current);
+    }
+    storage[sn] = std::max(storage_1, storage_2);
+
+    // save max storage needed. multiply by 8 because double need 8 bytes
+    maxStorage = std::max(maxStorage, 8 * storage[sn]);
+
+    // modify linked lists with new order of children
+    head[sn] = children.front().first;
+    for (int i = 0; i < children.size() - 1; ++i) {
+      next[children[i].first] = children[i + 1].first;
+    }
+    next[children.back().first] = -1;
+  }
+
+  // =================================================
+  // Create supernodal permutation
+  // =================================================
+  // build supernodal permutation with dfs
+  std::vector<int> sn_perm(snCount);
+  int start{};
+  for (int sn = 0; sn < snCount; ++sn) {
+    if (snParent[sn] == -1) Dfs_post(sn, start, head, next, sn_perm);
+  }
+
+  // =================================================
+  // Create nodal permutation
+  // =================================================
+  // Given the supernodal permutation, find the nodal permutation
+
+  // permutation to apply to the existing one
+  std::vector<int> new_perm(n);
+
+  // index to write into new_perm
+  start = 0;
+
+  for (int i = 0; i < snCount; ++i) {
+    int sn = sn_perm[i];
+    for (int j = snStart[sn]; j < snStart[sn + 1]; ++j) {
+      new_perm[start++] = j;
+    }
+  }
+
+  // obtain inverse permutation
+  std::vector<int> new_iperm(n);
+  InversePerm(new_perm, new_iperm);
+
+  // =================================================
+  // Create new sn elimination tree
+  // =================================================
+  std::vector<int> isn_perm(snCount);
+  InversePerm(sn_perm, isn_perm);
+  std::vector<int> new_sn_parent(snCount);
+  for (int i = 0; i < snCount; ++i) {
+    if (snParent[i] != -1) {
+      new_sn_parent[isn_perm[i]] = isn_perm[snParent[i]];
+    } else {
+      new_sn_parent[isn_perm[i]] = -1;
+    }
+  }
+
+  // =================================================
+  // Create new snBelong
+  // =================================================
+
+  // build new snBelong, i.e., the sn to which each colum belongs
+  for (int sn = 0; sn < snCount; ++sn) {
+    for (int i = snStart[sn]; i < snStart[sn + 1]; ++i) {
+      snBelong[i] = isn_perm[sn];
+    }
+  }
+  PermuteVector(snBelong, new_perm);
+
+  // permute other vectors that may be needed
+  PermuteVector(colCount, new_perm);
+  PermuteVector(snIndices, sn_perm);
+
+  // =================================================
+  // Create new snStart
+  // =================================================
+  std::vector<int> cols_per_sn(snCount);
+
+  // compute size of each supernode
+  for (int sn = 0; sn < snCount; ++sn) {
+    cols_per_sn[sn] = snStart[sn + 1] - snStart[sn];
+  }
+
+  // permute according to new order of supernodes
+  PermuteVector(cols_per_sn, sn_perm);
+
+  // sum number of columns to obtain pointers
+  for (int i = 0; i < snCount - 1; ++i) {
+    cols_per_sn[i + 1] += cols_per_sn[i];
+  }
+
+  for (int i = 0; i < snCount; ++i) {
+    snStart[i + 1] = cols_per_sn[i];
+  }
+
+  // =================================================
+  // Save new data
+  // =================================================
+
+  // Overwrite previous data
+  snParent = std::move(new_sn_parent);
+
+  // Permute matrix based on new permutation
+  Permute(new_iperm);
+
+  // double transpose to sort columns and compute lower part
+  Transpose(ptrUpper, rowsUpper, ptrLower, rowsLower);
+  Transpose(ptrLower, rowsLower, ptrUpper, rowsUpper);
+
+  // Update perm and iperm
+  PermuteVector(perm, new_perm);
+  InversePerm(perm, iperm);
 }

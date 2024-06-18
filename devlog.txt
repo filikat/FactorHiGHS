@@ -864,8 +864,17 @@ I also tried slightly increasing the size of the buffers (by a few bytes), using
 Segfault in GenerateLayer0 fixed.
 I had to check that the node to be removed is not a leaf and in that case break.
 ---
+I changed GenerateLayer0 so that layer0 is order reversed. Now the node to remove is always the last one and can be removed easily.
+---
+I implemented the reordering of the children to optimize the stack size.
+Something does not work though.
+I find the correct supernodal permutation, but then I need to update the data structures, and something goes wrong.
+---
+Problem fixed. I wasn't permuting all the vectors that are needed later.
+I also added an estimation of the maximum amount of memory needed for the frontal matrices.
+---
 
 
 *****
 To do:
-- postorder of supernodal tree, to optimize stack size
+- parallel stuff

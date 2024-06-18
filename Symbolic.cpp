@@ -19,6 +19,19 @@ void Symbolic::Print() const {
          (double)artificialNz / nz * 100);
   printf(" - artificial ops       %.2e (%4.1f%%)\n", artificialOp,
          artificialOp / operations * 100);
+
+  if (maxStorage > 0) {
+    printf(" - est. max memory      ");
+    if (maxStorage < 1024) {
+      printf("%.2f Bytes\n", maxStorage);
+    } else if (maxStorage < 1024 * 1024) {
+      printf("%.2f KB\n", maxStorage / 1024);
+    } else if (maxStorage < 1024 * 1024 * 1024) {
+      printf("%.2f MB\n", maxStorage / 1024 / 1024);
+    } else {
+      printf("%.2f GB\n", maxStorage / 1024 / 1024 / 1024);
+    }
+  }
 }
 
 FactType Symbolic::Type() const { return type; }

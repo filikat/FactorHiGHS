@@ -24,6 +24,7 @@ class Symbolic {
   // Number of nonzeros in L
   double nz{};
   double fillin{};
+  double maxStorage{};
 
   // Number of dense operations and assembly operations
   double operations{};
