@@ -40,8 +40,8 @@ int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
   // main operations
   if (uplo == 'L') {
     for (int j = 0; j < n; ++j) {
-      int N = j;
-      int M = n - j - 1;
+      const int N = j;
+      const int M = n - j - 1;
 
       // update diagonal element
       double Ajj = A[j + lda * j] - ddot_(&N, &A[j], &lda, &A[j], &lda);
@@ -54,7 +54,7 @@ int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
       // compute diagonal element
       Ajj = sqrt(Ajj);
       A[j + lda * j] = Ajj;
-      double coeff = 1.0 / Ajj;
+      const double coeff = 1.0 / Ajj;
 
       // compute column j
       if (j < n - 1) {
@@ -65,8 +65,8 @@ int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
     }
   } else {
     for (int j = 0; j < n; ++j) {
-      int N = j;
-      int M = n - j - 1;
+      const int N = j;
+      const int M = n - j - 1;
 
       // update diagonal element
       double Ajj =
@@ -80,7 +80,7 @@ int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
       // compute diagonal element
       Ajj = sqrt(Ajj);
       A[j + lda * j] = Ajj;
-      double coeff = 1.0 / Ajj;
+      const double coeff = 1.0 / Ajj;
 
       // compute column j
       if (j < n - 1) {
@@ -119,8 +119,8 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
     }
 
     for (int j = 0; j < n; ++j) {
-      int N = j;
-      int M = n - j - 1;
+      const int N = j;
+      const int M = n - j - 1;
 
       // create temporary copy of row j, multiplied by pivots
       for (int i = 0; i < j; ++i) {
@@ -137,7 +137,7 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
 
       // save diagonal element
       A[j + lda * j] = Ajj;
-      double coeff = 1.0 / Ajj;
+      const double coeff = 1.0 / Ajj;
 
       // compute column j
       if (j < n - 1) {
@@ -157,8 +157,8 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
     }
 
     for (int j = 0; j < n; ++j) {
-      int N = j;
-      int M = n - j - 1;
+      const int N = j;
+      const int M = n - j - 1;
 
       // create temporary copy of col j, multiplied by pivots
       for (int i = 0; i < j; ++i) {
@@ -176,7 +176,7 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
 
       // save diagonal element
       A[j + lda * j] = Ajj;
-      double coeff = 1.0 / Ajj;
+      const double coeff = 1.0 / Ajj;
 
       // compute column j
       if (j < n - 1) {
@@ -235,6 +235,11 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
 // - -1     : invalid input
 //
 // ===========================================================================
+// In the following, block D represents the current diagonal block, in the block
+// of columns that is being factorized. Block R is the rectangular block below
+// D. Block P is the square or rectangular block to the left of D. Block Q is
+// the rectangular block below P. See the report for a full explanation.
+// ===========================================================================
 
 int DenseFact_pdbf(int n, int k, int nb, double* restrict A, int lda,
                    double* restrict B, int ldb, double* times) {
@@ -260,17 +265,17 @@ int DenseFact_pdbf(int n, int k, int nb, double* restrict A, int lda,
   // j is the starting col of the block of columns
   for (int j = 0; j < k; j += nb) {
     // jb is the size of the block
-    int jb = min(nb, k - j);
+    const int jb = min(nb, k - j);
 
     // sizes for blas calls
-    int N = jb;
-    int K = j;
-    int M = n - j - jb;
+    const int N = jb;
+    const int K = j;
+    const int M = n - j - jb;
 
     // starting position of matrices for BLAS calls
     double* D = &A[j + lda * j];
-    double* P = &A[j];
-    double* Q = &A[j + N];
+    const double* P = &A[j];
+    const double* Q = &A[j + N];
     double* R = &A[j + N + lda * j];
 
 // update diagonal block
@@ -319,7 +324,7 @@ int DenseFact_pdbf(int n, int k, int nb, double* restrict A, int lda,
 
   // update Schur complement if partial factorization is required
   if (k < n) {
-    int N = n - k;
+    const int N = n - k;
 #ifdef TIMING
     t0 = GetTime();
 #endif
@@ -351,17 +356,17 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
   // j is the starting col of the block of columns
   for (int j = 0; j < k; j += nb) {
     // jb is the size of the block
-    int jb = min(nb, k - j);
+    const int jb = min(nb, k - j);
 
     // sizes for blas calls
-    int N = jb;
-    int K = j;
-    int M = n - j - jb;
+    const int N = jb;
+    const int K = j;
+    const int M = n - j - jb;
 
     // starting position of matrices for BLAS calls
     double* D = &A[j + lda * j];
-    double* P = &A[j];
-    double* Q = &A[j + N];
+    const double* P = &A[j];
+    const double* Q = &A[j + N];
     double* R = &A[j + N + lda * j];
 
     // create temporary copy of block of rows, multiplied by pivots
@@ -416,7 +421,7 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
 
       // solve block of columns with D
       for (int i = 0; i < jb; ++i) {
-        double coeff = 1.0 / A[j + i + (j + i) * lda];
+        const double coeff = 1.0 / A[j + i + (j + i) * lda];
         dscal_(&M, &coeff, &A[j + jb + lda * (j + i)], &i_one);
       }
     }
@@ -426,7 +431,7 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
 
   // update Schur complement
   if (k < n) {
-    int N = n - k;
+    const int N = n - k;
 
     // count number of positive and negative pivots
     int pos_pivot = 0;
@@ -451,7 +456,7 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
       return ret_out_of_memory;
     }
 
-    int ldt = n - k;
+    const int ldt = n - k;
 
     // the copies of the columns are multiplied by sqrt(|Ajj|)
     int start_pos = 0;
@@ -513,7 +518,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
   if (n == 0) return ret_ok;
 
   // number of blocks of columns
-  int n_blocks = (k - 1) / nb + 1;
+  const int n_blocks = (k - 1) / nb + 1;
 
   // start of diagonal blocks
   int* diag_start = malloc(n_blocks * sizeof(double));
@@ -528,8 +533,8 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
   }
 
   // size of blocks
-  int diag_size = nb * (nb + 1) / 2;
-  int full_size = nb * nb;
+  const int diag_size = nb * (nb + 1) / 2;
+  const int full_size = nb * nb;
 
   // variables for blas calls
   int info;
@@ -544,11 +549,11 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
   // j is the index of the block column
   for (int j = 0; j < n_blocks; ++j) {
     // jb is the number of columns
-    int jb = min(nb, k - nb * j);
+    const int jb = min(nb, k - nb * j);
 
     // size of current block could be smaller than diag_size and full_size
-    int this_diag_size = jb * (jb + 1) / 2;
-    int this_full_size = nb * jb;
+    const int this_diag_size = jb * (jb + 1) / 2;
+    const int this_full_size = nb * jb;
 
 // full copy of diagonal block by rows, in D
 #ifdef TIMING
@@ -556,7 +561,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 #endif
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
-      int N = Drow + 1;
+      const int N = Drow + 1;
       dcopy_(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
       offset += N;
     }
@@ -565,32 +570,35 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 #endif
 
     // number of rows left below block j
-    int M = n - nb * j - jb;
+    const int M = n - nb * j - jb;
 
-    // starting position of block of columns below diagonal block j
-    int Lij_pos = diag_start[j] + this_diag_size;
+    // block of columns below diagonal block j
+    double* R = &A[diag_start[j] + this_diag_size];
 
     // update diagonal block and block of columns
     for (int k = 0; k < j; ++k) {
       // starting position of block to input to dsyrk_
-      int Ljk_pos = diag_start[k] + diag_size;
-      if (j > k + 1) Ljk_pos += full_size * (j - k - 1);
+      int Pk_pos = diag_start[k] + diag_size;
+      if (j > k + 1) Pk_pos += full_size * (j - k - 1);
+      const double* Pk = &A[Pk_pos];
 
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dsyrk_(&UU, &TT, &jb, &nb, &d_m_one, &A[Ljk_pos], &nb, &d_one, D, &jb);
+      dsyrk_(&UU, &TT, &jb, &nb, &d_m_one, Pk, &nb, &d_one, D, &jb);
 #ifdef TIMING
       times[t_dsyrk] += GetTime() - t0;
 #endif
 
       if (M > 0) {
-        int Lik_pos = Ljk_pos + this_full_size;
+        const int Qk_pos = Pk_pos + this_full_size;
+        const double* Qk = &A[Qk_pos];
+
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dgemm_(&TT, &NN, &jb, &M, &nb, &d_m_one, &A[Ljk_pos], &nb, &A[Lik_pos],
-               &nb, &d_one, &A[Lij_pos], &jb);
+        dgemm_(&TT, &NN, &jb, &M, &nb, &d_m_one, Pk, &nb, Qk, &nb, &d_one, R,
+               &jb);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
 #endif
@@ -612,7 +620,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dtrsm_(&LL, &UU, &TT, &NN, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
+      dtrsm_(&LL, &UU, &TT, &NN, &jb, &M, &d_one, D, &jb, R, &jb);
 #ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
 #endif
@@ -624,7 +632,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 #endif
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
-      int N = Drow + 1;
+      const int N = Drow + 1;
       dcopy_(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
       offset += N;
     }
@@ -637,11 +645,11 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
   // compute Schur complement if partial factorization is required
   if (k < n) {
     // number of rows/columns in the Schur complement
-    int ns = n - k;
+    const int ns = n - k;
 
     // size of last full block (may be smaller than full_size)
-    int ncol_last = k % nb;
-    int last_full_size = ncol_last == 0 ? full_size : ncol_last * nb;
+    const int ncol_last = k % nb;
+    const int last_full_size = ncol_last == 0 ? full_size : ncol_last * nb;
 
     double beta = 0.0;
 
@@ -653,7 +661,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
     }
 
     // number of blocks in Schur complement
-    int s_blocks = (ns - 1) / nb + 1;
+    const int s_blocks = (ns - 1) / nb + 1;
 
     // index to write into B
     int B_start = 0;
@@ -662,22 +670,22 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
     // Each block will have a full-format copy made in schur_buf
     for (int sb = 0; sb < s_blocks; ++sb) {
       // number of rows of the block
-      int nrow = ns - nb * sb;
+      const int nrow = ns - nb * sb;
 
       // number of columns of the block
-      int ncol = min(nb, nrow);
+      const int ncol = min(nb, nrow);
 
       // number of elements in diagonal block
-      int schur_diag_size = ncol * (ncol + 1) / 2;
+      const int schur_diag_size = ncol * (ncol + 1) / 2;
 
       beta = 0.0;
 
       // each block receives contributions from the blocks of the leading part
       // of A
       for (int j = 0; j < n_blocks; ++j) {
-        int jb = min(nb, k - nb * j);
-        int this_diag_size = jb * (jb + 1) / 2;
-        int this_full_size = nb * jb;
+        const int jb = min(nb, k - nb * j);
+        const int this_diag_size = jb * (jb + 1) / 2;
+        const int this_full_size = nb * jb;
 
         // compute index to access diagonal block in A
         int diag_pos = diag_start[j] + this_diag_size;
@@ -697,7 +705,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 #endif
 
         // update subdiagonal part
-        int M = nrow - nb;
+        const int M = nrow - nb;
         if (M > 0) {
 #ifdef TIMING
           t0 = GetTime();
@@ -721,7 +729,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
       t0 = GetTime();
 #endif
       for (int buf_row = 0; buf_row < nrow; ++buf_row) {
-        int N = ncol;
+        const int N = ncol;
         dcopy_(&N, &schur_buf[buf_row * ncol], &i_one, &B[B_start + buf_row],
                &nrow);
       }
@@ -761,7 +769,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
   if (n == 0) return ret_ok;
 
   // number of blocks of columns
-  int n_blocks = (k - 1) / nb + 1;
+  const int n_blocks = (k - 1) / nb + 1;
 
   // start of diagonal blocks
   int* diag_start = malloc(n_blocks * sizeof(double));
@@ -776,8 +784,8 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
   }
 
   // size of blocks
-  int diag_size = nb * (nb + 1) / 2;
-  int full_size = nb * nb;
+  const int diag_size = nb * (nb + 1) / 2;
+  const int full_size = nb * nb;
 
   // variables for blas calls
   int info;
@@ -799,11 +807,11 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
   // j is the index of the block column
   for (int j = 0; j < n_blocks; ++j) {
     // jb is the number of columns
-    int jb = min(nb, k - nb * j);
+    const int jb = min(nb, k - nb * j);
 
     // size of current block could be smaller than diag_size and full_size
-    int this_diag_size = jb * (jb + 1) / 2;
-    int this_full_size = nb * jb;
+    const int this_diag_size = jb * (jb + 1) / 2;
+    const int this_full_size = nb * jb;
 
 // full copy of diagonal block by rows, in D
 #ifdef TIMING
@@ -811,7 +819,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #endif
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
-      int N = Drow + 1;
+      const int N = Drow + 1;
       dcopy_(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
       offset += N;
     }
@@ -820,22 +828,24 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #endif
 
     // number of rows left below block j
-    int M = n - nb * j - jb;
+    const int M = n - nb * j - jb;
 
-    // starting position of block of columns below diagonal block j
-    int Lij_pos = diag_start[j] + this_diag_size;
+    // block of columns below diagonal block j
+    const int R_pos = diag_start[j] + this_diag_size;
+    double* R = &A[R_pos];
 
     // update diagonal block and block of columns
     for (int k = 0; k < j; ++k) {
       // starting position of block to input to dsyrk_
-      int Ljk_pos = diag_start[k] + diag_size;
-      if (j > k + 1) Ljk_pos += full_size * (j - k - 1);
+      int Pk_pos = diag_start[k] + diag_size;
+      if (j > k + 1) Pk_pos += full_size * (j - k - 1);
+      const double* Pk = &A[Pk_pos];
 
 // copy block jk into temp
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dcopy_(&this_full_size, &A[Ljk_pos], &i_one, T, &i_one);
+      dcopy_(&this_full_size, Pk, &i_one, T, &i_one);
 #ifdef TIMING
       times[t_dcopy] += GetTime() - t0;
 #endif
@@ -857,20 +867,21 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dgemm_(&TT, &NN, &jb, &jb, &nb, &d_m_one, T, &nb, &A[Ljk_pos], &nb,
-             &d_one, D, &jb);
+      dgemm_(&TT, &NN, &jb, &jb, &nb, &d_m_one, T, &nb, Pk, &nb, &d_one, D,
+             &jb);
 #ifdef TIMING
       times[t_dgemm] += GetTime() - t0;
 #endif
 
       // update rectangular block
       if (M > 0) {
-        int Lik_pos = Ljk_pos + this_full_size;
+        const int Qk_pos = Pk_pos + this_full_size;
+        const double* Qk = &A[Qk_pos];
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dgemm_(&TT, &NN, &jb, &M, &nb, &d_m_one, T, &nb, &A[Lik_pos], &nb,
-               &d_one, &A[Lij_pos], &jb);
+        dgemm_(&TT, &NN, &jb, &M, &nb, &d_m_one, T, &nb, Qk, &nb, &d_one, R,
+               &jb);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
 #endif
@@ -892,7 +903,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dtrsm_(&LL, &UU, &TT, &UU, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
+      dtrsm_(&LL, &UU, &TT, &UU, &jb, &M, &d_one, D, &jb, R, &jb);
 #ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
 #endif
@@ -903,8 +914,8 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #endif
       int pivot_pos = diag_start[j];
       for (int col = 0; col < jb; ++col) {
-        double coeff = 1.0 / A[pivot_pos];
-        dscal_(&M, &coeff, &A[Lij_pos + col], &jb);
+        const double coeff = 1.0 / A[pivot_pos];
+        dscal_(&M, &coeff, &A[R_pos + col], &jb);
         pivot_pos += col + 2;
       }
 #ifdef TIMING
@@ -918,7 +929,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #endif
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
-      int N = Drow + 1;
+      const int N = Drow + 1;
       dcopy_(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
       offset += N;
     }
@@ -931,11 +942,11 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
   // compute Schur complement if partial factorization is required
   if (k < n) {
     // number of rows/columns in the Schur complement
-    int ns = n - k;
+    const int ns = n - k;
 
     // size of last full block (may be smaller than full_size)
-    int ncol_last = k % nb;
-    int last_full_size = ncol_last == 0 ? full_size : ncol_last * nb;
+    const int ncol_last = k % nb;
+    const int last_full_size = ncol_last == 0 ? full_size : ncol_last * nb;
 
     double beta = 0.0;
 
@@ -947,7 +958,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
     }
 
     // number of blocks in Schur complement
-    int s_blocks = (ns - 1) / nb + 1;
+    const int s_blocks = (ns - 1) / nb + 1;
 
     // index to write into B
     int B_start = 0;
@@ -956,22 +967,22 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
     // Each block will have a full-format copy made in schur_buf
     for (int sb = 0; sb < s_blocks; ++sb) {
       // number of rows of the block
-      int nrow = ns - nb * sb;
+      const int nrow = ns - nb * sb;
 
       // number of columns of the block
-      int ncol = min(nb, nrow);
+      const int ncol = min(nb, nrow);
 
       // number of elements in diagonal block
-      int schur_diag_size = ncol * (ncol + 1) / 2;
+      const int schur_diag_size = ncol * (ncol + 1) / 2;
 
       beta = 0.0;
 
       // each block receives contributions from the blocks of the leading part
       // of A
       for (int j = 0; j < n_blocks; ++j) {
-        int jb = min(nb, k - nb * j);
-        int this_diag_size = jb * (jb + 1) / 2;
-        int this_full_size = nb * jb;
+        const int jb = min(nb, k - nb * j);
+        const int this_diag_size = jb * (jb + 1) / 2;
+        const int this_full_size = nb * jb;
 
         // compute index to access diagonal block in A
         int diag_pos = diag_start[j] + this_diag_size;
@@ -981,7 +992,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
         diag_pos += sb * this_full_size;
 
         // create copy of block, multiplied by pivots
-        int N = ncol * jb;
+        const int N = ncol * jb;
 #ifdef TIMING
         t0 = GetTime();
 #endif
@@ -1015,7 +1026,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #endif
 
         // update subdiagonal part
-        int M = nrow - nb;
+        const int M = nrow - nb;
         if (M > 0) {
 #ifdef TIMING
           t0 = GetTime();
@@ -1039,7 +1050,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
       t0 = GetTime();
 #endif
       for (int buf_row = 0; buf_row < nrow; ++buf_row) {
-        int N = ncol;
+        const int N = ncol;
         dcopy_(&N, &schur_buf[buf_row * ncol], &i_one, &B[B_start + buf_row],
                &nrow);
       }
@@ -1077,7 +1088,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
   if (n == 0) return ret_ok;
 
   // number of blocks of columns
-  int n_blocks = (k - 1) / nb + 1;
+  const int n_blocks = (k - 1) / nb + 1;
 
   // start of diagonal blocks
   int* diag_start = malloc(n_blocks * sizeof(double));
@@ -1092,8 +1103,8 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
   }
 
   // size of blocks
-  int diag_size = nb * (nb + 1) / 2;
-  int full_size = nb * nb;
+  const int diag_size = nb * (nb + 1) / 2;
+  const int full_size = nb * nb;
 
   // variables for blas calls
   int info;
@@ -1108,11 +1119,11 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
   // j is the index of the block column
   for (int j = 0; j < n_blocks; ++j) {
     // jb is the number of columns
-    int jb = min(nb, k - nb * j);
+    const int jb = min(nb, k - nb * j);
 
     // size of current block could be smaller than diag_size and full_size
-    int this_diag_size = jb * (jb + 1) / 2;
-    int this_full_size = nb * jb;
+    const int this_diag_size = jb * (jb + 1) / 2;
+    const int this_full_size = nb * jb;
 
 // full copy of diagonal block by rows, in D
 #ifdef TIMING
@@ -1120,7 +1131,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 #endif
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
-      int N = Drow + 1;
+      const int N = Drow + 1;
       dcopy_(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
       offset += N;
     }
@@ -1129,32 +1140,34 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 #endif
 
     // number of rows left below block j
-    int M = n - nb * j - jb;
+    const int M = n - nb * j - jb;
 
-    // starting position of block of columns below diagonal block j
-    int Lij_pos = diag_start[j] + this_diag_size;
+    // block of columns below diagonal block j
+    double* R = &A[diag_start[j] + this_diag_size];
 
     // update diagonal block and block of columns
     for (int k = 0; k < j; ++k) {
       // starting position of block to input to dsyrk_
-      int Ljk_pos = diag_start[k] + diag_size;
-      if (j > k + 1) Ljk_pos += full_size * (j - k - 1);
+      int Pk_pos = diag_start[k] + diag_size;
+      if (j > k + 1) Pk_pos += full_size * (j - k - 1);
+      const double* Pk = &A[Pk_pos];
 
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dsyrk_(&UU, &TT, &jb, &nb, &d_m_one, &A[Ljk_pos], &nb, &d_one, D, &jb);
+      dsyrk_(&UU, &TT, &jb, &nb, &d_m_one, Pk, &nb, &d_one, D, &jb);
 #ifdef TIMING
       times[t_dsyrk] += GetTime() - t0;
 #endif
 
       if (M > 0) {
-        int Lik_pos = Ljk_pos + this_full_size;
+        const int Qk_pos = Pk_pos + this_full_size;
+        const double* Qk = &A[Qk_pos];
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dgemm_(&TT, &NN, &jb, &M, &nb, &d_m_one, &A[Ljk_pos], &nb, &A[Lik_pos],
-               &nb, &d_one, &A[Lij_pos], &jb);
+        dgemm_(&TT, &NN, &jb, &M, &nb, &d_m_one, Pk, &nb, Qk, &nb, &d_one, R,
+               &jb);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
 #endif
@@ -1176,7 +1189,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dtrsm_(&LL, &UU, &TT, &NN, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
+      dtrsm_(&LL, &UU, &TT, &NN, &jb, &M, &d_one, D, &jb, R, &jb);
 #ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
 #endif
@@ -1188,7 +1201,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 #endif
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
-      int N = Drow + 1;
+      const int N = Drow + 1;
       dcopy_(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
       offset += N;
     }
@@ -1201,16 +1214,16 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
   // compute Schur complement if partial factorization is required
   if (k < n) {
     // number of rows/columns in the Schur complement
-    int ns = n - k;
+    const int ns = n - k;
 
     // size of last full block (may be smaller than full_size)
-    int ncol_last = k % nb;
-    int last_full_size = ncol_last == 0 ? full_size : ncol_last * nb;
+    const int ncol_last = k % nb;
+    const int last_full_size = ncol_last == 0 ? full_size : ncol_last * nb;
 
     double beta = 0.0;
 
     // number of blocks in Schur complement
-    int s_blocks = (ns - 1) / nb + 1;
+    const int s_blocks = (ns - 1) / nb + 1;
 
     // index to write into B
     int B_start = 0;
@@ -1222,19 +1235,19 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
       double* schur_buf = &B[B_start];
 
       // number of rows of the block
-      int nrow = ns - nb * sb;
+      const int nrow = ns - nb * sb;
 
       // number of columns of the block
-      int ncol = min(nb, nrow);
+      const int ncol = min(nb, nrow);
 
       beta = 0.0;
 
       // each block receives contributions from the blocks of the leading part
       // of A
       for (int j = 0; j < n_blocks; ++j) {
-        int jb = min(nb, k - nb * j);
-        int this_diag_size = jb * (jb + 1) / 2;
-        int this_full_size = nb * jb;
+        const int jb = min(nb, k - nb * j);
+        const int this_diag_size = jb * (jb + 1) / 2;
+        const int this_full_size = nb * jb;
 
         // compute index to access diagonal block in A
         int diag_pos = diag_start[j] + this_diag_size;
@@ -1254,7 +1267,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 #endif
 
         // update subdiagonal part
-        int M = nrow - nb;
+        const int M = nrow - nb;
         if (M > 0) {
 #ifdef TIMING
           t0 = GetTime();
@@ -1300,7 +1313,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
   if (n == 0) return ret_ok;
 
   // number of blocks of columns
-  int n_blocks = (k - 1) / nb + 1;
+  const int n_blocks = (k - 1) / nb + 1;
 
   // start of diagonal blocks
   int* diag_start = malloc(n_blocks * sizeof(double));
@@ -1315,8 +1328,8 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
   }
 
   // size of blocks
-  int diag_size = nb * (nb + 1) / 2;
-  int full_size = nb * nb;
+  const int diag_size = nb * (nb + 1) / 2;
+  const int full_size = nb * nb;
 
   // variables for blas calls
   int info;
@@ -1338,11 +1351,11 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
   // j is the index of the block column
   for (int j = 0; j < n_blocks; ++j) {
     // jb is the number of columns
-    int jb = min(nb, k - nb * j);
+    const int jb = min(nb, k - nb * j);
 
     // size of current block could be smaller than diag_size and full_size
-    int this_diag_size = jb * (jb + 1) / 2;
-    int this_full_size = nb * jb;
+    const int this_diag_size = jb * (jb + 1) / 2;
+    const int this_full_size = nb * jb;
 
 // full copy of diagonal block by rows, in D
 #ifdef TIMING
@@ -1350,7 +1363,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #endif
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
-      int N = Drow + 1;
+      const int N = Drow + 1;
       dcopy_(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
       offset += N;
     }
@@ -1359,22 +1372,24 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #endif
 
     // number of rows left below block j
-    int M = n - nb * j - jb;
+    const int M = n - nb * j - jb;
 
     // starting position of block of columns below diagonal block j
-    int Lij_pos = diag_start[j] + this_diag_size;
+    const int R_pos = diag_start[j] + this_diag_size;
+    double* R = &A[R_pos];
 
     // update diagonal block and block of columns
     for (int k = 0; k < j; ++k) {
       // starting position of block to input to dsyrk_
-      int Ljk_pos = diag_start[k] + diag_size;
-      if (j > k + 1) Ljk_pos += full_size * (j - k - 1);
+      int Pk_pos = diag_start[k] + diag_size;
+      if (j > k + 1) Pk_pos += full_size * (j - k - 1);
+      const double* Pk = &A[Pk_pos];
 
 // copy block jk into temp
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dcopy_(&this_full_size, &A[Ljk_pos], &i_one, T, &i_one);
+      dcopy_(&this_full_size, Pk, &i_one, T, &i_one);
 #ifdef TIMING
       times[t_dcopy] += GetTime() - t0;
 #endif
@@ -1396,20 +1411,22 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dgemm_(&TT, &NN, &jb, &jb, &nb, &d_m_one, T, &nb, &A[Ljk_pos], &nb,
-             &d_one, D, &jb);
+      dgemm_(&TT, &NN, &jb, &jb, &nb, &d_m_one, T, &nb, Pk, &nb, &d_one, D,
+             &jb);
 #ifdef TIMING
       times[t_dgemm] += GetTime() - t0;
 #endif
 
       // update rectangular block
       if (M > 0) {
-        int Lik_pos = Ljk_pos + this_full_size;
+        const int Qk_pos = Pk_pos + this_full_size;
+        double* Qk = &A[Qk_pos];
+
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dgemm_(&TT, &NN, &jb, &M, &nb, &d_m_one, T, &nb, &A[Lik_pos], &nb,
-               &d_one, &A[Lij_pos], &jb);
+        dgemm_(&TT, &NN, &jb, &M, &nb, &d_m_one, T, &nb, Qk, &nb, &d_one, R,
+               &jb);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
 #endif
@@ -1431,7 +1448,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dtrsm_(&LL, &UU, &TT, &UU, &jb, &M, &d_one, D, &jb, &A[Lij_pos], &jb);
+      dtrsm_(&LL, &UU, &TT, &UU, &jb, &M, &d_one, D, &jb, R, &jb);
 #ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
 #endif
@@ -1443,7 +1460,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
       int pivot_pos = diag_start[j];
       for (int col = 0; col < jb; ++col) {
         double coeff = 1.0 / A[pivot_pos];
-        dscal_(&M, &coeff, &A[Lij_pos + col], &jb);
+        dscal_(&M, &coeff, &A[R_pos + col], &jb);
         pivot_pos += col + 2;
       }
 #ifdef TIMING
@@ -1457,7 +1474,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #endif
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
-      int N = Drow + 1;
+      const int N = Drow + 1;
       dcopy_(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
       offset += N;
     }
@@ -1470,16 +1487,16 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
   // compute Schur complement if partial factorization is required
   if (k < n) {
     // number of rows/columns in the Schur complement
-    int ns = n - k;
+    const int ns = n - k;
 
     // size of last full block (may be smaller than full_size)
-    int ncol_last = k % nb;
-    int last_full_size = ncol_last == 0 ? full_size : ncol_last * nb;
+    const int ncol_last = k % nb;
+    const int last_full_size = ncol_last == 0 ? full_size : ncol_last * nb;
 
     double beta = 0.0;
 
     // number of blocks in Schur complement
-    int s_blocks = (ns - 1) / nb + 1;
+    const int s_blocks = (ns - 1) / nb + 1;
 
     // index to write into B
     int B_start = 0;
@@ -1491,19 +1508,19 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
       double* schur_buf = &B[B_start];
 
       // number of rows of the block
-      int nrow = ns - nb * sb;
+      const int nrow = ns - nb * sb;
 
       // number of columns of the block
-      int ncol = min(nb, nrow);
+      const int ncol = min(nb, nrow);
 
       beta = 0.0;
 
       // each block receives contributions from the blocks of the leading part
       // of A
       for (int j = 0; j < n_blocks; ++j) {
-        int jb = min(nb, k - nb * j);
-        int this_diag_size = jb * (jb + 1) / 2;
-        int this_full_size = nb * jb;
+        const int jb = min(nb, k - nb * j);
+        const int this_diag_size = jb * (jb + 1) / 2;
+        const int this_full_size = nb * jb;
 
         // compute index to access diagonal block in A
         int diag_pos = diag_start[j] + this_diag_size;
@@ -1513,7 +1530,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
         diag_pos += sb * this_full_size;
 
         // create copy of block, multiplied by pivots
-        int N = ncol * jb;
+        const int N = ncol * jb;
 #ifdef TIMING
         t0 = GetTime();
 #endif
@@ -1544,7 +1561,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #endif
 
         // update subdiagonal part
-        int M = nrow - nb;
+        const int M = nrow - nb;
         if (M > 0) {
 #ifdef TIMING
           t0 = GetTime();
@@ -1599,16 +1616,15 @@ int DenseFact_l2h(double* restrict A, int nrow, int ncol, int nb,
     // back.
 
     // Number of columns in the block. Can be smaller than nb for last block.
-    int block_size = min(nb, ncol - k * nb);
+    const int block_size = min(nb, ncol - k * nb);
 
     // Number of rows in the block
-    int row_size = nrow - k * nb;
+    const int row_size = nrow - k * nb;
 
     int startBuf = 0;
     for (int j = 0; j < block_size; ++j) {
       // Copy each column in the block
-      int N = row_size - j;
-      int i_one = 1;
+      const int N = row_size - j;
       dcopy_(&N, &A[startAtoBuf], &i_one, &buf[startBuf], &i_one);
       startAtoBuf += N;
 
@@ -1619,8 +1635,7 @@ int DenseFact_l2h(double* restrict A, int nrow, int ncol, int nb,
     // Copy columns back into A, row by row.
     // One call of dcopy_ for each row of the block of columns.
     for (int i = 0; i < row_size; ++i) {
-      int N = min(i + 1, block_size);
-      int i_one = 1;
+      const int N = min(i + 1, block_size);
       dcopy_(&N, &buf[i], &row_size, &A[startBuftoA], &i_one);
       startBuftoA += N;
     }

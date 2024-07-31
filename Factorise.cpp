@@ -7,7 +7,7 @@ Factorise::Factorise(const Symbolic& S_input,
                      const std::vector<int>& ptrA_input,
                      const std::vector<double>& valA_input)
     : S{S_input} {
-  // Input the symmetric matrix to be factirized in CSC format and the symbolic
+  // Input the symmetric matrix to be factorised in CSC format and the symbolic
   // factorisation coming from Analyze.
   // Only the lower triangular part of the matrix is used.
 
@@ -25,7 +25,7 @@ Factorise::Factorise(const Symbolic& S_input,
   ptrA = ptrA_input;
 
   // Permute the matrix.
-  // This also removes any entry not in the lower triangle.
+  // This also removes any entry not in the upper triangle.
   Permute(S.Iperm());
 
   nzA = ptrA.back();
@@ -122,15 +122,15 @@ int Factorise::ProcessSupernode(int sn) {
   // Supernode information
   // ===================================================
   // first and last+1 column of the supernodes
-  int sn_begin = S.SnStart(sn);
-  int sn_end = S.SnStart(sn + 1);
-  int sn_size = sn_end - sn_begin;
+  const int sn_begin = S.SnStart(sn);
+  const int sn_end = S.SnStart(sn + 1);
+  const int sn_size = sn_end - sn_begin;
 
   // leading dimension of the frontal matrix
-  int ldf = S.Ptr(sn + 1) - S.Ptr(sn);
+  const int ldf = S.Ptr(sn + 1) - S.Ptr(sn);
 
   // leading dimension of the clique matrix
-  int ldc = ldf - sn_size;
+  const int ldc = ldf - sn_size;
 
   // Allocate space for frontal matrix:
   // The front size is ldf and the supernode size is sn_size.
@@ -162,13 +162,13 @@ int Factorise::ProcessSupernode(int sn) {
 
     case PackType::Hybrid2:
     case PackType::Hybrid: {
-      int nb = S.BlockSize();
-      int n_blocks = (ldc - 1) / nb + 1;
+      const int nb = S.BlockSize();
+      const int n_blocks = (ldc - 1) / nb + 1;
       clique_block_start[sn].resize(n_blocks + 1);
       int schur_size{};
       for (int j = 0; j < n_blocks; ++j) {
         clique_block_start[sn][j] = schur_size;
-        int jb = std::min(nb, ldc - j * nb);
+        const int jb = std::min(nb, ldc - j * nb);
         schur_size += (ldc - j * nb) * jb;
       }
       clique_block_start[sn].back() = schur_size;
@@ -185,12 +185,12 @@ int Factorise::ProcessSupernode(int sn) {
   // j is relative column index in the frontal matrix
   for (int j = 0; j < sn_size; ++j) {
     // column index in the original matrix
-    int col = sn_begin + j;
+    const int col = sn_begin + j;
 
     // go through the column
     for (int el = ptrA[col]; el < ptrA[col + 1]; ++el) {
       // relative row index in the frontal matrix
-      int i = S.RelindCols(el);
+      const int i = S.RelindCols(el);
 
       switch (S.Packed()) {
         case PackType::Full:
@@ -219,14 +219,14 @@ int Factorise::ProcessSupernode(int sn) {
     }
 
     // determine size of clique of child
-    int child_begin = S.SnStart(child_sn);
-    int child_end = S.SnStart(child_sn + 1);
+    const int child_begin = S.SnStart(child_sn);
+    const int child_end = S.SnStart(child_sn + 1);
 
     // number of nodes in child sn
-    int child_size = child_end - child_begin;
+    const int child_size = child_end - child_begin;
 
     // size of clique of child sn
-    int nc = S.Ptr(child_sn + 1) - S.Ptr(child_sn) - child_size;
+    const int nc = S.Ptr(child_sn + 1) - S.Ptr(child_sn) - child_size;
 
     // go through the columns of the contribution of the child
     for (int col = 0; col < nc; ++col) {
@@ -240,42 +240,42 @@ int Factorise::ProcessSupernode(int sn) {
         int row = col;
         while (row < nc) {
           // relative index of the entry in the matrix frontal
-          int i = S.RelindClique(child_sn, row);
+          const int i = S.RelindClique(child_sn, row);
 
           // how many entries to sum
-          int consecutive = S.ConsecutiveSums(child_sn, row);
+          const int consecutive = S.ConsecutiveSums(child_sn, row);
 
           // use daxpy_ for summing consecutive entries
-          int i_one = 1;
-          double d_one = 1.0;
+          const int i_one = 1;
+          const double d_one = 1.0;
           switch (S.Packed()) {
             case PackType::Full:
-              daxpy_(&consecutive, &d_one, &child_clique[row + nc * col], &i_one,
-                    &frontal[i + ldf * j], &i_one);
+              daxpy_(&consecutive, &d_one, &child_clique[row + nc * col],
+                     &i_one, &frontal[i + ldf * j], &i_one);
               break;
 
             case PackType::Hybrid2: {
-              int nb = S.BlockSize();
-              int jblock = col / nb;
-              int jb = std::min(nb, nc - nb * jblock);
-              int row_ = row - jblock * nb;
-              int col_ = col - jblock * nb;
-              int start_block = clique_block_start[child_sn][jblock];
+              const int nb = S.BlockSize();
+              const int jblock = col / nb;
+              const int jb = std::min(nb, nc - nb * jblock);
+              const int row_ = row - jblock * nb;
+              const int col_ = col - jblock * nb;
+              const int start_block = clique_block_start[child_sn][jblock];
               daxpy_(&consecutive, &d_one,
-                    &child_clique[start_block + col_ + jb * row_], &jb,
-                    &frontal[i + ldf * j - j * (j + 1) / 2], &i_one);
+                     &child_clique[start_block + col_ + jb * row_], &jb,
+                     &frontal[i + ldf * j - j * (j + 1) / 2], &i_one);
             } break;
 
             case PackType::Hybrid: {
-              int nb = S.BlockSize();
-              int jblock = col / nb;
-              int row_ = row - jblock * nb;
-              int col_ = col - jblock * nb;
-              int start_block = clique_block_start[child_sn][jblock];
-              int ld = nc - nb * jblock;
+              const int nb = S.BlockSize();
+              const int jblock = col / nb;
+              const int row_ = row - jblock * nb;
+              const int col_ = col - jblock * nb;
+              const int start_block = clique_block_start[child_sn][jblock];
+              const int ld = nc - nb * jblock;
               daxpy_(&consecutive, &d_one,
-                    &child_clique[start_block + row_ + ld * col_], &i_one,
-                    &frontal[i + ldf * j - j * (j + 1) / 2], &i_one);
+                     &child_clique[start_block + row_ + ld * col_], &i_one,
+                     &frontal[i + ldf * j - j * (j + 1) / 2], &i_one);
             } break;
           }
           row += consecutive;
@@ -359,14 +359,14 @@ int Factorise::ProcessSupernode(int sn) {
     }
 
     // determine size of clique of child
-    int child_begin = S.SnStart(child_sn);
-    int child_end = S.SnStart(child_sn + 1);
+    const int child_begin = S.SnStart(child_sn);
+    const int child_end = S.SnStart(child_sn + 1);
 
     // number of nodes in child sn
-    int child_size = child_end - child_begin;
+    const int child_size = child_end - child_begin;
 
     // size of clique of child sn
-    int nc = S.Ptr(child_sn + 1) - S.Ptr(child_sn) - child_size;
+    const int nc = S.Ptr(child_sn + 1) - S.Ptr(child_sn) - child_size;
 
     if (S.Packed() != PackType::Hybrid2) {
       //   if (true) {
@@ -385,60 +385,60 @@ int Factorise::ProcessSupernode(int sn) {
           int row = col;
           while (row < nc) {
             // relative index of the entry in the matrix clique
-            int i = S.RelindClique(child_sn, row) - sn_size;
+            const int i = S.RelindClique(child_sn, row) - sn_size;
 
             // how many entries to sum
-            int consecutive = S.ConsecutiveSums(child_sn, row);
+            const int consecutive = S.ConsecutiveSums(child_sn, row);
 
             // use daxpy_ for summing consecutive entries
-            int i_one = 1;
-            double d_one = 1.0;
+            const int i_one = 1;
+            const double d_one = 1.0;
             switch (S.Packed()) {
               case PackType::Full:
                 daxpy_(&consecutive, &d_one, &child_clique[row + nc * col],
-                      &i_one, &clique[i + ldc * j], &i_one);
+                       &i_one, &clique[i + ldc * j], &i_one);
                 break;
 
               case PackType::Hybrid2: {
-                int nb = S.BlockSize();
+                const int nb = S.BlockSize();
+                const int jblock_c = col / nb;
+                const int jb_c = std::min(nb, nc - nb * jblock_c);
+                const int row_ = row - jblock_c * nb;
+                const int col_ = col - jblock_c * nb;
+                const int start_block_c =
+                    clique_block_start[child_sn][jblock_c];
 
-                int jblock_c = col / nb;
-                int jb_c = std::min(nb, nc - nb * jblock_c);
-                int row_ = row - jblock_c * nb;
-                int col_ = col - jblock_c * nb;
-                int start_block_c = clique_block_start[child_sn][jblock_c];
-
-                int jblock = j / nb;
-                int jb = std::min(nb, ldc - nb * jblock);
-                int i_ = i - jblock * nb;
-                int j_ = j - jblock * nb;
-                int start_block = clique_block_start[sn][jblock];
+                const int jblock = j / nb;
+                const int jb = std::min(nb, ldc - nb * jblock);
+                const int i_ = i - jblock * nb;
+                const int j_ = j - jblock * nb;
+                const int start_block = clique_block_start[sn][jblock];
 
                 daxpy_(&consecutive, &d_one,
-                      &child_clique[start_block_c + col_ + jb_c * row_], &jb_c,
-                      &clique[start_block + j_ + jb * i_], &jb);
+                       &child_clique[start_block_c + col_ + jb_c * row_], &jb_c,
+                       &clique[start_block + j_ + jb * i_], &jb);
               } break;
 
               case PackType::Hybrid: {
-                int nb = S.BlockSize();
+                const int nb = S.BlockSize();
+                const int jblock_c = col / nb;
+                const int jb_c = std::min(nb, nc - nb * jblock_c);
+                const int row_ = row - jblock_c * nb;
+                const int col_ = col - jblock_c * nb;
+                const int start_block_c =
+                    clique_block_start[child_sn][jblock_c];
+                const int ld_c = nc - nb * jblock_c;
 
-                int jblock_c = col / nb;
-                int jb_c = std::min(nb, nc - nb * jblock_c);
-                int row_ = row - jblock_c * nb;
-                int col_ = col - jblock_c * nb;
-                int start_block_c = clique_block_start[child_sn][jblock_c];
-                int ld_c = nc - nb * jblock_c;
-
-                int jblock = j / nb;
-                int jb = std::min(nb, ldc - nb * jblock);
-                int i_ = i - jblock * nb;
-                int j_ = j - jblock * nb;
-                int start_block = clique_block_start[sn][jblock];
-                int ld = ldc - nb * jblock;
+                const int jblock = j / nb;
+                const int jb = std::min(nb, ldc - nb * jblock);
+                const int i_ = i - jblock * nb;
+                const int j_ = j - jblock * nb;
+                const int start_block = clique_block_start[sn][jblock];
+                const int ld = ldc - nb * jblock;
 
                 daxpy_(&consecutive, &d_one,
-                      &child_clique[start_block_c + row_ + ld_c * col_], &i_one,
-                      &clique[start_block + i_ + ld * j_], &i_one);
+                       &child_clique[start_block_c + row_ + ld_c * col_],
+                       &i_one, &clique[start_block + i_ + ld * j_], &i_one);
               } break;
             }
             row += consecutive;
@@ -453,21 +453,21 @@ int Factorise::ProcessSupernode(int sn) {
       // assemble the child clique into the current clique by blocks of columns.
       // within a block, assemble by rows.
 
-      int nb = S.BlockSize();
-      int n_blocks = (nc - 1) / nb + 1;
+      const int nb = S.BlockSize();
+      const int n_blocks = (nc - 1) / nb + 1;
 
       int row_start{};
 
       // go through the blocks of columns of the child sn
       for (int b = 0; b < n_blocks; ++b) {
-        int b_start = clique_block_start[child_sn][b];
+        const int b_start = clique_block_start[child_sn][b];
 
-        int col_start = row_start;
-        int col_end = std::min(col_start + nb, nc);
+        const int col_start = row_start;
+        const int col_end = std::min(col_start + nb, nc);
 
         // go through the rows within this block
         for (int row = row_start; row < nc; ++row) {
-          int i = S.RelindClique(child_sn, row) - sn_size;
+          const int i = S.RelindClique(child_sn, row) - sn_size;
 
           // already assembled into frontal
           if (i < 0) continue;
@@ -483,40 +483,42 @@ int Factorise::ProcessSupernode(int sn) {
             j -= sn_size;
 
             // information and sizes of child sn
-            int jblock_c = b;
-            int jb_c = std::min(nb, nc - nb * jblock_c);
-            int row_ = row - jblock_c * nb;
-            int col_ = col - jblock_c * nb;
-            int start_block_c = b_start;
+            const int jblock_c = b;
+            const int jb_c = std::min(nb, nc - nb * jblock_c);
+            const int row_ = row - jblock_c * nb;
+            const int col_ = col - jblock_c * nb;
+            const int start_block_c = b_start;
 
             // sun consecutive entries in a row.
             // consecutive need to be reduced, to account for edge of the block
-            int zeros_stored_row = std::max(0, jb_c - (row - row_start) - 1);
+            const int zeros_stored_row =
+                std::max(0, jb_c - (row - row_start) - 1);
             int consecutive = S.ConsecutiveSums(child_sn, col);
-            int left_in_child = col_end - col - zeros_stored_row;
+            const int left_in_child = col_end - col - zeros_stored_row;
             consecutive = std::min(consecutive, left_in_child);
 
             // consecutive need to account also for edge of block in parent
-            int block_in_parent = j / nb;
-            int col_end_parent = std::min((block_in_parent + 1) * nb, ldc);
-            int left_in_parent = col_end_parent - j;
+            const int block_in_parent = j / nb;
+            const int col_end_parent =
+                std::min((block_in_parent + 1) * nb, ldc);
+            const int left_in_parent = col_end_parent - j;
             consecutive = std::min(consecutive, left_in_parent);
 
             // needed to deal with zeros stored in upper right part of block
             if (consecutive == 0) break;
 
             // information and sizes of current sn
-            int jblock = block_in_parent;
-            int jb = std::min(nb, ldc - nb * jblock);
-            int i_ = i - jblock * nb;
-            int j_ = j - jblock * nb;
-            int start_block = clique_block_start[sn][jblock];
+            const int jblock = block_in_parent;
+            const int jb = std::min(nb, ldc - nb * jblock);
+            const int i_ = i - jblock * nb;
+            const int j_ = j - jblock * nb;
+            const int start_block = clique_block_start[sn][jblock];
 
-            double d_one = 1.0;
-            int i_one = 1;
+            const double d_one = 1.0;
+            const int i_one = 1;
             daxpy_(&consecutive, &d_one,
-                  &child_clique[start_block_c + col_ + jb_c * row_], &i_one,
-                  &clique[start_block + j_ + jb * i_], &i_one);
+                   &child_clique[start_block_c + col_ + jb_c * row_], &i_one,
+                   &clique[start_block + j_ + jb * i_], &i_one);
 
             col += consecutive;
           }

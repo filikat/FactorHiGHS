@@ -14,14 +14,14 @@ double GetTime() {
 #define min(i, j) ((i) >= (j) ? (j) : (i))
 
 // variables for BLAS calls
-double d_one = 1.0;
-double d_zero = 0.0;
-double d_m_one = -1.0;
-int i_one = 1;
-char LL = 'L';
-char NN = 'N';
-char RR = 'R';
-char TT = 'T';
-char UU = 'U';
+const double d_one = 1.0;
+const double d_zero = 0.0;
+const double d_m_one = -1.0;
+const int i_one = 1;
+const char LL = 'L';
+const char NN = 'N';
+const char RR = 'R';
+const char TT = 'T';
+const char UU = 'U';
 
 #endif

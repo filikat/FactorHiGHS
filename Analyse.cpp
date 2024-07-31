@@ -278,7 +278,7 @@ void Analyse::ColCount() {
   for (int j = 0; j < n; j++) ancestor[j] = j;
 
   for (int k = 0; k < n; ++k) {
-    int j = k;
+    const int j = k;
 
     // if not a root, decrement
     if (parent[j] != -1) colCount[parent[j]]--;
@@ -424,13 +424,15 @@ void Analyse::RelaxSupernodes() {
 
         while (child != -1) {
           // how many zero rows would become nonzero
-          int rows_filled = sn_size[sn] + clique_size[sn] - clique_size[child];
+          const int rows_filled =
+              sn_size[sn] + clique_size[sn] - clique_size[child];
 
           // how many zero entries would become nonzero
-          int nz_added = rows_filled * sn_size[child];
+          const int nz_added = rows_filled * sn_size[child];
 
           // how many artificial nonzeros would the merged supernode have
-          int total_art_nz = nz_added + fakeNonzeros[sn] + fakeNonzeros[child];
+          const int total_art_nz =
+              nz_added + fakeNonzeros[sn] + fakeNonzeros[child];
 
           // Save child with smallest number of artificial zeros created.
           // Ties are broken based on size of child.
@@ -485,8 +487,8 @@ void Analyse::RelaxSupernodes() {
       if (mergedInto[sn] == -1) {
         temp_art_nz += fakeNonzeros[sn];
 
-        double nn = sn_size[sn];
-        double cc = clique_size[sn];
+        const double nn = sn_size[sn];
+        const double cc = clique_size[sn];
         temp_art_ops += (nn + cc) * (nn + cc) * nn - (nn + cc) * nn * (nn + 1) +
                         nn * (nn + 1) * (2 * nn + 1) / 6;
       }
@@ -495,7 +497,7 @@ void Analyse::RelaxSupernodes() {
 
     // if enough fake nz or ops have been added, stop.
     // double ratio_fake = temp_art_nz / (nzL + temp_art_nz);
-    double ratio_fake = temp_art_ops / (temp_art_ops + operationsNorelax);
+    const double ratio_fake = temp_art_ops / (temp_art_ops + operationsNorelax);
 
     // try to find ratio in interval [0.01,0.02] using bisection
     if (ratio_fake < k_lower_ratio_relax) {
@@ -560,13 +562,15 @@ void Analyse::RelaxSupernodes_2() {
 
       while (child != -1) {
         // how many zero rows would become nonzero
-        int rows_filled = sn_size[sn] + clique_size[sn] - clique_size[child];
+        const int rows_filled =
+            sn_size[sn] + clique_size[sn] - clique_size[child];
 
         // how many zero entries would become nonzero
-        int nz_added = rows_filled * sn_size[child];
+        const int nz_added = rows_filled * sn_size[child];
 
         // how many artificial nonzeros would the merged supernode have
-        int total_art_nz = nz_added + fakeNonzeros[sn] + fakeNonzeros[child];
+        const int total_art_nz =
+            nz_added + fakeNonzeros[sn] + fakeNonzeros[child];
 
         if (sn_size[child] < size_smallest) {
           size_smallest = sn_size[child];
@@ -613,7 +617,7 @@ void Analyse::RelaxSupernodes_2() {
 
 void Analyse::AfterRelaxSn() {
   // number of new supernodes
-  int new_snCount = snCount - mergedSn;
+  const int new_snCount = snCount - mergedSn;
 
   // keep track of number of row indices needed for each supernode
   snIndices.assign(new_snCount, 0);
@@ -660,7 +664,7 @@ void Analyse::AfterRelaxSn() {
       toadd.push(sn);
 
       while (!toadd.empty()) {
-        int current = toadd.top();
+        const int current = toadd.top();
 
         if (!received_from[current].empty()) {
           for (int i : received_from[current]) toadd.push(i);
@@ -700,7 +704,7 @@ void Analyse::AfterRelaxSn() {
   // compute number of flops needed for the factorization
   operations = 0.0;
   for (int sn = 0; sn < new_snCount; ++sn) {
-    double colcount_sn = (double)snIndices[sn];
+    const double colcount_sn = (double)snIndices[sn];
     for (int i = 0; i < new_snStart[sn + 1] - new_snStart[sn]; ++i) {
       operations += (colcount_sn - i - 1) * (colcount_sn - i - 1);
     }
@@ -719,7 +723,7 @@ void Analyse::AfterRelaxSn() {
   int start{};
 
   for (int i = 0; i < snCount; ++i) {
-    int sn = sn_perm[i];
+    const int sn = sn_perm[i];
     for (int j = snStart[sn]; j < snStart[sn + 1]; ++j) {
       new_perm[start++] = j;
     }
@@ -736,8 +740,8 @@ void Analyse::AfterRelaxSn() {
   for (int i = 0; i < snCount; ++i) {
     if (snParent[i] == -1) continue;
 
-    int ii = new_id[i];
-    int pp = new_id[snParent[i]];
+    const int ii = new_id[i];
+    const int pp = new_id[snParent[i]];
 
     if (ii == pp) continue;
 
@@ -748,7 +752,7 @@ void Analyse::AfterRelaxSn() {
   // Save new information
   // =================================================
 
-  // build new snBelong, i.e., the sn to which each colum belongs
+  // build new snBelong, i.e., the sn to which each column belongs
   for (int sn = 0; sn < snCount; ++sn) {
     for (int i = snStart[sn]; i < snStart[sn + 1]; ++i) {
       snBelong[i] = new_id[sn];
@@ -797,7 +801,7 @@ void Analyse::SnPattern() {
     // for all entries in the row of lower triangle
     for (int el = ptrUpper[i]; el < ptrUpper[i + 1]; ++el) {
       // there is nonzero (i,j)
-      int j = rowsUpper[el];
+      const int j = rowsUpper[el];
 
       // supernode to which column j belongs to
       int snj = snBelong[j];
@@ -1144,10 +1148,10 @@ void Analyse::GenerateLayer0(int n_threads, double imbalance_ratio) {
   std::vector<double> sn_ops(snCount);
   for (int sn = 0; sn < snCount; ++sn) {
     // supernode size
-    int sz = snStart[sn + 1] - snStart[sn];
+    const int sz = snStart[sn + 1] - snStart[sn];
 
     // frontal size
-    int fr = ptrLsn[sn + 1] - ptrLsn[sn];
+    const int fr = ptrLsn[sn + 1] - ptrLsn[sn];
 
     // number of operations for this supernode
     for (int i = 0; i < sz; ++i) {
@@ -1156,7 +1160,7 @@ void Analyse::GenerateLayer0(int n_threads, double imbalance_ratio) {
 
     // add assembly operations times 100 to the parent
     if (snParent[sn] != -1) {
-      int ldc = fr - sz;
+      const int ldc = fr - sz;
       sn_ops[snParent[sn]] += ldc * (ldc + 1) / 2 * 100;
       total_ops += ldc * (ldc + 1) / 2 * 100;
     }
@@ -1191,7 +1195,7 @@ void Analyse::GenerateLayer0(int n_threads, double imbalance_ratio) {
     // least loaded processor receives the next most expensive node
     for (int i = layer0.size() - 1; i >= 0; --i) {
       // find processor with lowest load
-      int proc_least_load =
+      const int proc_least_load =
           std::distance(processors.begin(),
                         std::min_element(processors.begin(), processors.end()));
 
@@ -1199,15 +1203,14 @@ void Analyse::GenerateLayer0(int n_threads, double imbalance_ratio) {
     }
 
     // compute imbalance ratio
-    double imbalance = *std::min_element(processors.begin(), processors.end()) /
-                       *std::max_element(processors.begin(), processors.end());
+    const double imbalance =
+        *std::min_element(processors.begin(), processors.end()) /
+        *std::max_element(processors.begin(), processors.end());
 
-    if (imbalance > imbalance_ratio) {
-      break;
-    }
+    if (imbalance > imbalance_ratio) break;
 
     // most expensive node in layer0 is the last one, because layer0 is sorted
-    int node_most_exp = layer0.back();
+    const int node_most_exp = layer0.back();
 
     // if node to be removed does not have children, stop
     if (head[node_most_exp] == -1) break;
@@ -1223,17 +1226,18 @@ void Analyse::GenerateLayer0(int n_threads, double imbalance_ratio) {
     }
   }
 
-  double max_load = *std::max_element(processors.begin(), processors.end());
-  double left = total_ops;
+  const double max_load =
+      *std::max_element(processors.begin(), processors.end());
+  double ops_left = total_ops;
   printf("\nProcessors loads: ");
   for (int i = 0; i < processors.size(); ++i) {
     printf("%.2f ", processors[i] / max_load);
-    left -= processors[i];
+    ops_left -= processors[i];
   }
   printf("\n");
 
-  printf("Left / total %%: %.2f\n", left / total_ops * 100);
-  printf("Speedup: %.2f\n\n", total_ops / (left + max_load));
+  printf("Left / total %%: %.2f\n", ops_left / total_ops * 100);
+  printf("Speedup: %.2f\n\n", total_ops / (ops_left + max_load));
 }
 
 void Analyse::ReorderChildren() {
@@ -1245,13 +1249,13 @@ void Analyse::ReorderChildren() {
   // initialize data of supernodes
   for (int sn = 0; sn < snCount; ++sn) {
     // supernode size
-    int sz = snStart[sn + 1] - snStart[sn];
+    const int sz = snStart[sn + 1] - snStart[sn];
 
     // frontal size
-    int fr = colCount[snStart[sn]];
+    const int fr = colCount[snStart[sn]];
 
     // clique size
-    int cl = fr - sz;
+    const int cl = fr - sz;
 
     // entries in frontal matrix and schur complement
     frontal_entries[sn] = (double)fr * (fr + 1) / 2;
@@ -1301,12 +1305,12 @@ void Analyse::ReorderChildren() {
     //                                                   storage_factors[k]
     // storage_2 = frontal_entries + clique_total_entries +
     //             factors_total_entries
-    double storage_1{};
-    double storage_2 =
+    const double storage_2 =
         frontal_entries[sn] + clique_total_entries + factors_total_entries;
 
     double clique_partial_entries{};
     double factors_partial_entries{};
+    double storage_1{};
     for (int i = 0; i < children.size(); ++i) {
       int child = children[i].first;
       double current =
@@ -1317,7 +1321,7 @@ void Analyse::ReorderChildren() {
     }
     storage[sn] = std::max(storage_1, storage_2);
 
-    // save max storage needed. multiply by 8 because double need 8 bytes
+    // save max storage needed, multiply by 8 because double needs 8 bytes
     maxStorage = std::max(maxStorage, 8 * storage[sn]);
 
     // modify linked lists with new order of children
@@ -1350,7 +1354,7 @@ void Analyse::ReorderChildren() {
   start = 0;
 
   for (int i = 0; i < snCount; ++i) {
-    int sn = sn_perm[i];
+    const int sn = sn_perm[i];
     for (int j = snStart[sn]; j < snStart[sn + 1]; ++j) {
       new_perm[start++] = j;
     }

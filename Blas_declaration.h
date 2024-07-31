@@ -8,28 +8,34 @@ extern "C" {
 #endif
 
 // level 1
-void daxpy_(int* n, double* alpha, double* dx, int* incx, double* dy,
-            int* incy);
-void dcopy_(int* n, double* dx, int* incx, double* dy, int* incy);
-double ddot_(int* n, double* dx, int* incx, double* dy, int* incy);
-void dscal_(int* n, double* da, double* dx, int* incx);
+void daxpy_(const int* n, const double* alpha, const double* dx,
+            const int* incx, double* dy, const int* incy);
+void dcopy_(const int* n, const double* dx, const int* incx, double* dy,
+            const int* incy);
+double ddot_(const int* n, const double* dx, const int* incx, const double* dy,
+             const int* incy);
+void dscal_(const int* n, const double* da, double* dx, const int* incx);
 
 // level 2
-void dgemv_(char* trans, int* m, int* n, double* alpha, const double* A,
-            int* lda, double* x, int* incx, double* beta, double* y, int* incy);
-void dtpsv_(char* uplo, char* trans, char* diag, int* n, const double* ap,
-            double* x, int* incx);
-void dtrsv_(char* uplo, char* trans, char* diag, int* n, const double* A,
-            int* lda, double* x, int* incx);
+void dgemv_(const char* trans, const int* m, const int* n, const double* alpha,
+            const double* A, const int* lda, const double* x, const int* incx,
+            const double* beta, double* y, const int* incy);
+void dtpsv_(const char* uplo, const char* trans, const char* diag, const int* n,
+            const double* ap, double* x, const int* incx);
+void dtrsv_(const char* uplo, const char* trans, const char* diag, const int* n,
+            const double* A, const int* lda, double* x, const int* incx);
 
 // level 3
-void dgemm_(char* transa, char* transb, int* m, int* n, int* k, double* alpha,
-            double* A, int* lda, double* B, int* ldb, double* beta, double* C,
-            int* ldc);
-void dsyrk_(char* uplo, char* trans, int* n, int* k, double* alpha, double* a,
-            int* lda, double* beta, double* c, int* ldc);
-void dtrsm_(char* side, char* uplo, char* trans, char* diag, int* m, int* n,
-            double* alpha, double* a, int* lda, double* b, int* ldb);
+void dgemm_(const char* transa, const char* transb, const int* m, const int* n,
+            const int* k, const double* alpha, const double* A, const int* lda,
+            const double* B, const int* ldb, const double* beta, double* C,
+            const int* ldc);
+void dsyrk_(const char* uplo, const char* trans, const int* n, const int* k,
+            const double* alpha, const double* a, const int* lda,
+            const double* beta, double* c, const int* ldc);
+void dtrsm_(const char* side, const char* uplo, const char* trans,
+            const char* diag, const int* m, const int* n, const double* alpha,
+            const double* a, const int* lda, double* b, const int* ldb);
 
 #ifdef __cplusplus
 }
