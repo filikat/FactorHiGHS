@@ -874,6 +874,16 @@ Problem fixed. I wasn't permuting all the vectors that are needed later.
 I also added an estimation of the maximum amount of memory needed for the frontal matrices.
 ---
 
+*****
+30 Aug 2024
+Many things not logged during summer.
+Mainly, changes to protoIPM to accomodate more easily the linear solvers, refactoring of the naming convention, to align with HiGHS convention.
+I am learning cpp multithreading, but it takes time... 
+I will need to meddle with Leona's parallel interface, to make sure that I can do what I need to do.
+---
+I still need to plug FactorHiGHS into ProtoIPM to see what happens. I will probably need to add regularization.
+---
+
 
 *****
 To do:

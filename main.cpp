@@ -274,18 +274,18 @@ int main(int argc, char** argv) {
   // ===========================================================================
   Symbolic S;
   Analyse An(rowsLower, ptrLower, type, order_to_use);
-  An.Run(S);
-  S.Print();
+  An.run(S);
+  S.print();
 
   // save inverse permutation to pass to MAxx
-  if (atoi(argv[4]) == 1) order_to_use = An.metis_order;
+  if (atoi(argv[4]) == 1) order_to_use = An.metis_order_;
 
   // ===========================================================================
   // Numerical factorisation
   // ===========================================================================
   Numeric Num;
   Factorise F(S, rowsLower, ptrLower, valLower);
-  int ret_status = F.Run(Num);
+  int ret_status = F.run(Num);
   if (ret_status) return 1;
 
   // ===========================================================================
@@ -312,7 +312,7 @@ int main(int argc, char** argv) {
   std::vector<double> sol(rhs);
 
   clock.start();
-  Num.Solve(sol);
+  Num.solve(sol);
   printf("\nSolve time %f\n\n", clock.stop());
 
   // ===========================================================================
@@ -384,7 +384,7 @@ int main(int argc, char** argv) {
   double ma87_time_analyse{};
   double ma87_time_factorise{};
   double ma87_time_solve{};
-  if (atoi(argv[3]) == 1 && S.Type() == FactType::NormEq) {
+  if (atoi(argv[3]) == 1 && S.type() == FactType::NormEq) {
     std::vector<double> solMa87(rhs);
 
     MA87Data ma87_data;
@@ -440,7 +440,7 @@ int main(int argc, char** argv) {
   double ma97_time_factorise{};
   double ma97_time_solve{};
   MA97Data ma97_data;
-  if (atoi(argv[3]) == 1 && S.Type() == FactType::NormEq) {
+  if (atoi(argv[3]) == 1 && S.type() == FactType::NormEq) {
     std::vector<double> solMa97(rhs);
 
     clock.start();
@@ -563,14 +563,14 @@ int main(int argc, char** argv) {
   // ===========================================================================
   if (atoi(argv[5]) == 1) {
     std::ofstream out_file;
-    Print(out_file, ptrLower, "ptr");
-    Print(out_file, rowsLower, "rows");
-    Print(out_file, valLower, "vals");
-    Print(out_file, S.Perm(), "perm");
-    Print(out_file, S.SnStart(), "sn_start");
-    Print(out_file, S.SnParent(), "sn_parent");
-    Print(out_file, S.Ptr(), "ptrsn");
-    Print(out_file, F.time_per_Sn, "time_per_sn");
+    print(out_file, ptrLower, "ptr");
+    print(out_file, rowsLower, "rows");
+    print(out_file, valLower, "vals");
+    print(out_file, S.perm(), "perm");
+    print(out_file, S.snStart(), "sn_start");
+    print(out_file, S.snParent(), "sn_parent");
+    print(out_file, S.ptr(), "ptrsn");
+    print(out_file, F.time_per_sn_, "time_per_sn");
 
     // extract problem name witout mps from path
     std::string pb_name{};
@@ -584,24 +584,24 @@ int main(int argc, char** argv) {
 
     fprintf(
         file, "%15s  |  %12.1e %10.1f %10.1f %10.1f %10.1f %10.1f %10.1f  |  ",
-        pb_name.c_str(), An.time_total, An.time_metis / An.time_total * 100,
-        An.time_tree / An.time_total * 100, An.time_count / An.time_total * 100,
-        An.time_sn / An.time_total * 100, An.time_pattern / An.time_total * 100,
-        An.time_relind / An.time_total * 100);
+        pb_name.c_str(), An.time_total_, An.time_metis_ / An.time_total_ * 100,
+        An.time_tree_ / An.time_total_ * 100, An.time_count_ / An.time_total_ * 100,
+        An.time_sn_ / An.time_total_ * 100, An.time_pattern_ / An.time_total_ * 100,
+        An.time_relind_ / An.time_total_ * 100);
 
     fprintf(file, "%12.1e %10.1f %10.1f %10.1f %10.1f %10.1f  |  ",
-            F.time_total, F.time_prepare / F.time_total * 100,
-            F.time_assemble_original / F.time_total * 100,
-            F.time_assemble_children_C / F.time_total * 100,
-            F.time_assemble_children_F / F.time_total * 100,
-            F.time_factorise / F.time_total * 100);
+            F.time_total_, F.time_prepare_ / F.time_total_ * 100,
+            F.time_assemble_original_ / F.time_total_ * 100,
+            F.time_assemble_children_C_ / F.time_total_ * 100,
+            F.time_assemble_children_F_ / F.time_total_ * 100,
+            F.time_factorise_ / F.time_total_ * 100);
 
     fprintf(file, "\n");
     fclose(file);
 
     if (atoi(argv[3])) {
       file = fopen("results_hsl.txt", "a");
-      fprintf(file, " %12.5e %12.5e %12.5e %12.5e %12.5e\n", F.time_total,
+      fprintf(file, " %12.5e %12.5e %12.5e %12.5e %12.5e\n", F.time_total_,
               ma86_time_factorise, ma87_time_factorise, ma97_time_factorise,
               ma57_time_factorise);
       fclose(file);

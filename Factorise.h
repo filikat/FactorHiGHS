@@ -1,60 +1,59 @@
 #ifndef FACTORIZE_H
 #define FACTORIZE_H
 
+#include <cmath>
+
 #include "Auxiliary.h"
 #include "Blas_declaration.h"
 #include "DenseFact_declaration.h"
 #include "Numeric.h"
 #include "Symbolic.h"
 
-#include <cmath>
-
 class Factorise {
  public:
   // matrix to factorise
-  std::vector<int> rowsA{};
-  std::vector<int> ptrA{};
-  std::vector<double> valA{};
-  int n{};
-  int nzA{};
+  std::vector<int> rowsA_{};
+  std::vector<int> ptrA_{};
+  std::vector<double> valA_{};
+  int n_{};
+  int nzA_{};
 
   // symbolic factorisation
-  const Symbolic& S;
+  const Symbolic& S_;
 
   // children in supernodal elimination tree
-  std::vector<int> firstChildren{};
-  std::vector<int> nextChildren{};
+  std::vector<int> first_children_{};
+  std::vector<int> next_children_{};
 
   // generated elements
-  std::vector<double*> SchurContribution{};
+  std::vector<double*> schur_contribution_{};
 
   // columns of L, stored as dense supernodes
-  std::vector<std::vector<double>> SnColumns{};
+  std::vector<std::vector<double>> sn_columns_{};
 
-  std::vector<std::vector<int>> clique_block_start{};
-
- public:
-  void Permute(const std::vector<int>& iperm);
-  int ProcessSupernode(int sn);
-  bool Check() const;
-  void PrintTimes() const;
+  std::vector<std::vector<int>> clique_block_start_{};
 
  public:
-  Factorise(const Symbolic& S_input, const std::vector<int>& rowsA_input,
-            const std::vector<int>& ptrA_input,
-            const std::vector<double>& valA_input);
+  void permute(const std::vector<int>& iperm);
+  int processSupernode(int sn);
+  bool check() const;
+  void printTimes() const;
 
-  int Run(Numeric& Num);
+ public:
+  Factorise(const Symbolic& S, const std::vector<int>& rowsA,
+            const std::vector<int>& ptrA, const std::vector<double>& valA);
 
-  std::vector<double> time_per_Sn{};
+  int run(Numeric& num);
 
-  double time_prepare{};
-  double time_assemble_original{};
-  double time_assemble_children_F{};
-  double time_assemble_children_C{};
-  double time_factorise{};
-  double time_total{};
-  std::vector<double> times_dense_fact;
+  std::vector<double> time_per_sn_{};
+
+  double time_prepare_{};
+  double time_assemble_original_{};
+  double time_assemble_children_F_{};
+  double time_assemble_children_C_{};
+  double time_factorise_{};
+  double time_total_{};
+  std::vector<double> times_dense_fact_;
 };
 
 #endif

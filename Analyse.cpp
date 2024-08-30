@@ -5,9 +5,8 @@
 #include <random>
 #include <stack>
 
-Analyse::Analyse(const std::vector<int>& rows_input,
-                 const std::vector<int>& ptr_input, FactType type_input,
-                 const std::vector<int>& order) {
+Analyse::Analyse(const std::vector<int>& rows, const std::vector<int>& ptr,
+                 FactType type, const std::vector<int>& order) {
   // Input the symmetric matrix to be analysed in CSC format.
   // row_ind contains the row indices.
   // col_ptr contains the starting points of each column.
@@ -15,64 +14,64 @@ Analyse::Analyse(const std::vector<int>& rows_input,
   // nonzeros is the number of nonzero entries.
   // Only the lower triangular part is used.
 
-  n = ptr_input.size() - 1;
-  nz = rows_input.size();
-  type = type_input;
+  n_ = ptr.size() - 1;
+  nz_ = rows.size();
+  type_ = type;
 
   // Create upper triangular part
-  rowsUpper.resize(nz);
-  ptrUpper.resize(n + 1);
-  Transpose(ptr_input, rows_input, ptrUpper, rowsUpper);
+  rows_upper_.resize(nz_);
+  ptr_upper_.resize(n_ + 1);
+  transpose(ptr, rows, ptr_upper_, rows_upper_);
 
   // Permute the matrix with identical permutation, to extract upper triangular
   // part, if the input is not upper triangular.
-  std::vector<int> id_perm(n);
-  for (int i = 0; i < n; ++i) id_perm[i] = i;
-  Permute(id_perm);
+  std::vector<int> id_perm(n_);
+  for (int i = 0; i < n_; ++i) id_perm[i] = i;
+  permute(id_perm);
 
   // actual number of nonzeros of only upper triangular part
-  nz = ptrUpper.back();
+  nz_ = ptr_upper_.back();
 
   // number of nonzeros potentially changed after Permute.
-  rowsUpper.resize(nz);
+  rows_upper_.resize(nz_);
 
   // double transpose to sort columns
-  ptrLower.resize(n + 1);
-  rowsLower.resize(nz);
-  Transpose(ptrUpper, rowsUpper, ptrLower, rowsLower);
-  Transpose(ptrLower, rowsLower, ptrUpper, rowsUpper);
+  ptr_lower_.resize(n_ + 1);
+  rows_lower_.resize(nz_);
+  transpose(ptr_upper_, rows_upper_, ptr_lower_, rows_lower_);
+  transpose(ptr_lower_, rows_lower_, ptr_upper_, rows_upper_);
 
   if (!order.empty()) {
     // inverse permutation provided by user
-    iperm = order;
-    perm.resize(n);
-    InversePerm(iperm, perm);
+    iperm_ = order;
+    perm_.resize(n_);
+    inversePerm(iperm_, perm_);
   }
 
-  ready = true;
+  ready_ = true;
 }
 
-void Analyse::GetPermutation() {
+void Analyse::getPermutation() {
   // Use Metis to compute a nested dissection permutation of the original matrix
 
-  if (!perm.empty()) {
+  if (!perm_.empty()) {
     // permutation already provided by user
     return;
   }
 
-  perm.resize(n);
-  iperm.resize(n);
+  perm_.resize(n_);
+  iperm_.resize(n_);
 
   // Build temporary full copy of the matrix, to be used for Metis.
   // NB: Metis adjacency list should not contain the vertex itself, so diagonal
   // element is skipped.
 
-  std::vector<int> work(n, 0);
+  std::vector<int> work(n_, 0);
 
   // go through the columns to count nonzeros
-  for (int j = 0; j < n; ++j) {
-    for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
-      const int i = rowsUpper[el];
+  for (int j = 0; j < n_; ++j) {
+    for (int el = ptr_upper_[j]; el < ptr_upper_[j + 1]; ++el) {
+      const int i = rows_upper_[el];
 
       // skip diagonal entries
       if (i == j) continue;
@@ -86,14 +85,14 @@ void Analyse::GetPermutation() {
   }
 
   // compute column pointers from column counts
-  std::vector<int> temp_ptr(n + 1, 0);
-  Counts2Ptr(temp_ptr, work);
+  std::vector<int> temp_ptr(n_ + 1, 0);
+  counts2Ptr(temp_ptr, work);
 
   std::vector<int> temp_rows(temp_ptr.back(), 0);
 
-  for (int j = 0; j < n; ++j) {
-    for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
-      const int i = rowsUpper[el];
+  for (int j = 0; j < n_; ++j) {
+    for (int el = ptr_upper_[j]; el < ptr_upper_[j + 1]; ++el) {
+      const int i = rows_upper_[el];
 
       if (i == j) continue;
 
@@ -108,28 +107,28 @@ void Analyse::GetPermutation() {
   // call Metis
   int options[METIS_NOPTIONS];
   METIS_SetDefaultOptions(options);
-  int status = METIS_NodeND(&n, temp_ptr.data(), temp_rows.data(), NULL,
-                            options, perm.data(), iperm.data());
+  int status = METIS_NodeND(&n_, temp_ptr.data(), temp_rows.data(), NULL,
+                            options, perm_.data(), iperm_.data());
   assert(status == METIS_OK);
 
-  metis_order = iperm;
+  metis_order_ = iperm_;
 }
 
-void Analyse::Permute(const std::vector<int>& iperm) {
+void Analyse::permute(const std::vector<int>& iperm) {
   // Symmetric permutation of the upper triangular matrix based on inverse
   // permutation iperm.
   // The resulting matrix is upper triangular, regardless of the input matrix.
 
-  std::vector<int> work(n, 0);
+  std::vector<int> work(n_, 0);
 
   // go through the columns to count the nonzeros
-  for (int j = 0; j < n; ++j) {
+  for (int j = 0; j < n_; ++j) {
     // get new index of column
     const int col = iperm[j];
 
     // go through elements of column
-    for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
-      const int i = rowsUpper[el];
+    for (int el = ptr_upper_[j]; el < ptr_upper_[j + 1]; ++el) {
+      const int i = rows_upper_[el];
 
       // ignore potential entries in lower triangular part
       if (i > j) continue;
@@ -143,22 +142,22 @@ void Analyse::Permute(const std::vector<int>& iperm) {
     }
   }
 
-  std::vector<int> new_ptr(n + 1);
+  std::vector<int> new_ptr(n_ + 1);
 
   // get column pointers by summing the count of nonzeros in each column.
   // copy column pointers into work
-  Counts2Ptr(new_ptr, work);
+  counts2Ptr(new_ptr, work);
 
   std::vector<int> new_rows(new_ptr.back());
 
   // go through the columns to assign row indices
-  for (int j = 0; j < n; ++j) {
+  for (int j = 0; j < n_; ++j) {
     // get new index of column
     const int col = iperm[j];
 
     // go through elements of column
-    for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
-      const int i = rowsUpper[el];
+    for (int el = ptr_upper_[j]; el < ptr_upper_[j + 1]; ++el) {
+      const int i = rows_upper_[el];
 
       // ignore potential entries in lower triangular part
       if (i > j) continue;
@@ -175,11 +174,11 @@ void Analyse::Permute(const std::vector<int>& iperm) {
     }
   }
 
-  ptrUpper = std::move(new_ptr);
-  rowsUpper = std::move(new_rows);
+  ptr_upper_ = std::move(new_ptr);
+  rows_upper_ = std::move(new_rows);
 }
 
-void Analyse::ETree() {
+void Analyse::eTree() {
   // Find elimination tree.
   // It works only for upper triangular matrices.
   // The tree is stored in the vector parent:
@@ -187,17 +186,17 @@ void Analyse::ETree() {
   // means that j is the parent of i in the tree.
   // For the root(s) of the tree, parent[root] = -1.
 
-  parent.resize(n);
-  std::vector<int> ancestor(n);
+  parent_.resize(n_);
+  std::vector<int> ancestor(n_);
   int next{};
 
-  for (int j = 0; j < n; ++j) {
+  for (int j = 0; j < n_; ++j) {
     // initialize parent and ancestor, which are still unknown
-    parent[j] = -1;
+    parent_[j] = -1;
     ancestor[j] = -1;
 
-    for (int el = ptrUpper[j]; el < ptrUpper[j + 1]; ++el) {
-      for (int i = rowsUpper[el]; i != -1 && i < j; i = next) {
+    for (int el = ptr_upper_[j]; el < ptr_upper_[j + 1]; ++el) {
+      for (int i = rows_upper_[el]; i != -1 && i < j; i = next) {
         // next is used to move up the tree
         next = ancestor[i];
 
@@ -205,124 +204,124 @@ void Analyse::ETree() {
         // repeating (aka path compression): from j there is a known path to i
         ancestor[i] = j;
 
-        if (next == -1) parent[i] = j;
+        if (next == -1) parent_[i] = j;
       }
     }
   }
 }
 
-void Analyse::Postorder() {
+void Analyse::postorder() {
   // Find a postordering of the elimination tree using depth first search
 
-  postorder.resize(n);
+  postorder_.resize(n_);
 
   // create linked list of children
   std::vector<int> head, next;
-  ChildrenLinkedList(parent, head, next);
+  childrenLinkedList(parent_, head, next);
 
   // Execute depth first search only for root node(s)
   int start{};
-  for (int node = 0; node < n; ++node) {
-    if (parent[node] == -1) {
-      Dfs_post(node, start, head, next, postorder);
+  for (int node = 0; node < n_; ++node) {
+    if (parent_[node] == -1) {
+      dfsPostorder(node, start, head, next, postorder_);
     }
   }
 
   // Permute elimination tree based on postorder
-  std::vector<int> ipost(n);
-  InversePerm(postorder, ipost);
-  std::vector<int> new_parent(n);
-  for (int i = 0; i < n; ++i) {
-    if (parent[i] != -1) {
-      new_parent[ipost[i]] = ipost[parent[i]];
+  std::vector<int> ipost(n_);
+  inversePerm(postorder_, ipost);
+  std::vector<int> new_parent(n_);
+  for (int i = 0; i < n_; ++i) {
+    if (parent_[i] != -1) {
+      new_parent[ipost[i]] = ipost[parent_[i]];
     } else {
       new_parent[ipost[i]] = -1;
     }
   }
-  parent = std::move(new_parent);
+  parent_ = std::move(new_parent);
 
   // Permute matrix based on postorder
-  Permute(ipost);
+  permute(ipost);
 
   // double transpose to sort columns and compute lower part
-  Transpose(ptrUpper, rowsUpper, ptrLower, rowsLower);
-  Transpose(ptrLower, rowsLower, ptrUpper, rowsUpper);
+  transpose(ptr_upper_, rows_upper_, ptr_lower_, rows_lower_);
+  transpose(ptr_lower_, rows_lower_, ptr_upper_, rows_upper_);
 
   // Update perm and iperm
-  PermuteVector(perm, postorder);
-  InversePerm(perm, iperm);
+  permuteVector(perm_, postorder_);
+  inversePerm(perm_, iperm_);
 }
 
-void Analyse::ColCount() {
+void Analyse::colCount() {
   // Columns count using skeleton matrix.
   // Taken from Tim Davis "Direct Methods for Sparse Linear Systems".
 
-  std::vector<int> first(n, -1);
-  std::vector<int> ancestor(n, -1);
-  std::vector<int> max_first(n, -1);
-  std::vector<int> prev_leaf(n, -1);
+  std::vector<int> first(n_, -1);
+  std::vector<int> ancestor(n_, -1);
+  std::vector<int> max_first(n_, -1);
+  std::vector<int> prev_leaf(n_, -1);
 
-  colCount.resize(n);
+  col_count_.resize(n_);
 
   // find first descendant
-  for (int k = 0; k < n; ++k) {
+  for (int k = 0; k < n_; ++k) {
     int j = k;
-    colCount[j] = (first[j] == -1) ? 1 : 0;
+    col_count_[j] = (first[j] == -1) ? 1 : 0;
     while (j != -1 && first[j] == -1) {
       first[j] = k;
-      j = parent[j];
+      j = parent_[j];
     }
   }
 
   // each node belongs to a separate set
-  for (int j = 0; j < n; j++) ancestor[j] = j;
+  for (int j = 0; j < n_; j++) ancestor[j] = j;
 
-  for (int k = 0; k < n; ++k) {
+  for (int k = 0; k < n_; ++k) {
     const int j = k;
 
     // if not a root, decrement
-    if (parent[j] != -1) colCount[parent[j]]--;
+    if (parent_[j] != -1) col_count_[parent_[j]]--;
 
     // process edges of matrix
-    for (int el = ptrLower[j]; el < ptrLower[j + 1]; ++el) {
-      ProcessEdge(j, rowsLower[el], first, max_first, colCount, prev_leaf,
+    for (int el = ptr_lower_[j]; el < ptr_lower_[j + 1]; ++el) {
+      processEdge(j, rows_lower_[el], first, max_first, col_count_, prev_leaf,
                   ancestor);
     }
 
-    if (parent[j] != -1) ancestor[j] = parent[j];
+    if (parent_[j] != -1) ancestor[j] = parent_[j];
   }
 
   // sum contributions from each child
-  for (int j = 0; j < n; ++j) {
-    if (parent[j] != -1) {
-      colCount[parent[j]] += colCount[j];
+  for (int j = 0; j < n_; ++j) {
+    if (parent_[j] != -1) {
+      col_count_[parent_[j]] += col_count_[j];
     }
   }
 
   // compute nonzeros of L
-  operationsNorelax = 0.0;
-  nzL = 0;
-  for (int j = 0; j < n; ++j) {
-    nzL += (double)colCount[j];
-    operationsNorelax += (double)(colCount[j] - 1) * (colCount[j] - 1);
+  operations_no_relax_ = 0.0;
+  nz_factor_ = 0;
+  for (int j = 0; j < n_; ++j) {
+    nz_factor_ += (double)col_count_[j];
+    operations_no_relax_ += (double)(col_count_[j] - 1) * (col_count_[j] - 1);
   }
 }
 
-void Analyse::FundamentalSupernodes() {
+void Analyse::fundamentalSupernodes() {
   // Find fundamental supernodes.
 
   // isSN[i] is true if node i is the start of a fundamental supernode
-  std::vector<bool> is_sn(n, false);
+  std::vector<bool> is_sn(n_, false);
 
-  std::vector<int> prev_nonz(n, -1);
+  std::vector<int> prev_nonz(n_, -1);
 
   // compute sizes of subtrees
-  std::vector<int> subtree_sizes(n);
-  SubtreeSize(parent, subtree_sizes);
+  std::vector<int> subtree_sizes(n_);
+  subtreeSize(parent_, subtree_sizes);
 
-  for (int j = 0; j < n; ++j) {
-    for (int el = ptrLower[j]; el < ptrLower[j + 1]; ++el) {
-      const int i = rowsLower[el];
+  for (int j = 0; j < n_; ++j) {
+    for (int el = ptr_lower_[j]; el < ptr_lower_[j + 1]; ++el) {
+      const int i = rows_lower_[el];
       const int k = prev_nonz[i];
 
       // mark as fundamental sn, nodes which are leaf of subtrees
@@ -331,8 +330,9 @@ void Analyse::FundamentalSupernodes() {
       }
 
       // mark as fundamental sn, nodes which have more than one child
-      if (parent[i] != -1 && subtree_sizes[i] + 1 != subtree_sizes[parent[i]]) {
-        is_sn[parent[i]] = true;
+      if (parent_[i] != -1 &&
+          subtree_sizes[i] + 1 != subtree_sizes[parent_[i]]) {
+        is_sn[parent_[i]] = true;
       }
 
       prev_nonz[i] = j;
@@ -340,44 +340,44 @@ void Analyse::FundamentalSupernodes() {
   }
 
   // create information about fundamental supernodes
-  snBelong.resize(n);
+  sn_belong_.resize(n_);
   int sn_number = -1;
-  for (int i = 0; i < n; ++i) {
+  for (int i = 0; i < n_; ++i) {
     // if isSN[i] is true, then node i is the start of a new supernode
     if (is_sn[i]) ++sn_number;
 
     // mark node i as belonging to the current supernode
-    snBelong[i] = sn_number;
+    sn_belong_[i] = sn_number;
   }
 
   // number of supernodes found
-  snCount = snBelong.back() + 1;
+  sn_count_ = sn_belong_.back() + 1;
 
   // fsn_ptr contains pointers to the starting node of each supernode
-  snStart.resize(snCount + 1);
+  sn_start_.resize(sn_count_ + 1);
   int next = 0;
-  for (int i = 0; i < n; ++i) {
+  for (int i = 0; i < n_; ++i) {
     if (is_sn[i]) {
-      snStart[next] = i;
+      sn_start_[next] = i;
       ++next;
     }
   }
-  snStart[next] = n;
+  sn_start_[next] = n_;
 
   // build supernodal elimination tree
-  snParent.resize(snCount);
-  for (int i = 0; i < snCount - 1; ++i) {
-    int j = parent[snStart[i + 1] - 1];
+  sn_parent_.resize(sn_count_);
+  for (int i = 0; i < sn_count_ - 1; ++i) {
+    int j = parent_[sn_start_[i + 1] - 1];
     if (j != -1) {
-      snParent[i] = snBelong[j];
+      sn_parent_[i] = sn_belong_[j];
     } else {
-      snParent[i] = -1;
+      sn_parent_[i] = -1;
     }
   }
-  snParent.back() = -1;
+  sn_parent_.back() = -1;
 }
 
-void Analyse::RelaxSupernodes() {
+void Analyse::relaxSupernodes() {
   // Child which produces smallest number of fake nonzeros is merged if
   // resulting sn has fewer than max_artificial_nz fake nonzeros.
   // Multiple values of max_artificial_nz are tried, chosen with bisection
@@ -391,26 +391,26 @@ void Analyse::RelaxSupernodes() {
     // =================================================
     // Build information about supernodes
     // =================================================
-    std::vector<int> sn_size(snCount);
-    std::vector<int> clique_size(snCount);
-    fakeNonzeros.assign(snCount, 0);
-    for (int i = 0; i < snCount; ++i) {
-      sn_size[i] = snStart[i + 1] - snStart[i];
-      clique_size[i] = colCount[snStart[i]] - sn_size[i];
-      fakeNonzeros[i] = 0;
+    std::vector<int> sn_size(sn_count_);
+    std::vector<int> clique_size(sn_count_);
+    fake_nz_.assign(sn_count_, 0);
+    for (int i = 0; i < sn_count_; ++i) {
+      sn_size[i] = sn_start_[i + 1] - sn_start_[i];
+      clique_size[i] = col_count_[sn_start_[i]] - sn_size[i];
+      fake_nz_[i] = 0;
     }
 
     // build linked lists of children
     std::vector<int> first_child, next_child;
-    ChildrenLinkedList(snParent, first_child, next_child);
+    childrenLinkedList(sn_parent_, first_child, next_child);
 
     // =================================================
     // Merge supernodes
     // =================================================
-    mergedInto.assign(snCount, -1);
-    mergedSn = 0;
+    merged_into_.assign(sn_count_, -1);
+    merged_sn_ = 0;
 
-    for (int sn = 0; sn < snCount; ++sn) {
+    for (int sn = 0; sn < sn_count_; ++sn) {
       // keep iterating through the children of the supernode, until there's no
       // more child to merge with
 
@@ -431,8 +431,7 @@ void Analyse::RelaxSupernodes() {
           const int nz_added = rows_filled * sn_size[child];
 
           // how many artificial nonzeros would the merged supernode have
-          const int total_art_nz =
-              nz_added + fakeNonzeros[sn] + fakeNonzeros[child];
+          const int total_art_nz = nz_added + fake_nz_[sn] + fake_nz_[child];
 
           // Save child with smallest number of artificial zeros created.
           // Ties are broken based on size of child.
@@ -451,13 +450,13 @@ void Analyse::RelaxSupernodes() {
 
           // update information of parent
           sn_size[sn] += size_fakenz;
-          fakeNonzeros[sn] = nz_fakenz;
+          fake_nz_[sn] = nz_fakenz;
 
           // count number of merged supernodes
-          ++mergedSn;
+          ++merged_sn_;
 
           // save information about merging of supernodes
-          mergedInto[child_fakenz] = sn;
+          merged_into_[child_fakenz] = sn;
 
           // remove child from linked list of children
           child = first_child[sn];
@@ -483,9 +482,9 @@ void Analyse::RelaxSupernodes() {
     // value of max_artificial_nz
     double temp_art_nz{};
     double temp_art_ops{};
-    for (int sn = 0; sn < snCount; ++sn) {
-      if (mergedInto[sn] == -1) {
-        temp_art_nz += fakeNonzeros[sn];
+    for (int sn = 0; sn < sn_count_; ++sn) {
+      if (merged_into_[sn] == -1) {
+        temp_art_nz += fake_nz_[sn];
 
         const double nn = sn_size[sn];
         const double cc = clique_size[sn];
@@ -493,11 +492,12 @@ void Analyse::RelaxSupernodes() {
                         nn * (nn + 1) * (2 * nn + 1) / 6;
       }
     }
-    temp_art_ops -= operationsNorelax;
+    temp_art_ops -= operations_no_relax_;
 
     // if enough fake nz or ops have been added, stop.
     // double ratio_fake = temp_art_nz / (nzL + temp_art_nz);
-    const double ratio_fake = temp_art_ops / (temp_art_ops + operationsNorelax);
+    const double ratio_fake =
+        temp_art_ops / (temp_art_ops + operations_no_relax_);
 
     // try to find ratio in interval [0.01,0.02] using bisection
     if (ratio_fake < k_lower_ratio_relax) {
@@ -523,32 +523,32 @@ void Analyse::RelaxSupernodes() {
   }
 }
 
-void Analyse::RelaxSupernodes_2() {
+void Analyse::relaxSupernodes2() {
   // Smallest child is merged with parent, if child is small enough.
 
   // =================================================
   // build information about supernodes
   // =================================================
-  std::vector<int> sn_size(snCount);
-  std::vector<int> clique_size(snCount);
-  fakeNonzeros.assign(snCount, 0);
-  for (int i = 0; i < snCount; ++i) {
-    sn_size[i] = snStart[i + 1] - snStart[i];
-    clique_size[i] = colCount[snStart[i]] - sn_size[i];
-    fakeNonzeros[i] = 0;
+  std::vector<int> sn_size(sn_count_);
+  std::vector<int> clique_size(sn_count_);
+  fake_nz_.assign(sn_count_, 0);
+  for (int i = 0; i < sn_count_; ++i) {
+    sn_size[i] = sn_start_[i + 1] - sn_start_[i];
+    clique_size[i] = col_count_[sn_start_[i]] - sn_size[i];
+    fake_nz_[i] = 0;
   }
 
   // build linked lists of children
   std::vector<int> first_child, next_child;
-  ChildrenLinkedList(snParent, first_child, next_child);
+  childrenLinkedList(sn_parent_, first_child, next_child);
 
   // =================================================
   // Merge supernodes
   // =================================================
-  mergedInto.assign(snCount, -1);
-  mergedSn = 0;
+  merged_into_.assign(sn_count_, -1);
+  merged_sn_ = 0;
 
-  for (int sn = 0; sn < snCount; ++sn) {
+  for (int sn = 0; sn < sn_count_; ++sn) {
     // keep iterating through the children of the supernode, until there's no
     // more child to merge with
 
@@ -569,8 +569,7 @@ void Analyse::RelaxSupernodes_2() {
         const int nz_added = rows_filled * sn_size[child];
 
         // how many artificial nonzeros would the merged supernode have
-        const int total_art_nz =
-            nz_added + fakeNonzeros[sn] + fakeNonzeros[child];
+        const int total_art_nz = nz_added + fake_nz_[sn] + fake_nz_[child];
 
         if (sn_size[child] < size_smallest) {
           size_smallest = sn_size[child];
@@ -586,13 +585,13 @@ void Analyse::RelaxSupernodes_2() {
 
         // update information of parent
         sn_size[sn] += size_smallest;
-        fakeNonzeros[sn] = nz_smallest;
+        fake_nz_[sn] = nz_smallest;
 
         // count number of merged supernodes
-        ++mergedSn;
+        ++merged_sn_;
 
         // save information about merging of supernodes
-        mergedInto[child_smallest] = sn;
+        merged_into_[child_smallest] = sn;
 
         // remove child from linked list of children
         child = first_child[sn];
@@ -615,28 +614,28 @@ void Analyse::RelaxSupernodes_2() {
   }
 }
 
-void Analyse::AfterRelaxSn() {
+void Analyse::afterRelaxSn() {
   // number of new supernodes
-  const int new_snCount = snCount - mergedSn;
+  const int new_snCount = sn_count_ - merged_sn_;
 
   // keep track of number of row indices needed for each supernode
-  snIndices.assign(new_snCount, 0);
+  sn_indices_.assign(new_snCount, 0);
 
   // =================================================
   // Create supernodal permutation
   // =================================================
 
   // permutation of supernodes needed after merging
-  std::vector<int> sn_perm(snCount);
+  std::vector<int> sn_perm(sn_count_);
 
   // number of new sn that includes the old sn
-  std::vector<int> new_id(snCount);
+  std::vector<int> new_id(sn_count_);
 
   // new sn pointer vector
   std::vector<int> new_snStart(new_snCount + 1);
 
   // keep track of the children merged into a given supernode
-  std::vector<std::vector<int>> received_from(snCount, std::vector<int>());
+  std::vector<std::vector<int>> received_from(sn_count_, std::vector<int>());
 
   // index to write into sn_perm
   int start_perm{};
@@ -647,11 +646,11 @@ void Analyse::AfterRelaxSn() {
   // next available number for new sn numbering
   int next_id{};
 
-  for (int sn = 0; sn < snCount; ++sn) {
-    if (mergedInto[sn] > -1) {
+  for (int sn = 0; sn < sn_count_; ++sn) {
+    if (merged_into_[sn] > -1) {
       // Current sn was merged into its parent.
       // Save information about which supernode sn was merged into
-      received_from[mergedInto[sn]].push_back(sn);
+      received_from[merged_into_[sn]].push_back(sn);
     } else {
       // Current sn was not merged into its parent.
       // It is one of the new sn.
@@ -675,18 +674,20 @@ void Analyse::AfterRelaxSn() {
           new_id[current] = next_id;
 
           // count number of nodes in each new supernode
-          new_snStart[snStart_ind] += snStart[current + 1] - snStart[current];
+          new_snStart[snStart_ind] +=
+              sn_start_[current + 1] - sn_start_[current];
         }
       }
 
       // keep track of total number of artificial nonzeros
-      artificialNz += fakeNonzeros[sn];
+      artificial_nz_ += fake_nz_[sn];
 
       // Compute number of indices for new sn.
       // This is equal to the number of columns in the new sn plus the clique
       // size of the original supernode where the children where merged.
-      snIndices[next_id] = new_snStart[snStart_ind] + colCount[snStart[sn]] -
-                           snStart[sn + 1] + snStart[sn];
+      sn_indices_[next_id] = new_snStart[snStart_ind] +
+                             col_count_[sn_start_[sn]] - sn_start_[sn + 1] +
+                             sn_start_[sn];
 
       ++next_id;
     }
@@ -699,14 +700,14 @@ void Analyse::AfterRelaxSn() {
   }
 
   // include artificial nonzeros in the nonzeros of the factor
-  nzL += (double)artificialNz;
+  nz_factor_ += (double)artificial_nz_;
 
   // compute number of flops needed for the factorization
-  operations = 0.0;
+  operations_ = 0.0;
   for (int sn = 0; sn < new_snCount; ++sn) {
-    const double colcount_sn = (double)snIndices[sn];
+    const double colcount_sn = (double)sn_indices_[sn];
     for (int i = 0; i < new_snStart[sn + 1] - new_snStart[sn]; ++i) {
-      operations += (colcount_sn - i - 1) * (colcount_sn - i - 1);
+      operations_ += (colcount_sn - i - 1) * (colcount_sn - i - 1);
     }
   }
 
@@ -717,31 +718,31 @@ void Analyse::AfterRelaxSn() {
   // sn merging.
 
   // permutation to apply to the existing one
-  std::vector<int> new_perm(n);
+  std::vector<int> new_perm(n_);
 
   // index to write into new_perm
   int start{};
 
-  for (int i = 0; i < snCount; ++i) {
+  for (int i = 0; i < sn_count_; ++i) {
     const int sn = sn_perm[i];
-    for (int j = snStart[sn]; j < snStart[sn + 1]; ++j) {
+    for (int j = sn_start_[sn]; j < sn_start_[sn + 1]; ++j) {
       new_perm[start++] = j;
     }
   }
 
   // obtain inverse permutation
-  std::vector<int> new_iperm(n);
-  InversePerm(new_perm, new_iperm);
+  std::vector<int> new_iperm(n_);
+  inversePerm(new_perm, new_iperm);
 
   // =================================================
   // Create new sn elimination tree
   // =================================================
   std::vector<int> new_snParent(new_snCount, -1);
-  for (int i = 0; i < snCount; ++i) {
-    if (snParent[i] == -1) continue;
+  for (int i = 0; i < sn_count_; ++i) {
+    if (sn_parent_[i] == -1) continue;
 
     const int ii = new_id[i];
-    const int pp = new_id[snParent[i]];
+    const int pp = new_id[sn_parent_[i]];
 
     if (ii == pp) continue;
 
@@ -753,99 +754,99 @@ void Analyse::AfterRelaxSn() {
   // =================================================
 
   // build new snBelong, i.e., the sn to which each column belongs
-  for (int sn = 0; sn < snCount; ++sn) {
-    for (int i = snStart[sn]; i < snStart[sn + 1]; ++i) {
-      snBelong[i] = new_id[sn];
+  for (int sn = 0; sn < sn_count_; ++sn) {
+    for (int i = sn_start_[sn]; i < sn_start_[sn + 1]; ++i) {
+      sn_belong_[i] = new_id[sn];
     }
   }
-  PermuteVector(snBelong, new_perm);
+  permuteVector(sn_belong_, new_perm);
 
-  PermuteVector(colCount, new_perm);
+  permuteVector(col_count_, new_perm);
 
   // Overwrite previous data
-  snParent = std::move(new_snParent);
-  snStart = std::move(new_snStart);
-  snCount = new_snCount;
+  sn_parent_ = std::move(new_snParent);
+  sn_start_ = std::move(new_snStart);
+  sn_count_ = new_snCount;
 
   // Permute matrix based on new permutation
-  Permute(new_iperm);
+  permute(new_iperm);
 
   // double transpose to sort columns and compute lower part
-  Transpose(ptrUpper, rowsUpper, ptrLower, rowsLower);
-  Transpose(ptrLower, rowsLower, ptrUpper, rowsUpper);
+  transpose(ptr_upper_, rows_upper_, ptr_lower_, rows_lower_);
+  transpose(ptr_lower_, rows_lower_, ptr_upper_, rows_upper_);
 
   // Update perm and iperm
-  PermuteVector(perm, new_perm);
-  InversePerm(perm, iperm);
+  permuteVector(perm_, new_perm);
+  inversePerm(perm_, iperm_);
 }
 
-void Analyse::SnPattern() {
+void Analyse::snPattern() {
   // number of total indices needed
   int indices{};
 
-  for (int i : snIndices) indices += i;
+  for (int i : sn_indices_) indices += i;
 
   // allocate space for sn pattern
-  rowsLsn.resize(indices);
-  ptrLsn.resize(snCount + 1);
+  rows_sn_.resize(indices);
+  ptr_sn_.resize(sn_count_ + 1);
 
   // keep track of visited supernodes
-  std::vector<int> mark(snCount, -1);
+  std::vector<int> mark(sn_count_, -1);
 
   // compute column pointers of L
-  std::vector<int> work(snIndices);
-  Counts2Ptr(ptrLsn, work);
+  std::vector<int> work(sn_indices_);
+  counts2Ptr(ptr_sn_, work);
 
   // consider each row
-  for (int i = 0; i < n; ++i) {
+  for (int i = 0; i < n_; ++i) {
     // for all entries in the row of lower triangle
-    for (int el = ptrUpper[i]; el < ptrUpper[i + 1]; ++el) {
+    for (int el = ptr_upper_[i]; el < ptr_upper_[i + 1]; ++el) {
       // there is nonzero (i,j)
-      const int j = rowsUpper[el];
+      const int j = rows_upper_[el];
 
       // supernode to which column j belongs to
-      int snj = snBelong[j];
+      int snj = sn_belong_[j];
 
       // while supernodes are not yet considered
       while (snj != -1 && mark[snj] != i) {
         // we may end up too far
-        if (snStart[snj] > i) break;
+        if (sn_start_[snj] > i) break;
 
         // supernode snj is now considered for row i
         mark[snj] = i;
 
         // there is a nonzero entry in supernode snj at row i
-        rowsLsn[work[snj]++] = i;
+        rows_sn_[work[snj]++] = i;
 
         // go up the elimination tree
-        snj = snParent[snj];
+        snj = sn_parent_[snj];
       }
     }
   }
 }
 
-void Analyse::RelativeIndCols() {
+void Analyse::relativeIndCols() {
   // Find the relative indices of the original column wrt the frontal matrix of
   // the corresponding supernode
 
-  relindCols.resize(nz);
+  relind_cols_.resize(nz_);
 
   // go through the supernodes
-  for (int sn = 0; sn < snCount; ++sn) {
-    const int ptL_start = ptrLsn[sn];
-    const int ptL_end = ptrLsn[sn + 1];
+  for (int sn = 0; sn < sn_count_; ++sn) {
+    const int ptL_start = ptr_sn_[sn];
+    const int ptL_end = ptr_sn_[sn + 1];
 
     // go through the columns of the supernode
-    for (int col = snStart[sn]; col < snStart[sn + 1]; ++col) {
+    for (int col = sn_start_[sn]; col < sn_start_[sn + 1]; ++col) {
       // go through original column and supernodal column
-      int ptA = ptrLower[col];
+      int ptA = ptr_lower_[col];
       int ptL = ptL_start;
 
       // offset wrt ptrLower[col]
       int index{};
 
       // size of the column of the original matrix
-      int col_size = ptrLower[col + 1] - ptrLower[col];
+      int col_size = ptr_lower_[col + 1] - ptr_lower_[col];
 
       while (ptL < ptL_end) {
         // if found all the relative indices that are needed, stop
@@ -854,9 +855,9 @@ void Analyse::RelativeIndCols() {
         }
 
         // check if indices coincide
-        if (rowsLsn[ptL] == rowsLower[ptA]) {
+        if (rows_sn_[ptL] == rows_lower_[ptA]) {
           // yes: save relative index and move pointers forward
-          relindCols[ptrLower[col] + index] = ptL - ptL_start;
+          relind_cols_[ptr_lower_[col] + index] = ptL - ptL_start;
           ++index;
           ++ptL;
           ++ptA;
@@ -869,43 +870,43 @@ void Analyse::RelativeIndCols() {
   }
 }
 
-void Analyse::RelativeIndClique() {
+void Analyse::relativeIndClique() {
   // Find the relative indices of the child clique wrt the frontal matrix of the
   // parent supernode
 
-  relindClique.resize(snCount);
-  consecutiveSums.resize(snCount);
+  relind_clique_.resize(sn_count_);
+  consecutive_sums_.resize(sn_count_);
 
-  for (int sn = 0; sn < snCount; ++sn) {
+  for (int sn = 0; sn < sn_count_; ++sn) {
     // if there is no parent, skip supernode
-    if (snParent[sn] == -1) continue;
+    if (sn_parent_[sn] == -1) continue;
 
     // number of nodes in the supernode
-    const int sn_size = snStart[sn + 1] - snStart[sn];
+    const int sn_size = sn_start_[sn + 1] - sn_start_[sn];
 
     // column of the first node in the supernode
-    const int j = snStart[sn];
+    const int j = sn_start_[sn];
 
     // size of the first column of the supernode
-    const int sn_column_size = ptrLsn[sn + 1] - ptrLsn[sn];
+    const int sn_column_size = ptr_sn_[sn + 1] - ptr_sn_[sn];
 
     // size of the clique of the supernode
     const int sn_clique_size = sn_column_size - sn_size;
 
     // count number of assembly operations during factorize
-    operationsAssembly += sn_clique_size * (sn_clique_size + 1) / 2;
+    operations_assembly_ += sn_clique_size * (sn_clique_size + 1) / 2;
 
-    relindClique[sn].resize(sn_clique_size);
+    relind_clique_[sn].resize(sn_clique_size);
 
     // iterate through the clique of sn
-    int ptr_current = ptrLsn[sn] + sn_size;
+    int ptr_current = ptr_sn_[sn] + sn_size;
 
     // iterate through the full column of parent sn
-    int ptr_parent = ptrLsn[snParent[sn]];
+    int ptr_parent = ptr_sn_[sn_parent_[sn]];
 
     // keep track of start and end of parent sn column
     const int ptr_parent_start = ptr_parent;
-    const int ptr_parent_end = ptrLsn[snParent[sn] + 1];
+    const int ptr_parent_end = ptr_sn_[sn_parent_[sn] + 1];
 
     // where to write into relind
     int index{};
@@ -918,9 +919,9 @@ void Analyse::RelativeIndClique() {
       }
 
       // check if indices coincide
-      if (rowsLsn[ptr_current] == rowsLsn[ptr_parent]) {
+      if (rows_sn_[ptr_current] == rows_sn_[ptr_parent]) {
         // yes: save relative index and move pointers forward
-        relindClique[sn][index] = ptr_parent - ptr_parent_start;
+        relind_clique_[sn][index] = ptr_parent - ptr_parent_start;
         ++index;
         ++ptr_parent;
         ++ptr_current;
@@ -932,33 +933,34 @@ void Analyse::RelativeIndClique() {
 
     // Difference between consecutive relative indices.
     // Useful to detect chains of consecutive indices.
-    consecutiveSums[sn].resize(sn_clique_size);
+    consecutive_sums_[sn].resize(sn_clique_size);
     for (int i = 0; i < sn_clique_size - 1; ++i) {
-      consecutiveSums[sn][i] = relindClique[sn][i + 1] - relindClique[sn][i];
+      consecutive_sums_[sn][i] =
+          relind_clique_[sn][i + 1] - relind_clique_[sn][i];
     }
 
     // Number of consecutive sums that can be done in one blas call.
-    consecutiveSums[sn].back() = 1;
+    consecutive_sums_[sn].back() = 1;
     for (int i = sn_clique_size - 2; i >= 0; --i) {
-      if (consecutiveSums[sn][i] > 1) {
-        consecutiveSums[sn][i] = 1;
-      } else if (consecutiveSums[sn][i] == 1) {
-        consecutiveSums[sn][i] = consecutiveSums[sn][i + 1] + 1;
+      if (consecutive_sums_[sn][i] > 1) {
+        consecutive_sums_[sn][i] = 1;
+      } else if (consecutive_sums_[sn][i] == 1) {
+        consecutive_sums_[sn][i] = consecutive_sums_[sn][i + 1] + 1;
       } else {
-        printf("Error in consecutiveSums %d\n", consecutiveSums[sn][i]);
+        printf("Error in consecutiveSums %d\n", consecutive_sums_[sn][i]);
       }
     }
   }
 }
 
-bool Analyse::Check() const {
+bool Analyse::check() const {
   // Check that the symbolic factorization is correct, by using dense linear
   // algebra operations.
   // Return true if check is successful, or if matrix is too large.
   // To be used for debug.
 
   // Check symbolic factorization
-  if (n > 5000) {
+  if (n_ > 5000) {
     printf("\n==> Matrix is too large for dense check\n\n");
     return true;
   }
@@ -969,24 +971,24 @@ bool Analyse::Check() const {
   std::uniform_real_distribution<double> distr(0.1, 10.0);
 
   // assemble sparse matrix into dense matrix
-  std::vector<double> M(n * n);
-  for (int col = 0; col < n; ++col) {
-    for (int el = ptrUpper[col]; el < ptrUpper[col + 1]; ++el) {
-      int row = rowsUpper[el];
+  std::vector<double> M(n_ * n_);
+  for (int col = 0; col < n_; ++col) {
+    for (int el = ptr_upper_[col]; el < ptr_upper_[col + 1]; ++el) {
+      int row = rows_upper_[el];
 
       // insert random element in position (row,col)
-      M[row + col * n] = distr(rng);
+      M[row + col * n_] = distr(rng);
 
       // guarantee matrix is diagonally dominant (thus positive definite)
       if (row == col) {
-        M[row + col * n] += n * 10;
+        M[row + col * n_] += n_ * 10;
       }
     }
   }
 
   // use Lapack to factorize the dense matrix
   char uplo = 'U';
-  int N = n;
+  int N = n_;
   int info;
   dpotrf_(&uplo, &N, M.data(), &N, &info);
   if (info != 0) {
@@ -995,13 +997,13 @@ bool Analyse::Check() const {
   }
 
   // assemble expected sparsity pattern into dense matrix
-  std::vector<bool> L(n * n);
-  for (int sn = 0; sn < snCount; ++sn) {
-    for (int col = snStart[sn]; col < snStart[sn + 1]; ++col) {
-      for (int el = ptrLsn[sn]; el < ptrLsn[sn + 1]; ++el) {
-        int row = rowsLsn[el];
+  std::vector<bool> L(n_ * n_);
+  for (int sn = 0; sn < sn_count_; ++sn) {
+    for (int col = sn_start_[sn]; col < sn_start_[sn + 1]; ++col) {
+      for (int el = ptr_sn_[sn]; el < ptr_sn_[sn + 1]; ++el) {
+        int row = rows_sn_[el];
         if (row < col) continue;
-        L[row + n * col] = true;
+        L[row + n_ * col] = true;
       }
     }
   }
@@ -1010,10 +1012,10 @@ bool Analyse::Check() const {
   int wrong_entries{};
 
   // check how many entries do not correspond
-  for (int j = 0; j < n; ++j) {
-    for (int i = 0; i < n; ++i) {
-      double val_M = M[j + n * i];
-      bool val_L = L[i + n * j];
+  for (int j = 0; j < n_; ++j) {
+    for (int i = 0; i < n_; ++i) {
+      double val_M = M[j + n_ * i];
+      bool val_L = L[i + n_ * j];
 
       if (val_L && val_M == 0.0) {
         // count number of fake zeros found, to confront it with artificialNz
@@ -1025,7 +1027,7 @@ bool Analyse::Check() const {
     }
   }
 
-  if (wrong_entries == 0 && zeros_found == artificialNz) {
+  if (wrong_entries == 0 && zeros_found == artificial_nz_) {
     printf("\n==> Analyse check successful\n\n");
     return true;
   } else {
@@ -1034,34 +1036,34 @@ bool Analyse::Check() const {
   }
 }
 
-void Analyse::PrintTimes() const {
+void Analyse::printTimes() const {
   printf("\n----------------------------------------------------\n");
   printf("\t\tAnalyse\n");
   printf("----------------------------------------------------\n");
-  printf("\nAnalyse time            \t%8.4f\n", time_total);
-  printf("\tMetis:                  %8.4f (%4.1f%%)\n", time_metis,
-         time_metis / time_total * 100);
-  printf("\tTree:                   %8.4f (%4.1f%%)\n", time_tree,
-         time_tree / time_total * 100);
-  printf("\tCounts:                 %8.4f (%4.1f%%)\n", time_count,
-         time_count / time_total * 100);
-  printf("\tSupernodes:             %8.4f (%4.1f%%)\n", time_sn,
-         time_sn / time_total * 100);
-  printf("\tReorder:                %8.4f (%4.1f%%)\n", time_reorder,
-         time_reorder / time_total * 100);
-  printf("\tSn sparsity pattern:    %8.4f (%4.1f%%)\n", time_pattern,
-         time_pattern / time_total * 100);
-  printf("\tRelative indices:       %8.4f (%4.1f%%)\n", time_relind,
-         time_relind / time_total * 100);
-  printf("\tLayer 0:                %8.4f (%4.1f%%)\n", time_layer0,
-         time_layer0 / time_total * 100);
+  printf("\nAnalyse time            \t%8.4f\n", time_total_);
+  printf("\tMetis:                  %8.4f (%4.1f%%)\n", time_metis_,
+         time_metis_ / time_total_ * 100);
+  printf("\tTree:                   %8.4f (%4.1f%%)\n", time_tree_,
+         time_tree_ / time_total_ * 100);
+  printf("\tCounts:                 %8.4f (%4.1f%%)\n", time_count_,
+         time_count_ / time_total_ * 100);
+  printf("\tSupernodes:             %8.4f (%4.1f%%)\n", time_sn_,
+         time_sn_ / time_total_ * 100);
+  printf("\tReorder:                %8.4f (%4.1f%%)\n", time_reorder_,
+         time_reorder_ / time_total_ * 100);
+  printf("\tSn sparsity pattern:    %8.4f (%4.1f%%)\n", time_pattern_,
+         time_pattern_ / time_total_ * 100);
+  printf("\tRelative indices:       %8.4f (%4.1f%%)\n", time_relind_,
+         time_relind_ / time_total_ * 100);
+  printf("\tLayer 0:                %8.4f (%4.1f%%)\n", time_layer0_,
+         time_layer0_ / time_total_ * 100);
 }
 
-void Analyse::Run(Symbolic& S) {
+void Analyse::run(Symbolic& S) {
   // Perform analyse phase and store the result into the symbolic object S.
   // After Run returns, the Analyse object is not valid.
 
-  if (!ready) return;
+  if (!ready_) return;
 
   Clock clock0{};
   clock0.start();
@@ -1069,89 +1071,89 @@ void Analyse::Run(Symbolic& S) {
   Clock clock{};
 
   clock.start();
-  GetPermutation();
-  time_metis = clock.stop();
+  getPermutation();
+  time_metis_ = clock.stop();
 
   clock.start();
-  Permute(iperm);
-  ETree();
-  Postorder();
-  time_tree = clock.stop();
+  permute(iperm_);
+  eTree();
+  postorder();
+  time_tree_ = clock.stop();
 
   clock.start();
-  ColCount();
-  time_count = clock.stop();
+  colCount();
+  time_count_ = clock.stop();
 
   clock.start();
-  FundamentalSupernodes();
-  RelaxSupernodes();
-  AfterRelaxSn();
-  time_sn = clock.stop();
+  fundamentalSupernodes();
+  relaxSupernodes();
+  afterRelaxSn();
+  time_sn_ = clock.stop();
 
   clock.start();
-  ReorderChildren();
-  time_reorder = clock.stop();
+  reorderChildren();
+  time_reorder_ = clock.stop();
 
   clock.start();
-  SnPattern();
-  time_pattern = clock.stop();
+  snPattern();
+  time_pattern_ = clock.stop();
 
   clock.start();
-  RelativeIndCols();
-  RelativeIndClique();
-  time_relind = clock.stop();
+  relativeIndCols();
+  relativeIndClique();
+  time_relind_ = clock.stop();
 
   clock.start();
-  GenerateLayer0(4, 0.7);
-  time_layer0 = clock.stop();
+  generateLayer0(4, 0.7);
+  time_layer0_ = clock.stop();
 
-  time_total = clock0.stop();
+  time_total_ = clock0.stop();
 
-  PrintTimes();
+  printTimes();
 
   // move relevant stuff into S
-  S.type = type;
-  S.n = n;
-  S.nz = nzL;
-  S.fillin = (double)nzL / nz;
-  S.sn = snCount;
-  S.artificialNz = artificialNz;
-  S.artificialOp = (double)operations - operationsNorelax;
-  S.assemblyOp = operationsAssembly;
-  S.largestFront = *std::max_element(snIndices.begin(), snIndices.end());
-  S.maxStorage = maxStorage;
+  S.type_ = type_;
+  S.n_ = n_;
+  S.nz_ = nz_factor_;
+  S.fillin_ = (double)nz_factor_ / nz_;
+  S.sn_ = sn_count_;
+  S.artificial_nz_ = artificial_nz_;
+  S.artificial_ops_ = (double)operations_ - operations_no_relax_;
+  S.assembly_ops_ = operations_assembly_;
+  S.largest_front_ = *std::max_element(sn_indices_.begin(), sn_indices_.end());
+  S.max_storage_ = max_storage_;
 
-  std::vector<int> temp(snStart);
-  for (int i = snCount; i > 0; --i) temp[i] -= temp[i - 1];
-  S.largestSn = *std::max_element(temp.begin(), temp.end());
+  std::vector<int> temp(sn_start_);
+  for (int i = sn_count_; i > 0; --i) temp[i] -= temp[i - 1];
+  S.largest_sn_ = *std::max_element(temp.begin(), temp.end());
 
-  S.operations = operations;
-  S.perm = std::move(perm);
-  S.iperm = std::move(iperm);
-  S.rows = std::move(rowsLsn);
-  S.ptr = std::move(ptrLsn);
-  S.snParent = std::move(snParent);
-  S.snStart = std::move(snStart);
-  S.relindCols = std::move(relindCols);
-  S.relindClique = std::move(relindClique);
-  S.consecutiveSums = std::move(consecutiveSums);
+  S.dense_ops_ = operations_;
+  S.perm_ = std::move(perm_);
+  S.iperm_ = std::move(iperm_);
+  S.rows_ = std::move(rows_sn_);
+  S.ptr_ = std::move(ptr_sn_);
+  S.sn_parent_ = std::move(sn_parent_);
+  S.sn_start_ = std::move(sn_start_);
+  S.relind_cols_ = std::move(relind_cols_);
+  S.relind_clique_ = std::move(relind_clique_);
+  S.consecutive_sums_ = std::move(consecutive_sums_);
 }
 
-void Analyse::GenerateLayer0(int n_threads, double imbalance_ratio) {
+void Analyse::generateLayer0(int n_threads, double imbalance_ratio) {
   // linked lists of children
   std::vector<int> head, next;
-  ChildrenLinkedList(snParent, head, next);
+  childrenLinkedList(sn_parent_, head, next);
 
-  double total_ops = operations;
+  double total_ops = operations_;
 
   // compute number of operations for each supernode
-  std::vector<double> sn_ops(snCount);
-  for (int sn = 0; sn < snCount; ++sn) {
+  std::vector<double> sn_ops(sn_count_);
+  for (int sn = 0; sn < sn_count_; ++sn) {
     // supernode size
-    const int sz = snStart[sn + 1] - snStart[sn];
+    const int sz = sn_start_[sn + 1] - sn_start_[sn];
 
     // frontal size
-    const int fr = ptrLsn[sn + 1] - ptrLsn[sn];
+    const int fr = ptr_sn_[sn + 1] - ptr_sn_[sn];
 
     // number of operations for this supernode
     for (int i = 0; i < sz; ++i) {
@@ -1159,9 +1161,9 @@ void Analyse::GenerateLayer0(int n_threads, double imbalance_ratio) {
     }
 
     // add assembly operations times 100 to the parent
-    if (snParent[sn] != -1) {
+    if (sn_parent_[sn] != -1) {
       const int ldc = fr - sz;
-      sn_ops[snParent[sn]] += ldc * (ldc + 1) / 2 * 100;
+      sn_ops[sn_parent_[sn]] += ldc * (ldc + 1) / 2 * 100;
       total_ops += ldc * (ldc + 1) / 2 * 100;
     }
   }
@@ -1170,11 +1172,11 @@ void Analyse::GenerateLayer0(int n_threads, double imbalance_ratio) {
   std::vector<int> layer0{};
 
   // compute number of operations to process each subtree
-  std::vector<double> subtree_ops(snCount, 0.0);
-  for (int sn = 0; sn < snCount; ++sn) {
+  std::vector<double> subtree_ops(sn_count_, 0.0);
+  for (int sn = 0; sn < sn_count_; ++sn) {
     subtree_ops[sn] += sn_ops[sn];
-    if (snParent[sn] != -1) {
-      subtree_ops[snParent[sn]] += subtree_ops[sn];
+    if (sn_parent_[sn] != -1) {
+      subtree_ops[sn_parent_[sn]] += subtree_ops[sn];
     } else {
       // add roots in layer0
       layer0.push_back(sn);
@@ -1240,19 +1242,19 @@ void Analyse::GenerateLayer0(int n_threads, double imbalance_ratio) {
   printf("Speedup: %.2f\n\n", total_ops / (ops_left + max_load));
 }
 
-void Analyse::ReorderChildren() {
-  std::vector<double> clique_entries(snCount);
-  std::vector<double> frontal_entries(snCount);
-  std::vector<double> storage(snCount, 0.0);
-  std::vector<double> storage_factors(snCount, 0.0);
+void Analyse::reorderChildren() {
+  std::vector<double> clique_entries(sn_count_);
+  std::vector<double> frontal_entries(sn_count_);
+  std::vector<double> storage(sn_count_, 0.0);
+  std::vector<double> storage_factors(sn_count_, 0.0);
 
   // initialize data of supernodes
-  for (int sn = 0; sn < snCount; ++sn) {
+  for (int sn = 0; sn < sn_count_; ++sn) {
     // supernode size
-    const int sz = snStart[sn + 1] - snStart[sn];
+    const int sz = sn_start_[sn + 1] - sn_start_[sn];
 
     // frontal size
-    const int fr = colCount[snStart[sn]];
+    const int fr = col_count_[sn_start_[sn]];
 
     // clique size
     const int cl = fr - sz;
@@ -1263,16 +1265,16 @@ void Analyse::ReorderChildren() {
 
     // compute number of entries in factors within the subtree
     storage_factors[sn] += frontal_entries[sn] - clique_entries[sn];
-    if (snParent[sn] != -1)
-      storage_factors[snParent[sn]] += storage_factors[sn];
+    if (sn_parent_[sn] != -1)
+      storage_factors[sn_parent_[sn]] += storage_factors[sn];
   }
 
   // linked lists of children
   std::vector<int> head, next;
-  ChildrenLinkedList(snParent, head, next);
+  childrenLinkedList(sn_parent_, head, next);
 
   // go through the supernodes
-  for (int sn = 0; sn < snCount; ++sn) {
+  for (int sn = 0; sn < sn_count_; ++sn) {
     // leaf node
     if (head[sn] == -1) {
       storage[sn] = frontal_entries[sn];
@@ -1322,7 +1324,7 @@ void Analyse::ReorderChildren() {
     storage[sn] = std::max(storage_1, storage_2);
 
     // save max storage needed, multiply by 8 because double needs 8 bytes
-    maxStorage = std::max(maxStorage, 8 * storage[sn]);
+    max_storage_ = std::max(max_storage_, 8 * storage[sn]);
 
     // modify linked lists with new order of children
     head[sn] = children.front().first;
@@ -1336,10 +1338,10 @@ void Analyse::ReorderChildren() {
   // Create supernodal permutation
   // =================================================
   // build supernodal permutation with dfs
-  std::vector<int> sn_perm(snCount);
+  std::vector<int> sn_perm(sn_count_);
   int start{};
-  for (int sn = 0; sn < snCount; ++sn) {
-    if (snParent[sn] == -1) Dfs_post(sn, start, head, next, sn_perm);
+  for (int sn = 0; sn < sn_count_; ++sn) {
+    if (sn_parent_[sn] == -1) dfsPostorder(sn, start, head, next, sn_perm);
   }
 
   // =================================================
@@ -1348,31 +1350,31 @@ void Analyse::ReorderChildren() {
   // Given the supernodal permutation, find the nodal permutation
 
   // permutation to apply to the existing one
-  std::vector<int> new_perm(n);
+  std::vector<int> new_perm(n_);
 
   // index to write into new_perm
   start = 0;
 
-  for (int i = 0; i < snCount; ++i) {
+  for (int i = 0; i < sn_count_; ++i) {
     const int sn = sn_perm[i];
-    for (int j = snStart[sn]; j < snStart[sn + 1]; ++j) {
+    for (int j = sn_start_[sn]; j < sn_start_[sn + 1]; ++j) {
       new_perm[start++] = j;
     }
   }
 
   // obtain inverse permutation
-  std::vector<int> new_iperm(n);
-  InversePerm(new_perm, new_iperm);
+  std::vector<int> new_iperm(n_);
+  inversePerm(new_perm, new_iperm);
 
   // =================================================
   // Create new sn elimination tree
   // =================================================
-  std::vector<int> isn_perm(snCount);
-  InversePerm(sn_perm, isn_perm);
-  std::vector<int> new_sn_parent(snCount);
-  for (int i = 0; i < snCount; ++i) {
-    if (snParent[i] != -1) {
-      new_sn_parent[isn_perm[i]] = isn_perm[snParent[i]];
+  std::vector<int> isn_perm(sn_count_);
+  inversePerm(sn_perm, isn_perm);
+  std::vector<int> new_sn_parent(sn_count_);
+  for (int i = 0; i < sn_count_; ++i) {
+    if (sn_parent_[i] != -1) {
+      new_sn_parent[isn_perm[i]] = isn_perm[sn_parent_[i]];
     } else {
       new_sn_parent[isn_perm[i]] = -1;
     }
@@ -1383,37 +1385,37 @@ void Analyse::ReorderChildren() {
   // =================================================
 
   // build new snBelong, i.e., the sn to which each colum belongs
-  for (int sn = 0; sn < snCount; ++sn) {
-    for (int i = snStart[sn]; i < snStart[sn + 1]; ++i) {
-      snBelong[i] = isn_perm[sn];
+  for (int sn = 0; sn < sn_count_; ++sn) {
+    for (int i = sn_start_[sn]; i < sn_start_[sn + 1]; ++i) {
+      sn_belong_[i] = isn_perm[sn];
     }
   }
-  PermuteVector(snBelong, new_perm);
+  permuteVector(sn_belong_, new_perm);
 
   // permute other vectors that may be needed
-  PermuteVector(colCount, new_perm);
-  PermuteVector(snIndices, sn_perm);
+  permuteVector(col_count_, new_perm);
+  permuteVector(sn_indices_, sn_perm);
 
   // =================================================
   // Create new snStart
   // =================================================
-  std::vector<int> cols_per_sn(snCount);
+  std::vector<int> cols_per_sn(sn_count_);
 
   // compute size of each supernode
-  for (int sn = 0; sn < snCount; ++sn) {
-    cols_per_sn[sn] = snStart[sn + 1] - snStart[sn];
+  for (int sn = 0; sn < sn_count_; ++sn) {
+    cols_per_sn[sn] = sn_start_[sn + 1] - sn_start_[sn];
   }
 
   // permute according to new order of supernodes
-  PermuteVector(cols_per_sn, sn_perm);
+  permuteVector(cols_per_sn, sn_perm);
 
   // sum number of columns to obtain pointers
-  for (int i = 0; i < snCount - 1; ++i) {
+  for (int i = 0; i < sn_count_ - 1; ++i) {
     cols_per_sn[i + 1] += cols_per_sn[i];
   }
 
-  for (int i = 0; i < snCount; ++i) {
-    snStart[i + 1] = cols_per_sn[i];
+  for (int i = 0; i < sn_count_; ++i) {
+    sn_start_[i + 1] = cols_per_sn[i];
   }
 
   // =================================================
@@ -1421,16 +1423,16 @@ void Analyse::ReorderChildren() {
   // =================================================
 
   // Overwrite previous data
-  snParent = std::move(new_sn_parent);
+  sn_parent_ = std::move(new_sn_parent);
 
   // Permute matrix based on new permutation
-  Permute(new_iperm);
+  permute(new_iperm);
 
   // double transpose to sort columns and compute lower part
-  Transpose(ptrUpper, rowsUpper, ptrLower, rowsLower);
-  Transpose(ptrLower, rowsLower, ptrUpper, rowsUpper);
+  transpose(ptr_upper_, rows_upper_, ptr_lower_, rows_lower_);
+  transpose(ptr_lower_, rows_lower_, ptr_upper_, rows_upper_);
 
   // Update perm and iperm
-  PermuteVector(perm, new_perm);
-  InversePerm(perm, iperm);
+  permuteVector(perm_, new_perm);
+  inversePerm(perm_, iperm_);
 }

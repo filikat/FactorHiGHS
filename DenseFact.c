@@ -11,7 +11,7 @@
 
 /*
 Names:
-DenseFact_(pf)(di)(bu)(flh)
+dense_fact_(pf)(di)(bu)(flh)
 
 pf: Partial or Full factorization
 di: (positive) Definite or Indefinite
@@ -22,7 +22,7 @@ flh: Full format, Lower packed format, or lower-blocked-Hybrid packed format
 
 double t0;
 
-int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
+int dense_fact_fduf(char uplo, int n, double* restrict A, int lda) {
   // ===========================================================================
   // Positive definite factorization without blocks.
   // BLAS calls: ddot_, dgemv_, dscal_.
@@ -31,11 +31,11 @@ int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
   // check input
   if (n < 0 || !A || lda < n || (uplo != 'L' && uplo != 'U')) {
     printf("\nDenseFact_fduf: invalid input\n");
-    return ret_invalid_input;
+    return kRetInvalidInput;
   }
 
   // quick return
-  if (n == 0) return ret_ok;
+  if (n == 0) return kRetOk;
 
   // main operations
   if (uplo == 'L') {
@@ -48,7 +48,7 @@ int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
       if (Ajj <= 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
         printf("\nDenseFact_fduf: invalid pivot\n");
-        return ret_invalid_pivot;
+        return kRetInvalidPivot;
       }
 
       // compute diagonal element
@@ -58,7 +58,7 @@ int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
 
       // compute column j
       if (j < n - 1) {
-        dgemv_(&NN, &M, &N, &d_m_one, &A[j + 1], &lda, &A[j], &lda, &d_one,
+        dgemv_(&c_N, &M, &N, &d_m_one, &A[j + 1], &lda, &A[j], &lda, &d_one,
                &A[j + 1 + j * lda], &i_one);
         dscal_(&M, &coeff, &A[j + 1 + j * lda], &i_one);
       }
@@ -74,7 +74,7 @@ int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
       if (Ajj <= 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
         printf("\nDenseFact_fduf: invalid pivot\n");
-        return ret_invalid_pivot;
+        return kRetInvalidPivot;
       }
 
       // compute diagonal element
@@ -84,17 +84,17 @@ int DenseFact_fduf(char uplo, int n, double* restrict A, int lda) {
 
       // compute column j
       if (j < n - 1) {
-        dgemv_(&TT, &N, &M, &d_m_one, &A[lda * (j + 1)], &lda, &A[lda * j],
+        dgemv_(&c_T, &N, &M, &d_m_one, &A[lda * (j + 1)], &lda, &A[lda * j],
                &i_one, &d_one, &A[j + (j + 1) * lda], &lda);
         dscal_(&M, &coeff, &A[j + (j + 1) * lda], &lda);
       }
     }
   }
 
-  return ret_ok;
+  return kRetOk;
 }
 
-int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
+int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda) {
   // ===========================================================================
   // Infedinite factorization without blocks.
   // BLAS calls: ddot_, dgemv_, dscal_.
@@ -103,11 +103,11 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
   // check input
   if (n < 0 || !A || lda < n) {
     printf("\nDenseFact_fiuf: invalid input\n");
-    return ret_invalid_input;
+    return kRetInvalidInput;
   }
 
   // quick return
-  if (n == 0) return ret_ok;
+  if (n == 0) return kRetOk;
 
   // main operations
   if (uplo == 'L') {
@@ -115,7 +115,7 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
     double* temp = malloc((n - 1) * sizeof(double));
     if (!temp) {
       printf("\nDenseFact_fiuf: out of memory\n");
-      return ret_out_of_memory;
+      return kRetOutOfMemory;
     }
 
     for (int j = 0; j < n; ++j) {
@@ -132,7 +132,7 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
       if (Ajj == 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
         printf("\nDenseFact_fiuf: invalid pivot\n");
-        return ret_invalid_pivot;
+        return kRetInvalidPivot;
       }
 
       // save diagonal element
@@ -141,7 +141,7 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
 
       // compute column j
       if (j < n - 1) {
-        dgemv_(&NN, &M, &N, &d_m_one, &A[j + 1], &lda, temp, &i_one, &d_one,
+        dgemv_(&c_N, &M, &N, &d_m_one, &A[j + 1], &lda, temp, &i_one, &d_one,
                &A[j + 1 + j * lda], &i_one);
         dscal_(&M, &coeff, &A[j + 1 + j * lda], &i_one);
       }
@@ -153,7 +153,7 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
     double* temp = malloc((n - 1) * sizeof(double));
     if (!temp) {
       printf("\nDenseFact_fiuf: out of memory\n");
-      return ret_out_of_memory;
+      return kRetOutOfMemory;
     }
 
     for (int j = 0; j < n; ++j) {
@@ -171,7 +171,7 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
       if (Ajj == 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
         printf("\nDenseFact_fiuf: invalid pivot\n");
-        return ret_invalid_pivot;
+        return kRetInvalidPivot;
       }
 
       // save diagonal element
@@ -180,7 +180,7 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
 
       // compute column j
       if (j < n - 1) {
-        dgemv_(&TT, &N, &M, &d_m_one, &A[(j + 1) * lda], &lda, temp, &i_one,
+        dgemv_(&c_T, &N, &M, &d_m_one, &A[(j + 1) * lda], &lda, temp, &i_one,
                &d_one, &A[j + (j + 1) * lda], &lda);
         dscal_(&M, &coeff, &A[j + (j + 1) * lda], &lda);
       }
@@ -190,7 +190,7 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
     free(temp);
   }
 
-  return ret_ok;
+  return kRetOk;
 }
 
 // ===========================================================================
@@ -241,7 +241,7 @@ int DenseFact_fiuf(char uplo, int n, double* restrict A, int lda) {
 // the rectangular block below P. See the report for a full explanation.
 // ===========================================================================
 
-int DenseFact_pdbf(int n, int k, int nb, double* restrict A, int lda,
+int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
                    double* restrict B, int ldb, double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks.
@@ -251,16 +251,16 @@ int DenseFact_pdbf(int n, int k, int nb, double* restrict A, int lda,
   // check input
   if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
     printf("\nDenseFact_pdbf: invalid input\n");
-    return ret_invalid_input;
+    return kRetInvalidInput;
   }
 
   if (!times) {
     printf("\nDenseFact_pdbf: invalid input\n");
-    return ret_invalid_input;
+    return kRetInvalidInput;
   }
 
   // quick return
-  if (n == 0) return ret_ok;
+  if (n == 0) return kRetOk;
 
   // j is the starting col of the block of columns
   for (int j = 0; j < k; j += nb) {
@@ -283,7 +283,7 @@ int DenseFact_pdbf(int n, int k, int nb, double* restrict A, int lda,
     t0 = GetTime();
 #endif
 
-    dsyrk_(&LL, &NN, &N, &K, &d_m_one, P, &lda, &d_one, D, &lda);
+    dsyrk_(&c_L, &c_N, &N, &K, &d_m_one, P, &lda, &d_one, D, &lda);
 
 #ifdef TIMING
     times[t_dsyrk] += GetTime() - t0;
@@ -294,7 +294,7 @@ int DenseFact_pdbf(int n, int k, int nb, double* restrict A, int lda,
     t0 = GetTime();
 #endif
 
-    int info = DenseFact_fduf('L', N, D, lda);
+    int info = dense_fact_fduf('L', N, D, lda);
 
 #ifdef TIMING
     times[t_fact] += GetTime() - t0;
@@ -306,7 +306,7 @@ int DenseFact_pdbf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dgemm_(&NN, &TT, &M, &N, &K, &d_m_one, Q, &lda, P, &lda, &d_one, R, &lda);
+      dgemm_(&c_N, &c_T, &M, &N, &K, &d_m_one, Q, &lda, P, &lda, &d_one, R, &lda);
 #ifdef TIMING
       times[t_dgemm] += GetTime() - t0;
 #endif
@@ -315,7 +315,7 @@ int DenseFact_pdbf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dtrsm_(&RR, &LL, &TT, &NN, &M, &N, &d_one, D, &lda, R, &lda);
+      dtrsm_(&c_R, &c_L, &c_T, &c_N, &M, &N, &d_one, D, &lda, R, &lda);
 #ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
 #endif
@@ -328,16 +328,16 @@ int DenseFact_pdbf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    dsyrk_(&LL, &NN, &N, &k, &d_m_one, &A[k], &lda, &d_zero, B, &ldb);
+    dsyrk_(&c_L, &c_N, &N, &k, &d_m_one, &A[k], &lda, &d_zero, B, &ldb);
 #ifdef TIMING
     times[t_dsyrk] += GetTime() - t0;
 #endif
   }
 
-  return ret_ok;
+  return kRetOk;
 }
 
-int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
+int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
                    double* restrict B, int ldb, double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks.
@@ -347,11 +347,11 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
   // check input
   if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
     printf("\nDenseFact_pibf: invalid input\n");
-    return ret_invalid_input;
+    return kRetInvalidInput;
   }
 
   // quick return
-  if (n == 0) return ret_ok;
+  if (n == 0) return kRetOk;
 
   // j is the starting col of the block of columns
   for (int j = 0; j < k; j += nb) {
@@ -373,7 +373,7 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
     double* T = malloc(j * jb * sizeof(double));
     if (!T) {
       printf("\nDenseFact_pibf: out of memory\n");
-      return ret_out_of_memory;
+      return kRetOutOfMemory;
     }
     int ldt = jb;
     for (int i = 0; i < j; ++i) {
@@ -385,7 +385,7 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    dgemm_(&NN, &TT, &jb, &jb, &j, &d_m_one, P, &lda, T, &ldt, &d_one, D, &lda);
+    dgemm_(&c_N, &c_T, &jb, &jb, &j, &d_m_one, P, &lda, T, &ldt, &d_one, D, &lda);
 #ifdef TIMING
     times[t_dgemm] += GetTime() - t0;
 #endif
@@ -394,7 +394,7 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    int info = DenseFact_fiuf('L', N, D, lda);
+    int info = dense_fact_fiuf('L', N, D, lda);
 #ifdef TIMING
     times[t_fact] += GetTime() - t0;
 #endif
@@ -405,7 +405,7 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dgemm_(&NN, &TT, &M, &N, &K, &d_m_one, Q, &lda, T, &ldt, &d_one, R, &lda);
+      dgemm_(&c_N, &c_T, &M, &N, &K, &d_m_one, Q, &lda, T, &ldt, &d_one, R, &lda);
 #ifdef TIMING
       times[t_dgemm] += GetTime() - t0;
 #endif
@@ -414,7 +414,7 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dtrsm_(&RR, &LL, &TT, &UU, &M, &N, &d_one, D, &lda, R, &lda);
+      dtrsm_(&c_R, &c_L, &c_T, &c_U, &M, &N, &d_one, D, &lda, R, &lda);
 #ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
 #endif
@@ -448,12 +448,12 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
     double* temp_pos = malloc((n - k) * pos_pivot * sizeof(double));
     if (!temp_pos) {
       printf("\nDenseFact_pibf: out of memory\n");
-      return ret_out_of_memory;
+      return kRetOutOfMemory;
     }
     double* temp_neg = malloc((n - k) * neg_pivot * sizeof(double));
     if (!temp_neg) {
       printf("\nDenseFact_pibf: out of memory\n");
-      return ret_out_of_memory;
+      return kRetOutOfMemory;
     }
 
     const int ldt = n - k;
@@ -485,9 +485,9 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    dsyrk_(&LL, &NN, &N, &pos_pivot, &d_m_one, temp_pos, &ldt, &d_zero, B,
+    dsyrk_(&c_L, &c_N, &N, &pos_pivot, &d_m_one, temp_pos, &ldt, &d_zero, B,
            &ldb);
-    dsyrk_(&LL, &NN, &N, &neg_pivot, &d_one, temp_neg, &ldt, &d_one, B, &ldb);
+    dsyrk_(&c_L, &c_N, &N, &neg_pivot, &d_one, temp_neg, &ldt, &d_one, B, &ldb);
 #ifdef TIMING
     times[t_dsyrk] += GetTime() - t0;
 #endif
@@ -496,10 +496,10 @@ int DenseFact_pibf(int n, int k, int nb, double* restrict A, int lda,
     free(temp_neg);
   }
 
-  return ret_ok;
+  return kRetOk;
 }
 
-int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
+int dense_fact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
                    double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks in lower-blocked-hybrid
@@ -511,11 +511,11 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
   // check input
   if (n < 0 || k < 0 || !A || (k < n && !B)) {
     printf("\nDenseFact_pdbh: invalid input\n");
-    return ret_invalid_input;
+    return kRetInvalidInput;
   }
 
   // quick return
-  if (n == 0) return ret_ok;
+  if (n == 0) return kRetOk;
 
   // number of blocks of columns
   const int n_blocks = (k - 1) / nb + 1;
@@ -524,7 +524,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
   int* diag_start = malloc(n_blocks * sizeof(double));
   if (!diag_start) {
     printf("\nDenseFact_pdbh: out of memory\n");
-    return ret_out_of_memory;
+    return kRetOutOfMemory;
   }
   diag_start[0] = 0;
   for (int i = 1; i < n_blocks; ++i) {
@@ -543,7 +543,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
   double* D = malloc(nb * nb * sizeof(double));
   if (!D) {
     printf("\nDenseFact_pdbh: out of memory\n");
-    return ret_out_of_memory;
+    return kRetOutOfMemory;
   }
 
   // j is the index of the block column
@@ -585,7 +585,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dsyrk_(&UU, &TT, &jb, &nb, &d_m_one, Pk, &nb, &d_one, D, &jb);
+      dsyrk_(&c_U, &c_T, &jb, &nb, &d_m_one, Pk, &nb, &d_one, D, &jb);
 #ifdef TIMING
       times[t_dsyrk] += GetTime() - t0;
 #endif
@@ -597,7 +597,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dgemm_(&TT, &NN, &jb, &M, &nb, &d_m_one, Pk, &nb, Qk, &nb, &d_one, R,
+        dgemm_(&c_T, &c_N, &jb, &M, &nb, &d_m_one, Pk, &nb, Qk, &nb, &d_one, R,
                &jb);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
@@ -609,7 +609,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    int info = DenseFact_fduf('U', jb, D, jb);
+    int info = dense_fact_fduf('U', jb, D, jb);
 #ifdef TIMING
     times[t_fact] += GetTime() - t0;
 #endif
@@ -620,7 +620,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dtrsm_(&LL, &UU, &TT, &NN, &jb, &M, &d_one, D, &jb, R, &jb);
+      dtrsm_(&c_L, &c_U, &c_T, &c_N, &jb, &M, &d_one, D, &jb, R, &jb);
 #ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
 #endif
@@ -657,7 +657,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
     double* schur_buf = malloc(ns * nb * sizeof(double));
     if (!schur_buf) {
       printf("\nDenseFact_pdbh: out of memory\n");
-      return ret_out_of_memory;
+      return kRetOutOfMemory;
     }
 
     // number of blocks in Schur complement
@@ -698,7 +698,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dsyrk_(&UU, &TT, &ncol, &jb, &d_m_one, &A[diag_pos], &jb, &beta,
+        dsyrk_(&c_U, &c_T, &ncol, &jb, &d_m_one, &A[diag_pos], &jb, &beta,
                schur_buf, &ncol);
 #ifdef TIMING
         times[t_dsyrk] += GetTime() - t0;
@@ -710,7 +710,7 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
           t0 = GetTime();
 #endif
-          dgemm_(&TT, &NN, &nb, &M, &jb, &d_m_one, &A[diag_pos], &jb,
+          dgemm_(&c_T, &c_N, &nb, &M, &jb, &d_m_one, &A[diag_pos], &jb,
                  &A[diag_pos + this_full_size], &jb, &beta,
                  &schur_buf[ncol * ncol], &ncol);
 #ifdef TIMING
@@ -745,10 +745,10 @@ int DenseFact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
 
   free(diag_start);
 
-  return ret_ok;
+  return kRetOk;
 }
 
-int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
+int dense_fact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
                    double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks in lower-blocked-hybrid format.
@@ -762,11 +762,11 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
   // check input
   if (n < 0 || k < 0 || !A || (k < n && !B)) {
     printf("\nDenseFact_pibh: invalid input\n");
-    return ret_invalid_input;
+    return kRetInvalidInput;
   }
 
   // quick return
-  if (n == 0) return ret_ok;
+  if (n == 0) return kRetOk;
 
   // number of blocks of columns
   const int n_blocks = (k - 1) / nb + 1;
@@ -775,7 +775,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
   int* diag_start = malloc(n_blocks * sizeof(double));
   if (!diag_start) {
     printf("\nDenseFact_pibh: out of memory\n");
-    return ret_out_of_memory;
+    return kRetOutOfMemory;
   }
   diag_start[0] = 0;
   for (int i = 1; i < n_blocks; ++i) {
@@ -794,14 +794,14 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
   double* D = malloc(nb * nb * sizeof(double));
   if (!D) {
     printf("\nDenseFact_pibh: out of memory\n");
-    return ret_out_of_memory;
+    return kRetOutOfMemory;
   }
 
   // buffer for copy of block scaled by pivots
   double* T = malloc(nb * nb * sizeof(double) + 10);
   if (!T) {
     printf("\nDenseFact_pibh: out of memory\n");
-    return ret_out_of_memory;
+    return kRetOutOfMemory;
   }
 
   // j is the index of the block column
@@ -867,7 +867,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dgemm_(&TT, &NN, &jb, &jb, &nb, &d_m_one, T, &nb, Pk, &nb, &d_one, D,
+      dgemm_(&c_T, &c_N, &jb, &jb, &nb, &d_m_one, T, &nb, Pk, &nb, &d_one, D,
              &jb);
 #ifdef TIMING
       times[t_dgemm] += GetTime() - t0;
@@ -880,7 +880,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dgemm_(&TT, &NN, &jb, &M, &nb, &d_m_one, T, &nb, Qk, &nb, &d_one, R,
+        dgemm_(&c_T, &c_N, &jb, &M, &nb, &d_m_one, T, &nb, Qk, &nb, &d_one, R,
                &jb);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
@@ -892,7 +892,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    int info = DenseFact_fiuf('U', jb, D, jb);
+    int info = dense_fact_fiuf('U', jb, D, jb);
 #ifdef TIMING
     times[t_fact] += GetTime() - t0;
 #endif
@@ -903,7 +903,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dtrsm_(&LL, &UU, &TT, &UU, &jb, &M, &d_one, D, &jb, R, &jb);
+      dtrsm_(&c_L, &c_U, &c_T, &c_U, &jb, &M, &d_one, D, &jb, R, &jb);
 #ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
 #endif
@@ -954,7 +954,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
     double* schur_buf = malloc(ns * nb * sizeof(double) + 10);
     if (!schur_buf) {
       printf("\nDenseFact_pibh: out of memory\n");
-      return ret_out_of_memory;
+      return kRetOutOfMemory;
     }
 
     // number of blocks in Schur complement
@@ -1019,7 +1019,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 
         // printf("%p\n", A);
 
-        dgemm_(&TT, &NN, &ncol, &ncol, &jb, &d_m_one, T, &jb, &A[diag_pos], &jb,
+        dgemm_(&c_T, &c_N, &ncol, &ncol, &jb, &d_m_one, T, &jb, &A[diag_pos], &jb,
                &beta, schur_buf, &ncol);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
@@ -1031,7 +1031,7 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
 #ifdef TIMING
           t0 = GetTime();
 #endif
-          dgemm_(&TT, &NN, &ncol, &M, &jb, &d_m_one, T, &jb,
+          dgemm_(&c_T, &c_N, &ncol, &M, &jb, &d_m_one, T, &jb,
                  &A[diag_pos + this_full_size], &jb, &beta,
                  &schur_buf[ncol * ncol], &ncol);
 #ifdef TIMING
@@ -1066,10 +1066,10 @@ int DenseFact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
   free(T);
   free(diag_start);
 
-  return ret_ok;
+  return kRetOk;
 }
 
-int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
+int dense_fact_pdbh_2(int n, int k, int nb, double* A, double* B,
                      double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks in lower-blocked-hybrid
@@ -1081,11 +1081,11 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
   // check input
   if (n < 0 || k < 0 || !A || (k < n && !B)) {
     printf("\nDenseFact_pdbh: invalid input\n");
-    return ret_invalid_input;
+    return kRetInvalidInput;
   }
 
   // quick return
-  if (n == 0) return ret_ok;
+  if (n == 0) return kRetOk;
 
   // number of blocks of columns
   const int n_blocks = (k - 1) / nb + 1;
@@ -1094,7 +1094,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
   int* diag_start = malloc(n_blocks * sizeof(double));
   if (!diag_start) {
     printf("\nDenseFact_pdbh: out of memory\n");
-    return ret_out_of_memory;
+    return kRetOutOfMemory;
   }
   diag_start[0] = 0;
   for (int i = 1; i < n_blocks; ++i) {
@@ -1113,7 +1113,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
   double* D = malloc(nb * nb * sizeof(double));
   if (!D) {
     printf("\nDenseFact_pdbh: out of memory\n");
-    return ret_out_of_memory;
+    return kRetOutOfMemory;
   }
 
   // j is the index of the block column
@@ -1155,7 +1155,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dsyrk_(&UU, &TT, &jb, &nb, &d_m_one, Pk, &nb, &d_one, D, &jb);
+      dsyrk_(&c_U, &c_T, &jb, &nb, &d_m_one, Pk, &nb, &d_one, D, &jb);
 #ifdef TIMING
       times[t_dsyrk] += GetTime() - t0;
 #endif
@@ -1166,7 +1166,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dgemm_(&TT, &NN, &jb, &M, &nb, &d_m_one, Pk, &nb, Qk, &nb, &d_one, R,
+        dgemm_(&c_T, &c_N, &jb, &M, &nb, &d_m_one, Pk, &nb, Qk, &nb, &d_one, R,
                &jb);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
@@ -1178,7 +1178,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    int info = DenseFact_fduf('U', jb, D, jb);
+    int info = dense_fact_fduf('U', jb, D, jb);
 #ifdef TIMING
     times[t_fact] += GetTime() - t0;
 #endif
@@ -1189,7 +1189,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dtrsm_(&LL, &UU, &TT, &NN, &jb, &M, &d_one, D, &jb, R, &jb);
+      dtrsm_(&c_L, &c_U, &c_T, &c_N, &jb, &M, &d_one, D, &jb, R, &jb);
 #ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
 #endif
@@ -1260,7 +1260,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dsyrk_(&UU, &TT, &ncol, &jb, &d_m_one, &A[diag_pos], &jb, &beta,
+        dsyrk_(&c_U, &c_T, &ncol, &jb, &d_m_one, &A[diag_pos], &jb, &beta,
                schur_buf, &ncol);
 #ifdef TIMING
         times[t_dsyrk] += GetTime() - t0;
@@ -1272,7 +1272,7 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
           t0 = GetTime();
 #endif
-          dgemm_(&TT, &NN, &nb, &M, &jb, &d_m_one, &A[diag_pos], &jb,
+          dgemm_(&c_T, &c_N, &nb, &M, &jb, &d_m_one, &A[diag_pos], &jb,
                  &A[diag_pos + this_full_size], &jb, &beta,
                  &schur_buf[ncol * ncol], &ncol);
 #ifdef TIMING
@@ -1291,10 +1291,10 @@ int DenseFact_pdbh_2(int n, int k, int nb, double* A, double* B,
 
   free(diag_start);
 
-  return ret_ok;
+  return kRetOk;
 }
 
-int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
+int dense_fact_pibh_2(int n, int k, int nb, double* A, double* B,
                      double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks in lower-blocked-hybrid format.
@@ -1306,11 +1306,11 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
   // check input
   if (n < 0 || k < 0 || !A || (k < n && !B)) {
     printf("\nDenseFact_pibh: invalid input\n");
-    return ret_invalid_input;
+    return kRetInvalidInput;
   }
 
   // quick return
-  if (n == 0) return ret_ok;
+  if (n == 0) return kRetOk;
 
   // number of blocks of columns
   const int n_blocks = (k - 1) / nb + 1;
@@ -1319,7 +1319,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
   int* diag_start = malloc(n_blocks * sizeof(double));
   if (!diag_start) {
     printf("\nDenseFact_pibh: out of memory\n");
-    return ret_out_of_memory;
+    return kRetOutOfMemory;
   }
   diag_start[0] = 0;
   for (int i = 1; i < n_blocks; ++i) {
@@ -1338,14 +1338,14 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
   double* D = malloc(nb * nb * sizeof(double));
   if (!D) {
     printf("\nDenseFact_pibh: out of memory\n");
-    return ret_out_of_memory;
+    return kRetOutOfMemory;
   }
 
   // buffer for copy of block scaled by pivots
   double* T = malloc(nb * nb * sizeof(double));
   if (!T) {
     printf("\nDenseFact_pibh: out of memory\n");
-    return ret_out_of_memory;
+    return kRetOutOfMemory;
   }
 
   // j is the index of the block column
@@ -1411,7 +1411,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dgemm_(&TT, &NN, &jb, &jb, &nb, &d_m_one, T, &nb, Pk, &nb, &d_one, D,
+      dgemm_(&c_T, &c_N, &jb, &jb, &nb, &d_m_one, T, &nb, Pk, &nb, &d_one, D,
              &jb);
 #ifdef TIMING
       times[t_dgemm] += GetTime() - t0;
@@ -1425,7 +1425,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dgemm_(&TT, &NN, &jb, &M, &nb, &d_m_one, T, &nb, Qk, &nb, &d_one, R,
+        dgemm_(&c_T, &c_N, &jb, &M, &nb, &d_m_one, T, &nb, Qk, &nb, &d_one, R,
                &jb);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
@@ -1437,7 +1437,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    int info = DenseFact_fiuf('U', jb, D, jb);
+    int info = dense_fact_fiuf('U', jb, D, jb);
 #ifdef TIMING
     times[t_fact] += GetTime() - t0;
 #endif
@@ -1448,7 +1448,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dtrsm_(&LL, &UU, &TT, &UU, &jb, &M, &d_one, D, &jb, R, &jb);
+      dtrsm_(&c_L, &c_U, &c_T, &c_U, &jb, &M, &d_one, D, &jb, R, &jb);
 #ifdef TIMING
       times[t_dtrsm] += GetTime() - t0;
 #endif
@@ -1554,7 +1554,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dgemm_(&TT, &NN, &ncol, &ncol, &jb, &d_m_one, T, &jb, &A[diag_pos], &jb,
+        dgemm_(&c_T, &c_N, &ncol, &ncol, &jb, &d_m_one, T, &jb, &A[diag_pos], &jb,
                &beta, schur_buf, &ncol);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
@@ -1566,7 +1566,7 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
           t0 = GetTime();
 #endif
-          dgemm_(&TT, &NN, &ncol, &M, &jb, &d_m_one, T, &jb,
+          dgemm_(&c_T, &c_N, &ncol, &M, &jb, &d_m_one, T, &jb,
                  &A[diag_pos + this_full_size], &jb, &beta,
                  &schur_buf[ncol * ncol], &ncol);
 #ifdef TIMING
@@ -1585,10 +1585,10 @@ int DenseFact_pibh_2(int n, int k, int nb, double* A, double* B,
   free(T);
   free(diag_start);
 
-  return ret_ok;
+  return kRetOk;
 }
 
-int DenseFact_l2h(double* restrict A, int nrow, int ncol, int nb,
+int dense_fact_l2h(double* restrict A, int nrow, int ncol, int nb,
                   double* times) {
   // ===========================================================================
   // Takes a matrix in lower-packed format, with nrow rows.
@@ -1604,7 +1604,7 @@ int DenseFact_l2h(double* restrict A, int nrow, int ncol, int nb,
   double* buf = malloc(nrow * nb * sizeof(double));
   if (!buf) {
     printf("\nDenseFact_l2h: out of memory\n");
-    return ret_out_of_memory;
+    return kRetOutOfMemory;
   }
   int startAtoBuf = 0;
   int startBuftoA = 0;
@@ -1647,5 +1647,5 @@ int DenseFact_l2h(double* restrict A, int nrow, int ncol, int nb,
   times[t_convert] += GetTime() - t0;
 #endif
 
-  return ret_ok;
+  return kRetOk;
 }

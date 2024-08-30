@@ -2,7 +2,7 @@
 
 #include <stack>
 
-void Counts2Ptr(std::vector<int>& ptr, std::vector<int>& w) {
+void counts2Ptr(std::vector<int>& ptr, std::vector<int>& w) {
   // Given the column counts in the vector w (of size n),
   // compute the column pointers in the vector ptr (of size n+1),
   // and copy the first n pointers back into w.
@@ -17,7 +17,7 @@ void Counts2Ptr(std::vector<int>& ptr, std::vector<int>& w) {
   ptr[n] = temp_nz;
 }
 
-void InversePerm(const std::vector<int>& perm, std::vector<int>& iperm) {
+void inversePerm(const std::vector<int>& perm, std::vector<int>& iperm) {
   // Given the permutation perm, produce the inverse permutation iperm.
   // perm[i] : i-th entry to use in the new order.
   // iperm[i]: where entry i is located in the new order.
@@ -27,7 +27,7 @@ void InversePerm(const std::vector<int>& perm, std::vector<int>& iperm) {
   }
 }
 
-void SubtreeSize(const std::vector<int>& parent, std::vector<int>& sizes) {
+void subtreeSize(const std::vector<int>& parent, std::vector<int>& sizes) {
   // Compute sizes of subtrees of the tree given by parent
 
   int n = parent.size();
@@ -39,7 +39,7 @@ void SubtreeSize(const std::vector<int>& parent, std::vector<int>& sizes) {
   }
 }
 
-void Transpose(const std::vector<int>& ptr, const std::vector<int>& rows,
+void transpose(const std::vector<int>& ptr, const std::vector<int>& rows,
                std::vector<int>& ptrT, std::vector<int>& rowsT) {
   // Compute the transpose of the matrix and return it in rowsT and ptrT
 
@@ -53,7 +53,7 @@ void Transpose(const std::vector<int>& ptr, const std::vector<int>& rows,
   }
 
   // sum row sums to obtain pointers
-  Counts2Ptr(ptrT, work);
+  counts2Ptr(ptrT, work);
 
   for (int j = 0; j < n; ++j) {
     for (int el = ptr[j]; el < ptr[j + 1]; ++el) {
@@ -66,7 +66,7 @@ void Transpose(const std::vector<int>& ptr, const std::vector<int>& rows,
   }
 }
 
-void Transpose(const std::vector<int>& ptr, const std::vector<int>& rows,
+void transpose(const std::vector<int>& ptr, const std::vector<int>& rows,
                const std::vector<double>& val, std::vector<int>& ptrT,
                std::vector<int>& rowsT, std::vector<double>& valT) {
   // Compute the transpose of the matrix and return it in rowsT, ptrT and valT
@@ -81,7 +81,7 @@ void Transpose(const std::vector<int>& ptr, const std::vector<int>& rows,
   }
 
   // sum row sums to obtain pointers
-  Counts2Ptr(ptrT, work);
+  counts2Ptr(ptrT, work);
 
   for (int j = 0; j < n; ++j) {
     for (int el = ptr[j]; el < ptr[j + 1]; ++el) {
@@ -95,7 +95,7 @@ void Transpose(const std::vector<int>& ptr, const std::vector<int>& rows,
   }
 }
 
-void ChildrenLinkedList(const std::vector<int>& parent, std::vector<int>& head,
+void childrenLinkedList(const std::vector<int>& parent, std::vector<int>& head,
                         std::vector<int>& next) {
   // Create linked lists of children in elimination tree.
   // parent gives the dependencies of the tree,
@@ -114,7 +114,7 @@ void ChildrenLinkedList(const std::vector<int>& parent, std::vector<int>& head,
   }
 }
 
-void Dfs_post(int node, int& start, std::vector<int>& head,
+void dfsPostorder(int node, int& start, std::vector<int>& head,
               const std::vector<int>& next, std::vector<int>& order) {
   // Perform depth first search starting from root node and order the nodes
   // starting from the value start. head and next contain the linked list of
@@ -141,7 +141,7 @@ void Dfs_post(int node, int& start, std::vector<int>& head,
   }
 }
 
-void ProcessEdge(int j, int i, const std::vector<int>& first,
+void processEdge(int j, int i, const std::vector<int>& first,
                  std::vector<int>& maxfirst, std::vector<int>& delta,
                  std::vector<int>& prevleaf, std::vector<int>& ancestor) {
   // Process edge of skeleton matrix.

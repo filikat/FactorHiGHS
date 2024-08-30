@@ -18,104 +18,104 @@ const int k_max_iter_relax = 10;
 // Class to perform the analyse phase of the factorization.
 // The final symbolic factorization is stored in an object of type Symbolic.
 class Analyse {
-  bool ready = false;
+  bool ready_ = false;
 
   // Matrix to be factorized, stored in upper and lower triangular format
-  std::vector<int> rowsUpper{};
-  std::vector<int> ptrUpper{};
-  std::vector<int> rowsLower{};
-  std::vector<int> ptrLower{};
-  int n{};
-  int nz{};
-  double nzL{};
-  double operations{};
-  double operationsNorelax{};
-  double operationsAssembly{};
-  FactType type{};
+  std::vector<int> rows_upper_{};
+  std::vector<int> ptr_upper_{};
+  std::vector<int> rows_lower_{};
+  std::vector<int> ptr_lower_{};
+  int n_{};
+  int nz_{};
+  double nz_factor_{};
+  double operations_{};
+  double operations_no_relax_{};
+  double operations_assembly_{};
+  FactType type_{};
 
   // Permutation and inverse permutation from Metis
-  std::vector<int> perm{};
-  std::vector<int> iperm{};
+  std::vector<int> perm_{};
+  std::vector<int> iperm_{};
 
   // Elimination tree
-  std::vector<int> parent{};
+  std::vector<int> parent_{};
 
   // postorder of the elimination tree
-  std::vector<int> postorder{};
+  std::vector<int> postorder_{};
 
   // number of entries in each column of L
-  std::vector<int> colCount{};
+  std::vector<int> col_count_{};
 
   // sparsity pattern of supernodes of L
-  std::vector<int> rowsLsn{};
-  std::vector<int> ptrLsn{};
+  std::vector<int> rows_sn_{};
+  std::vector<int> ptr_sn_{};
 
-  std::vector<int> snIndices{};
+  std::vector<int> sn_indices_{};
 
   // fundamental supernodes information
-  int snCount{};
-  int artificialNz{};
-  std::vector<int> snBelong{};
-  std::vector<int> snStart{};
-  std::vector<int> snParent{};
+  int sn_count_{};
+  int artificial_nz_{};
+  std::vector<int> sn_belong_{};
+  std::vector<int> sn_start_{};
+  std::vector<int> sn_parent_{};
 
   // temporary storage for relaxing supernodes
-  std::vector<int> fakeNonzeros{};
-  std::vector<int> mergedInto{};
-  int mergedSn{};
+  std::vector<int> fake_nz_{};
+  std::vector<int> merged_into_{};
+  int merged_sn_{};
 
   // relative indices of original columns wrt L columns
-  std::vector<int> relindCols{};
+  std::vector<int> relind_cols_{};
 
   // relative indices of clique wrt parent
-  std::vector<std::vector<int>> relindClique{};
+  std::vector<std::vector<int>> relind_clique_{};
 
   // information about consecutive indices in relindClique
-  std::vector<std::vector<int>> consecutiveSums{};
+  std::vector<std::vector<int>> consecutive_sums_{};
 
   // estimate of maximum storage
-  double maxStorage{};
+  double max_storage_{};
 
-  void GetPermutation();
-  void Permute(const std::vector<int>& iperm);
-  void ETree();
-  void Postorder();
-  void ColCount();
-  void FundamentalSupernodes();
-  void RelaxSupernodes();
-  void RelaxSupernodes_2();
-  void AfterRelaxSn();
-  void SnPattern();
-  void RelativeIndCols();
-  void RelativeIndClique();
-  bool Check() const;
+  void getPermutation();
+  void permute(const std::vector<int>& iperm);
+  void eTree();
+  void postorder();
+  void colCount();
+  void fundamentalSupernodes();
+  void relaxSupernodes();
+  void relaxSupernodes2();
+  void afterRelaxSn();
+  void snPattern();
+  void relativeIndCols();
+  void relativeIndClique();
+  bool check() const;
 
-  void GenerateLayer0(int n_threads, double imbalance_ratio);
-  void ReorderChildren();
+  void generateLayer0(int n_threads, double imbalance_ratio);
+  void reorderChildren();
 
-  void PrintTimes() const;
+  void printTimes() const;
 
  public:
   // Constructor: matrix must be in lower triangular format
-  Analyse(const std::vector<int>& rows_input, const std::vector<int>& ptr_input,
-          FactType type_input, const std::vector<int>& order = {});
+  Analyse(const std::vector<int>& rows, const std::vector<int>& ptr,
+          FactType type, const std::vector<int>& order = {});
 
   // Run analyse phase and save the result in Symbolic object S
-  void Run(Symbolic& S);
+  void run(Symbolic& S);
 
   // times
-  double time_metis{};
-  double time_tree{};
-  double time_count{};
-  double time_pattern{};
-  double time_sn{};
-  double time_reorder{};
-  double time_relind{};
-  double time_total{};
-  double time_layer0{};
+  double time_metis_{};
+  double time_tree_{};
+  double time_count_{};
+  double time_pattern_{};
+  double time_sn_{};
+  double time_reorder_{};
+  double time_relind_{};
+  double time_total_{};
+  double time_layer0_{};
 
   // save metis iperm to be used by hsl codes for comparison
-  std::vector<int> metis_order{};
+  std::vector<int> metis_order_{};
 };
 
 #endif

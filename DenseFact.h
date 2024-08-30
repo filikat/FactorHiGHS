@@ -18,10 +18,10 @@ const double d_one = 1.0;
 const double d_zero = 0.0;
 const double d_m_one = -1.0;
 const int i_one = 1;
-const char LL = 'L';
-const char NN = 'N';
-const char RR = 'R';
-const char TT = 'T';
-const char UU = 'U';
+const char c_L = 'L';
+const char c_N = 'N';
+const char c_R = 'R';
+const char c_T = 'T';
+const char c_U = 'U';
 
 #endif

@@ -66,7 +66,7 @@ int main() {
   lb = lb * (lb + 1) / 2;
   std::vector<double> B(lb);
 
-  std::vector<double> times(times_ind::t_size);
+  std::vector<double> times(TimesInd::t_size);
   PartialFactPosPacked(nrow, ncol, A.data(), nb, B.data(), times.data());
 
 
