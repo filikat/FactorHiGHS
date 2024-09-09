@@ -43,7 +43,7 @@ class Factorise {
   Factorise(const Symbolic& S, const std::vector<int>& rowsA,
             const std::vector<int>& ptrA, const std::vector<double>& valA);
 
-  int run(Numeric& num);
+  int run(Numeric& num, bool verbose = false);
 
   std::vector<double> time_per_sn_{};
 

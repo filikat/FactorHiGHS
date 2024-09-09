@@ -10,10 +10,10 @@
 #include "metis.h"
 
 // parameters for supernode amalgamation
-const int k_start_thresh_relax = 256;
-const double k_upper_ratio_relax = 0.02;
-const double k_lower_ratio_relax = 0.01;
-const int k_max_iter_relax = 10;
+const int kStartThreshRelax = 256;
+const double kUpperRatioRelax = 0.02;
+const double kLowerRatioRelax = 0.01;
+const int kMaxIterRelax = 10;
 
 // Class to perform the analyse phase of the factorization.
 // The final symbolic factorization is stored in an object of type Symbolic.
@@ -101,7 +101,7 @@ class Analyse {
           FactType type, const std::vector<int>& order = {});
 
   // Run analyse phase and save the result in Symbolic object S
-  void run(Symbolic& S);
+  void run(Symbolic& S,bool verbose = false);
 
   // times
   double time_metis_{};

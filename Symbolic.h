@@ -5,8 +5,8 @@
 
 // Type of factorization:
 // normal equations or augmented system
-enum class FactType { NormEq, AugSys };
-enum class PackType { Full, Hybrid, Hybrid2 };
+enum FactType { NormEq, AugSys };
+enum PackType { Full, Hybrid, Hybrid2 };
 
 class Symbolic {
   // Type of factorization

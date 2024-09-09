@@ -300,45 +300,45 @@ int Factorise::processSupernode(int sn) {
       if (S_.type() == FactType::NormEq) {
         int status =
             dense_fact_pdbf(ldf, sn_size, S_.blockSize(), frontal.data(), ldf,
-                           clique, ldc, times_dense_fact_.data());
+                            clique, ldc, times_dense_fact_.data());
         if (status) return status;
 
       } else {
         int status =
             dense_fact_pibf(ldf, sn_size, S_.blockSize(), frontal.data(), ldf,
-                           clique, ldc, times_dense_fact_.data());
+                            clique, ldc, times_dense_fact_.data());
         if (status) return status;
       }
       break;
 
     case PackType::Hybrid2: {
       int status = dense_fact_l2h(frontal.data(), ldf, sn_size, S_.blockSize(),
-                                 times_dense_fact_.data());
+                                  times_dense_fact_.data());
       if (status) return status;
 
       if (S_.type() == FactType::NormEq) {
         status = dense_fact_pdbh_2(ldf, sn_size, S_.blockSize(), frontal.data(),
-                                  clique, times_dense_fact_.data());
+                                   clique, times_dense_fact_.data());
         if (status) return status;
       } else {
         status = dense_fact_pibh_2(ldf, sn_size, S_.blockSize(), frontal.data(),
-                                  clique, times_dense_fact_.data());
+                                   clique, times_dense_fact_.data());
         if (status) return status;
       }
     } break;
 
     case PackType::Hybrid: {
       int status = dense_fact_l2h(frontal.data(), ldf, sn_size, S_.blockSize(),
-                                 times_dense_fact_.data());
+                                  times_dense_fact_.data());
       if (status) return status;
 
       if (S_.type() == FactType::NormEq) {
         status = dense_fact_pdbh(ldf, sn_size, S_.blockSize(), frontal.data(),
-                                clique, times_dense_fact_.data());
+                                 clique, times_dense_fact_.data());
         if (status) return status;
       } else {
         status = dense_fact_pibh(ldf, sn_size, S_.blockSize(), frontal.data(),
-                                clique, times_dense_fact_.data());
+                                 clique, times_dense_fact_.data());
         if (status) return status;
       }
     } break;
@@ -678,7 +678,7 @@ void Factorise::printTimes() const {
          times_dense_fact_[t_convert] / time_factorise_ * 100);
 }
 
-int Factorise::run(Numeric& num) {
+int Factorise::run(Numeric& num, bool verbose) {
   Clock clock;
   clock.start();
 
@@ -698,7 +698,7 @@ int Factorise::run(Numeric& num) {
 
   time_total_ = clock.stop();
 
-  printTimes();
+  if (verbose) printTimes();
 
   if (status) return status;
 

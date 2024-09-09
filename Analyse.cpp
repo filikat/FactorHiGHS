@@ -383,11 +383,11 @@ void Analyse::relaxSupernodes() {
   // Multiple values of max_artificial_nz are tried, chosen with bisection
   // method, until the percentage of artificial nonzeros is in the range [1,2]%.
 
-  int max_artificial_nz = k_start_thresh_relax;
+  int max_artificial_nz = kStartThreshRelax;
   int largest_below = -1;
   int smallest_above = -1;
 
-  for (int iter = 0; iter < k_max_iter_relax; ++iter) {
+  for (int iter = 0; iter < kMaxIterRelax; ++iter) {
     // =================================================
     // Build information about supernodes
     // =================================================
@@ -500,7 +500,7 @@ void Analyse::relaxSupernodes() {
         temp_art_ops / (temp_art_ops + operations_no_relax_);
 
     // try to find ratio in interval [0.01,0.02] using bisection
-    if (ratio_fake < k_lower_ratio_relax) {
+    if (ratio_fake < kLowerRatioRelax) {
       // ratio too small
       largest_below = max_artificial_nz;
       if (smallest_above == -1) {
@@ -508,7 +508,7 @@ void Analyse::relaxSupernodes() {
       } else {
         max_artificial_nz = (largest_below + smallest_above) / 2;
       }
-    } else if (ratio_fake > k_upper_ratio_relax) {
+    } else if (ratio_fake > kUpperRatioRelax) {
       // ratio too large
       smallest_above = max_artificial_nz;
       if (largest_below == -1) {
@@ -1059,7 +1059,7 @@ void Analyse::printTimes() const {
          time_layer0_ / time_total_ * 100);
 }
 
-void Analyse::run(Symbolic& S) {
+void Analyse::run(Symbolic& S, bool verbose) {
   // Perform analyse phase and store the result into the symbolic object S.
   // After Run returns, the Analyse object is not valid.
 
@@ -1109,7 +1109,7 @@ void Analyse::run(Symbolic& S) {
 
   time_total_ = clock0.stop();
 
-  printTimes();
+  if (verbose) printTimes();
 
   // move relevant stuff into S
   S.type_ = type_;

@@ -47,7 +47,7 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda) {
       double Ajj = A[j + lda * j] - ddot_(&N, &A[j], &lda, &A[j], &lda);
       if (Ajj <= 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
-        printf("\nDenseFact_fduf: invalid pivot\n");
+        printf("\nDenseFact_fduf: invalid pivot %e\n", Ajj);
         return kRetInvalidPivot;
       }
 
@@ -73,7 +73,7 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda) {
           A[j + lda * j] - ddot_(&N, &A[lda * j], &i_one, &A[lda * j], &i_one);
       if (Ajj <= 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
-        printf("\nDenseFact_fduf: invalid pivot\n");
+        printf("\nDenseFact_fduf: invalid pivot %e\n", Ajj);
         return kRetInvalidPivot;
       }
 
@@ -131,7 +131,7 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda) {
       double Ajj = A[j + lda * j] - ddot_(&N, &A[j], &lda, temp, &i_one);
       if (Ajj == 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
-        printf("\nDenseFact_fiuf: invalid pivot\n");
+        printf("\nDenseFact_fiuf: invalid pivot %e\n", Ajj);
         return kRetInvalidPivot;
       }
 
@@ -170,7 +170,7 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda) {
           A[j + lda * j] - ddot_(&N, &A[j * lda], &i_one, temp, &i_one);
       if (Ajj == 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
-        printf("\nDenseFact_fiuf: invalid pivot\n");
+        printf("\nDenseFact_fiuf: invalid pivot %e\n", Ajj);
         return kRetInvalidPivot;
       }
 
@@ -242,7 +242,7 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda) {
 // ===========================================================================
 
 int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
-                   double* restrict B, int ldb, double* times) {
+                    double* restrict B, int ldb, double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks.
   // BLAS calls: dsyrk_, dgemm_, dtrsm_.
@@ -306,7 +306,8 @@ int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dgemm_(&c_N, &c_T, &M, &N, &K, &d_m_one, Q, &lda, P, &lda, &d_one, R, &lda);
+      dgemm_(&c_N, &c_T, &M, &N, &K, &d_m_one, Q, &lda, P, &lda, &d_one, R,
+             &lda);
 #ifdef TIMING
       times[t_dgemm] += GetTime() - t0;
 #endif
@@ -338,7 +339,7 @@ int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
 }
 
 int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
-                   double* restrict B, int ldb, double* times) {
+                    double* restrict B, int ldb, double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks.
   // BLAS calls: dcopy_, dscal_, dgemm_, dtrsm_, dsyrk_
@@ -385,7 +386,8 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    dgemm_(&c_N, &c_T, &jb, &jb, &j, &d_m_one, P, &lda, T, &ldt, &d_one, D, &lda);
+    dgemm_(&c_N, &c_T, &jb, &jb, &j, &d_m_one, P, &lda, T, &ldt, &d_one, D,
+           &lda);
 #ifdef TIMING
     times[t_dgemm] += GetTime() - t0;
 #endif
@@ -405,7 +407,8 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      dgemm_(&c_N, &c_T, &M, &N, &K, &d_m_one, Q, &lda, T, &ldt, &d_one, R, &lda);
+      dgemm_(&c_N, &c_T, &M, &N, &K, &d_m_one, Q, &lda, T, &ldt, &d_one, R,
+             &lda);
 #ifdef TIMING
       times[t_dgemm] += GetTime() - t0;
 #endif
@@ -499,8 +502,8 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
   return kRetOk;
 }
 
-int dense_fact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B,
-                   double* times) {
+int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
+                    double* restrict B, double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks in lower-blocked-hybrid
   // format. A should be in lower-blocked-hybrid format. Schur complement is
@@ -748,8 +751,8 @@ int dense_fact_pdbh(int n, int k, int nb, double* restrict A, double* restrict B
   return kRetOk;
 }
 
-int dense_fact_pibh(int n, int k, int nb, double* restrict A, double* restrict B,
-                   double* times) {
+int dense_fact_pibh(int n, int k, int nb, double* restrict A,
+                    double* restrict B, double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks in lower-blocked-hybrid format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
@@ -1019,8 +1022,8 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A, double* restrict B
 
         // printf("%p\n", A);
 
-        dgemm_(&c_T, &c_N, &ncol, &ncol, &jb, &d_m_one, T, &jb, &A[diag_pos], &jb,
-               &beta, schur_buf, &ncol);
+        dgemm_(&c_T, &c_N, &ncol, &ncol, &jb, &d_m_one, T, &jb, &A[diag_pos],
+               &jb, &beta, schur_buf, &ncol);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
 #endif
@@ -1070,7 +1073,7 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A, double* restrict B
 }
 
 int dense_fact_pdbh_2(int n, int k, int nb, double* A, double* B,
-                     double* times) {
+                      double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks in lower-blocked-hybrid
   // format. A should be in lower-blocked-hybrid format. Schur complement is
@@ -1295,7 +1298,7 @@ int dense_fact_pdbh_2(int n, int k, int nb, double* A, double* B,
 }
 
 int dense_fact_pibh_2(int n, int k, int nb, double* A, double* B,
-                     double* times) {
+                      double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks in lower-blocked-hybrid format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
@@ -1554,8 +1557,8 @@ int dense_fact_pibh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
         t0 = GetTime();
 #endif
-        dgemm_(&c_T, &c_N, &ncol, &ncol, &jb, &d_m_one, T, &jb, &A[diag_pos], &jb,
-               &beta, schur_buf, &ncol);
+        dgemm_(&c_T, &c_N, &ncol, &ncol, &jb, &d_m_one, T, &jb, &A[diag_pos],
+               &jb, &beta, schur_buf, &ncol);
 #ifdef TIMING
         times[t_dgemm] += GetTime() - t0;
 #endif
@@ -1589,7 +1592,7 @@ int dense_fact_pibh_2(int n, int k, int nb, double* A, double* B,
 }
 
 int dense_fact_l2h(double* restrict A, int nrow, int ncol, int nb,
-                  double* times) {
+                   double* times) {
   // ===========================================================================
   // Takes a matrix in lower-packed format, with nrow rows.
   // Converts the first ncol columns into lower-blocked-hybrid format, with
