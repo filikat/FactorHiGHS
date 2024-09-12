@@ -884,6 +884,36 @@ I will need to meddle with Leona's parallel interface, to make sure that I can d
 I still need to plug FactorHiGHS into ProtoIPM to see what happens. I will probably need to add regularization.
 ---
 
+*****
+9 Sep 2024
+I added FactorHiGHS to ProtoIPM. It solves some problems, but for most of them it stops due to invalid pivots.
+As expected...
+I need to understand how to add regularization to make it work.
+At the moment the code runs with two solvers, to compare the solution to a solver that I know works.
+So many strange bugs trying to fit together many different solvers. I don't want to fix them, because they will not be used for long. MA57 still does not compute the correct things, but I will give up. I have 86/87/97 that work.
+---
+
+*****
+12 Sep 2024
+There is a bug with the augmented system solver, it does not find the correct solution.
+This only happens when I put reasonable pivots, instead of the large ones that I was using during development.
+Luckily, the problem appear already with afiro, which is very small and easy to handle.
+On Matlab, I can compute the ldl and see that there are no 2x2 pivots, so the problem is not related to pivoting.
+---
+The problem only happens with hybrid and hybrid2 formats. 
+With full format, everything works well.
+I need to figure out what is going wrong, probably something to do with the dense factorization.
+I can see the wrong entries when comparing the matlab factor to my factor.
+---
+Found the bug. It was in the dense factorization code for the two hybrid formats.
+When I had to scale the columns by the pivots, after the factorization of the diagonal block, I was reading the pivots from the original storage A, but the pivots had been updated in the temporary full storage copy D. So I had to read them from there instead.
+This was not creating problems before, I think, because the pivots were all very large and similar in magnitude. So they weren't affected much by the rest of the operations.
+Using smaller diagonal elements means that the magnitude of the pivots is much more varied.
+Very challenging bug to find...
+---
+Now everything seems to run as expected in ProtoIPM, in the sense that the code stops for invalid pivots, and the early directions found are accurate (around 1e-12 or better comprared to other solver).
+---
+
 
 *****
 To do:

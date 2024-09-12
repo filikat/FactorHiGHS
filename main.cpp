@@ -193,7 +193,8 @@ int main(int argc, char** argv) {
     for (int i = 0; i < nA; ++i) {
       // diagonal element
       rowsLower[next] = i;
-      valLower[next++] = mA * 1000;
+      // valLower[next++] = -mA * 1000;
+      valLower[next++] = -1;
 
       // column of A
       for (int el = A.start_[i]; el < A.start_[i + 1]; ++el) {
@@ -207,7 +208,8 @@ int main(int argc, char** argv) {
     // 2,2 block
     for (int i = 0; i < mA; ++i) {
       rowsLower[next] = nA + i;
-      valLower[next++] = -nA * 1000;
+      // valLower[next++] = nA * 1000;
+      valLower[next++] = 1;
       ptrLower[nA + i + 1] = ptrLower[nA + i] + 1;
     }
 
@@ -274,7 +276,7 @@ int main(int argc, char** argv) {
   // ===========================================================================
   Symbolic S;
   Analyse An(rowsLower, ptrLower, type, order_to_use);
-  An.run(S);
+  An.run(S, true);
   S.print();
 
   // save inverse permutation to pass to MAxx
@@ -285,7 +287,7 @@ int main(int argc, char** argv) {
   // ===========================================================================
   Numeric Num;
   Factorise F(S, rowsLower, ptrLower, valLower);
-  int ret_status = F.run(Num);
+  int ret_status = F.run(Num, true);
   if (ret_status) return 1;
 
   // ===========================================================================
@@ -579,14 +581,16 @@ int main(int argc, char** argv) {
     std::regex_search(model_file, match, rgx);
     pb_name = match[1];
 
-    // print results
+    /*// print results
     FILE* file = fopen("results.txt", "a");
 
     fprintf(
         file, "%15s  |  %12.1e %10.1f %10.1f %10.1f %10.1f %10.1f %10.1f  |  ",
         pb_name.c_str(), An.time_total_, An.time_metis_ / An.time_total_ * 100,
-        An.time_tree_ / An.time_total_ * 100, An.time_count_ / An.time_total_ * 100,
-        An.time_sn_ / An.time_total_ * 100, An.time_pattern_ / An.time_total_ * 100,
+        An.time_tree_ / An.time_total_ * 100,
+        An.time_count_ / An.time_total_ * 100,
+        An.time_sn_ / An.time_total_ * 100,
+        An.time_pattern_ / An.time_total_ * 100,
         An.time_relind_ / An.time_total_ * 100);
 
     fprintf(file, "%12.1e %10.1f %10.1f %10.1f %10.1f %10.1f  |  ",
@@ -605,7 +609,7 @@ int main(int argc, char** argv) {
               ma86_time_factorise, ma87_time_factorise, ma97_time_factorise,
               ma57_time_factorise);
       fclose(file);
-    }
+    }*/
   }
 
   return 0;

@@ -16,7 +16,8 @@ void Numeric::forwardSolve(std::vector<double>& x) const {
   // unit diagonal for augmented system only
   const char DD = S_->type() == FactType::NormEq ? 'N' : 'U';
 
-  if (S_->packFormat() == PackType::Hybrid || S_->packFormat() == PackType::Hybrid2) {
+  if (S_->packFormat() == PackType::Hybrid ||
+      S_->packFormat() == PackType::Hybrid2) {
     // supernode columns in hybrid-blocked format
 
     const int nb = S_->blockSize();
@@ -90,8 +91,8 @@ void Numeric::forwardSolve(std::vector<double>& x) const {
       // index to access S->rows for this supernode
       const int start_row = S_->ptr(sn);
 
-      dtrsv_(&c_L, &c_N, &DD, &sn_size, sn_columns_[sn].data(), &ldSn, &x[sn_start],
-             &i_one);
+      dtrsv_(&c_L, &c_N, &DD, &sn_size, sn_columns_[sn].data(), &ldSn,
+             &x[sn_start], &i_one);
 
       // temporary space for gemv
       std::vector<double> y(clique_size);
@@ -125,7 +126,8 @@ void Numeric::backwardSolve(std::vector<double>& x) const {
   // unit diagonal for augmented system only
   const char DD = S_->type() == FactType::NormEq ? 'N' : 'U';
 
-  if (S_->packFormat() == PackType::Hybrid || S_->packFormat() == PackType::Hybrid2) {
+  if (S_->packFormat() == PackType::Hybrid ||
+      S_->packFormat() == PackType::Hybrid2) {
     // supernode columns in hybrid-blocked format
 
     const int nb = S_->blockSize();
@@ -173,8 +175,8 @@ void Numeric::backwardSolve(std::vector<double>& x) const {
         }
 
         SnCol_ind -= jb * gemv_space;
-        dgemv_(&c_N, &jb, &gemv_space, &d_m_one, &sn_columns_[sn][SnCol_ind], &jb,
-               y.data(), &i_one, &d_one, &x[x_start], &i_one);
+        dgemv_(&c_N, &jb, &gemv_space, &d_m_one, &sn_columns_[sn][SnCol_ind],
+               &jb, y.data(), &i_one, &d_one, &x[x_start], &i_one);
 
         SnCol_ind -= diag_entries;
         dtpsv_(&c_U, &c_N, &DD, &jb, &sn_columns_[sn][SnCol_ind], &x[x_start],
@@ -213,8 +215,8 @@ void Numeric::backwardSolve(std::vector<double>& x) const {
       dgemv_(&c_T, &clique_size, &sn_size, &d_m_one, &sn_columns_[sn][sn_size],
              &ldSn, y.data(), &i_one, &d_one, &x[sn_start], &i_one);
 
-      dtrsv_(&c_L, &c_T, &DD, &sn_size, sn_columns_[sn].data(), &ldSn, &x[sn_start],
-             &i_one);
+      dtrsv_(&c_L, &c_T, &DD, &sn_size, sn_columns_[sn].data(), &ldSn,
+             &x[sn_start], &i_one);
     }
   }
 }
@@ -225,7 +227,8 @@ void Numeric::diagSolve(std::vector<double>& x) const {
   // Dsolve performed only for augmented system
   if (S_->type() == FactType::NormEq) return;
 
-  if (S_->packFormat() == PackType::Hybrid || S_->packFormat() == PackType::Hybrid2) {
+  if (S_->packFormat() == PackType::Hybrid ||
+      S_->packFormat() == PackType::Hybrid2) {
     // supernode columns in hybrid-blocked format
 
     const int nb = S_->blockSize();

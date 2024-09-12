@@ -30,7 +30,7 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda) {
 
   // check input
   if (n < 0 || !A || lda < n || (uplo != 'L' && uplo != 'U')) {
-    printf("\nDenseFact_fduf: invalid input\n");
+    printf("\ndense_fact_fduf: invalid input\n");
     return kRetInvalidInput;
   }
 
@@ -47,7 +47,7 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda) {
       double Ajj = A[j + lda * j] - ddot_(&N, &A[j], &lda, &A[j], &lda);
       if (Ajj <= 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
-        printf("\nDenseFact_fduf: invalid pivot %e\n", Ajj);
+        printf("\ndense_fact_fduf: invalid pivot %e\n", Ajj);
         return kRetInvalidPivot;
       }
 
@@ -73,7 +73,7 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda) {
           A[j + lda * j] - ddot_(&N, &A[lda * j], &i_one, &A[lda * j], &i_one);
       if (Ajj <= 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
-        printf("\nDenseFact_fduf: invalid pivot %e\n", Ajj);
+        printf("\ndense_fact_fduf: invalid pivot %e\n", Ajj);
         return kRetInvalidPivot;
       }
 
@@ -102,7 +102,7 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda) {
 
   // check input
   if (n < 0 || !A || lda < n) {
-    printf("\nDenseFact_fiuf: invalid input\n");
+    printf("\ndense_fact_fiuf: invalid input\n");
     return kRetInvalidInput;
   }
 
@@ -114,7 +114,7 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda) {
     // allocate space for copy of col multiplied by pivots
     double* temp = malloc((n - 1) * sizeof(double));
     if (!temp) {
-      printf("\nDenseFact_fiuf: out of memory\n");
+      printf("\ndense_fact_fiuf: out of memory\n");
       return kRetOutOfMemory;
     }
 
@@ -131,7 +131,7 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda) {
       double Ajj = A[j + lda * j] - ddot_(&N, &A[j], &lda, temp, &i_one);
       if (Ajj == 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
-        printf("\nDenseFact_fiuf: invalid pivot %e\n", Ajj);
+        printf("\ndense_fact_fiuf: invalid pivot %e\n", Ajj);
         return kRetInvalidPivot;
       }
 
@@ -152,7 +152,7 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda) {
     // allocate space for copy of col multiplied by pivots
     double* temp = malloc((n - 1) * sizeof(double));
     if (!temp) {
-      printf("\nDenseFact_fiuf: out of memory\n");
+      printf("\ndense_fact_fiuf: out of memory\n");
       return kRetOutOfMemory;
     }
 
@@ -170,7 +170,7 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda) {
           A[j + lda * j] - ddot_(&N, &A[j * lda], &i_one, temp, &i_one);
       if (Ajj == 0.0 || isnan(Ajj)) {
         A[j + lda * j] = Ajj;
-        printf("\nDenseFact_fiuf: invalid pivot %e\n", Ajj);
+        printf("\ndense_fact_fiuf: invalid pivot %e\n", Ajj);
         return kRetInvalidPivot;
       }
 
@@ -250,12 +250,12 @@ int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
 
   // check input
   if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
-    printf("\nDenseFact_pdbf: invalid input\n");
+    printf("\ndense_fact_pdbf: invalid input\n");
     return kRetInvalidInput;
   }
 
   if (!times) {
-    printf("\nDenseFact_pdbf: invalid input\n");
+    printf("\ndense_fact_pdbf: invalid input\n");
     return kRetInvalidInput;
   }
 
@@ -347,7 +347,7 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
 
   // check input
   if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
-    printf("\nDenseFact_pibf: invalid input\n");
+    printf("\ndense_fact_pibf: invalid input\n");
     return kRetInvalidInput;
   }
 
@@ -373,7 +373,7 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
     // create temporary copy of block of rows, multiplied by pivots
     double* T = malloc(j * jb * sizeof(double));
     if (!T) {
-      printf("\nDenseFact_pibf: out of memory\n");
+      printf("\ndense_fact_pibf: out of memory\n");
       return kRetOutOfMemory;
     }
     int ldt = jb;
@@ -450,12 +450,12 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
     // make temporary copies of positive and negative columns separately
     double* temp_pos = malloc((n - k) * pos_pivot * sizeof(double));
     if (!temp_pos) {
-      printf("\nDenseFact_pibf: out of memory\n");
+      printf("\ndense_fact_pibf: out of memory\n");
       return kRetOutOfMemory;
     }
     double* temp_neg = malloc((n - k) * neg_pivot * sizeof(double));
     if (!temp_neg) {
-      printf("\nDenseFact_pibf: out of memory\n");
+      printf("\ndense_fact_pibf: out of memory\n");
       return kRetOutOfMemory;
     }
 
@@ -513,7 +513,7 @@ int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
 
   // check input
   if (n < 0 || k < 0 || !A || (k < n && !B)) {
-    printf("\nDenseFact_pdbh: invalid input\n");
+    printf("\ndense_fact_pdbh: invalid input\n");
     return kRetInvalidInput;
   }
 
@@ -526,7 +526,7 @@ int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
   // start of diagonal blocks
   int* diag_start = malloc(n_blocks * sizeof(double));
   if (!diag_start) {
-    printf("\nDenseFact_pdbh: out of memory\n");
+    printf("\ndense_fact_pdbh: out of memory\n");
     return kRetOutOfMemory;
   }
   diag_start[0] = 0;
@@ -545,7 +545,7 @@ int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
   // buffer for full-format diagonal blocks
   double* D = malloc(nb * nb * sizeof(double));
   if (!D) {
-    printf("\nDenseFact_pdbh: out of memory\n");
+    printf("\ndense_fact_pdbh: out of memory\n");
     return kRetOutOfMemory;
   }
 
@@ -659,7 +659,7 @@ int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
     // buffer for full-format of block of columns of Schur complement
     double* schur_buf = malloc(ns * nb * sizeof(double));
     if (!schur_buf) {
-      printf("\nDenseFact_pdbh: out of memory\n");
+      printf("\ndense_fact_pdbh: out of memory\n");
       return kRetOutOfMemory;
     }
 
@@ -764,7 +764,7 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
 
   // check input
   if (n < 0 || k < 0 || !A || (k < n && !B)) {
-    printf("\nDenseFact_pibh: invalid input\n");
+    printf("\ndense_fact_pibh: invalid input\n");
     return kRetInvalidInput;
   }
 
@@ -777,7 +777,7 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
   // start of diagonal blocks
   int* diag_start = malloc(n_blocks * sizeof(double));
   if (!diag_start) {
-    printf("\nDenseFact_pibh: out of memory\n");
+    printf("\ndense_fact_pibh: out of memory\n");
     return kRetOutOfMemory;
   }
   diag_start[0] = 0;
@@ -796,14 +796,14 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
   // buffer for full-format diagonal blocks
   double* D = malloc(nb * nb * sizeof(double));
   if (!D) {
-    printf("\nDenseFact_pibh: out of memory\n");
+    printf("\ndense_fact_pibh: out of memory\n");
     return kRetOutOfMemory;
   }
 
   // buffer for copy of block scaled by pivots
   double* T = malloc(nb * nb * sizeof(double) + 10);
   if (!T) {
-    printf("\nDenseFact_pibh: out of memory\n");
+    printf("\ndense_fact_pibh: out of memory\n");
     return kRetOutOfMemory;
   }
 
@@ -917,9 +917,9 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
 #endif
       int pivot_pos = diag_start[j];
       for (int col = 0; col < jb; ++col) {
-        const double coeff = 1.0 / A[pivot_pos];
+        const double coeff = 1.0 / D[pivot_pos];
         dscal_(&M, &coeff, &A[R_pos + col], &jb);
-        pivot_pos += col + 2;
+        pivot_pos += jb + 1;
       }
 #ifdef TIMING
       times[t_dscal] += GetTime() - t0;
@@ -956,7 +956,7 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
     // buffer for full-format of block of columns of Schur complement
     double* schur_buf = malloc(ns * nb * sizeof(double) + 10);
     if (!schur_buf) {
-      printf("\nDenseFact_pibh: out of memory\n");
+      printf("\ndense_fact_pibh: out of memory\n");
       return kRetOutOfMemory;
     }
 
@@ -1083,7 +1083,7 @@ int dense_fact_pdbh_2(int n, int k, int nb, double* A, double* B,
 
   // check input
   if (n < 0 || k < 0 || !A || (k < n && !B)) {
-    printf("\nDenseFact_pdbh: invalid input\n");
+    printf("\ndense_fact_pdbh: invalid input\n");
     return kRetInvalidInput;
   }
 
@@ -1096,7 +1096,7 @@ int dense_fact_pdbh_2(int n, int k, int nb, double* A, double* B,
   // start of diagonal blocks
   int* diag_start = malloc(n_blocks * sizeof(double));
   if (!diag_start) {
-    printf("\nDenseFact_pdbh: out of memory\n");
+    printf("\ndense_fact_pdbh: out of memory\n");
     return kRetOutOfMemory;
   }
   diag_start[0] = 0;
@@ -1115,7 +1115,7 @@ int dense_fact_pdbh_2(int n, int k, int nb, double* A, double* B,
   // buffer for full-format diagonal blocks
   double* D = malloc(nb * nb * sizeof(double));
   if (!D) {
-    printf("\nDenseFact_pdbh: out of memory\n");
+    printf("\ndense_fact_pdbh: out of memory\n");
     return kRetOutOfMemory;
   }
 
@@ -1308,7 +1308,7 @@ int dense_fact_pibh_2(int n, int k, int nb, double* A, double* B,
 
   // check input
   if (n < 0 || k < 0 || !A || (k < n && !B)) {
-    printf("\nDenseFact_pibh: invalid input\n");
+    printf("\ndense_fact_pibh: invalid input\n");
     return kRetInvalidInput;
   }
 
@@ -1321,7 +1321,7 @@ int dense_fact_pibh_2(int n, int k, int nb, double* A, double* B,
   // start of diagonal blocks
   int* diag_start = malloc(n_blocks * sizeof(double));
   if (!diag_start) {
-    printf("\nDenseFact_pibh: out of memory\n");
+    printf("\ndense_fact_pibh: out of memory\n");
     return kRetOutOfMemory;
   }
   diag_start[0] = 0;
@@ -1340,14 +1340,14 @@ int dense_fact_pibh_2(int n, int k, int nb, double* A, double* B,
   // buffer for full-format diagonal blocks
   double* D = malloc(nb * nb * sizeof(double));
   if (!D) {
-    printf("\nDenseFact_pibh: out of memory\n");
+    printf("\ndense_fact_pibh: out of memory\n");
     return kRetOutOfMemory;
   }
 
   // buffer for copy of block scaled by pivots
   double* T = malloc(nb * nb * sizeof(double));
   if (!T) {
-    printf("\nDenseFact_pibh: out of memory\n");
+    printf("\ndense_fact_pibh: out of memory\n");
     return kRetOutOfMemory;
   }
 
@@ -1462,9 +1462,9 @@ int dense_fact_pibh_2(int n, int k, int nb, double* A, double* B,
 #endif
       int pivot_pos = diag_start[j];
       for (int col = 0; col < jb; ++col) {
-        double coeff = 1.0 / A[pivot_pos];
+        double coeff = 1.0 / D[pivot_pos];
         dscal_(&M, &coeff, &A[R_pos + col], &jb);
-        pivot_pos += col + 2;
+        pivot_pos += jb + 1;
       }
 #ifdef TIMING
       times[t_dscal] += GetTime() - t0;
@@ -1606,7 +1606,7 @@ int dense_fact_l2h(double* restrict A, int nrow, int ncol, int nb,
 
   double* buf = malloc(nrow * nb * sizeof(double));
   if (!buf) {
-    printf("\nDenseFact_l2h: out of memory\n");
+    printf("\ndense_fact_l2h: out of memory\n");
     return kRetOutOfMemory;
   }
   int startAtoBuf = 0;
