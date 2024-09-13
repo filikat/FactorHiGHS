@@ -919,6 +919,11 @@ Now everything seems to run as expected in ProtoIPM, in the sense that the code 
 Bug was not completely fixed. I forgot to initialize the starting position to zero, since I am now accessing D and not A.
 It was causing issues for larger problems.
 ---
+I changed the names of the hybrid formats and consequently also the names of the dense factorisation routines.
+It makes a bit more sense now.
+I introduced a format handler, to separate the implmentation of the various operations for various formats.
+Now there is an abstract class that handles a generic format and various implementations of it, depending on the format.
+---
 
 
 *****

@@ -107,6 +107,9 @@ void Analyse::getPermutation() {
   // call Metis
   int options[METIS_NOPTIONS];
   METIS_SetDefaultOptions(options);
+  // fix seed of rng inside Metis, to make it deterministic (?)
+  options[METIS_OPTION_SEED] = 123456789;
+  
   int status = METIS_NodeND(&n_, temp_ptr.data(), temp_rows.data(), NULL,
                             options, perm_.data(), iperm_.data());
   assert(status == METIS_OK);

@@ -6,6 +6,7 @@
 #include "Auxiliary.h"
 #include "Blas_declaration.h"
 #include "DenseFact_declaration.h"
+#include "FormatHandler.h"
 #include "Numeric.h"
 #include "Symbolic.h"
 
@@ -20,6 +21,9 @@ class Factorise {
 
   // symbolic factorisation
   const Symbolic& S_;
+
+  // interface to specific format used for dense matrices
+  FormatHandler* FH_;
 
   // children in supernodal elimination tree
   std::vector<int> first_children_{};

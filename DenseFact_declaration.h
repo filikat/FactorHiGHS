@@ -21,8 +21,8 @@ int dense_fact_pibh(int n, int k, int nb, double* A, double* B, double* times);
 
 // dense partial factorization, in blocked-hybrid format with hybrid Schur
 // complement
-int dense_fact_pdbh_2(int n, int k, int nb, double* A, double* B, double* times);
-int dense_fact_pibh_2(int n, int k, int nb, double* A, double* B, double* times);
+int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double* times);
+int dense_fact_pibs(int n, int k, int nb, double* A, double* B, double* times);
 
 // function to convert A from lower packed, to lower-blocked-hybrid format
 int dense_fact_l2h(double* A, int nrow, int ncol, int nb, double* times);

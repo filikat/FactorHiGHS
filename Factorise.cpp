@@ -2,6 +2,10 @@
 
 #include <fstream>
 
+#include "FullFormatHandler.h"
+#include "HybridHybridFormatHandler.h"
+#include "HybridPackedFormatHandler.h"
+
 Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
                      const std::vector<int>& ptrA,
                      const std::vector<double>& valA)
@@ -125,12 +129,6 @@ int Factorise::processSupernode(int sn) {
   const int sn_end = S_.snStart(sn + 1);
   const int sn_size = sn_end - sn_begin;
 
-  // leading dimension of the frontal matrix
-  const int ldf = S_.ptr(sn + 1) - S_.ptr(sn);
-
-  // leading dimension of the clique matrix
-  const int ldc = ldf - sn_size;
-
   // Allocate space for frontal matrix:
   // The front size is ldf and the supernode size is sn_size.
   // The frontal matrix is stored as two dense matrices:
@@ -138,42 +136,16 @@ int Factorise::processSupernode(int sn) {
   // undergo Cholesky elimination.
   // clique is ldc x ldc and stores the remaining (ldf - sn_size) columns
   // (without the top part), that do not undergo Cholesky elimination.
-  std::vector<double>& frontal = sn_columns_[sn];
-  double*& clique = schur_contribution_[sn];
 
-  // frontal is initialized to zero
-  switch (S_.packFormat()) {
-    case PackType::Full:
-      frontal.resize(ldf * sn_size, 0.0);
-      break;
-    case PackType::Hybrid:
-    case PackType::Hybrid2:
-      frontal.resize(ldf * sn_size - sn_size * (sn_size - 1) / 2, 0.0);
-      break;
-  }
+  // attach to the format handler
+  FH_->attach(&sn_columns_[sn], &schur_contribution_[sn], &clique_block_start_,
+              &S_, sn);
 
-  // clique need not be initialized to zero, provided that the assembly is done
-  // properly
-  switch (S_.packFormat()) {
-    case PackType::Full:
-      if (ldc > 0) clique = new double[ldc * ldc];
-      break;
+  // initialize frontal
+  FH_->initFrontal();
 
-    case PackType::Hybrid2:
-    case PackType::Hybrid: {
-      const int nb = S_.blockSize();
-      const int n_blocks = (ldc - 1) / nb + 1;
-      clique_block_start_[sn].resize(n_blocks + 1);
-      int schur_size{};
-      for (int j = 0; j < n_blocks; ++j) {
-        clique_block_start_[sn][j] = schur_size;
-        const int jb = std::min(nb, ldc - j * nb);
-        schur_size += (ldc - j * nb) * jb;
-      }
-      clique_block_start_[sn].back() = schur_size;
-      clique = new double[schur_size];
-    } break;
-  }
+  // initialize clique
+  FH_->initClique();
 
   time_prepare_ += clock.stop();
 
@@ -191,15 +163,7 @@ int Factorise::processSupernode(int sn) {
       // relative row index in the frontal matrix
       const int i = S_.relindCols(el);
 
-      switch (S_.packFormat()) {
-        case PackType::Full:
-          frontal[i + j * ldf] = valA_[el];
-          break;
-        case PackType::Hybrid:
-        case PackType::Hybrid2:
-          frontal[i + j * ldf - j * (j + 1) / 2] = valA_[el];
-          break;
-      }
+      FH_->assembleFrontal(i, j, valA_[el]);
     }
   }
   time_assemble_original_ += clock.stop();
@@ -244,39 +208,9 @@ int Factorise::processSupernode(int sn) {
           // how many entries to sum
           const int consecutive = S_.consecutiveSums(child_sn, row);
 
-          // use daxpy_ for summing consecutive entries
-          const int i_one = 1;
-          const double d_one = 1.0;
-          switch (S_.packFormat()) {
-            case PackType::Full:
-              daxpy_(&consecutive, &d_one, &child_clique[row + nc * col],
-                     &i_one, &frontal[i + ldf * j], &i_one);
-              break;
+          FH_->assembleFrontalMultiple(consecutive, child_clique, nc, child_sn,
+                                       row, col, i, j);
 
-            case PackType::Hybrid2: {
-              const int nb = S_.blockSize();
-              const int jblock = col / nb;
-              const int jb = std::min(nb, nc - nb * jblock);
-              const int row_ = row - jblock * nb;
-              const int col_ = col - jblock * nb;
-              const int start_block = clique_block_start_[child_sn][jblock];
-              daxpy_(&consecutive, &d_one,
-                     &child_clique[start_block + col_ + jb * row_], &jb,
-                     &frontal[i + ldf * j - j * (j + 1) / 2], &i_one);
-            } break;
-
-            case PackType::Hybrid: {
-              const int nb = S_.blockSize();
-              const int jblock = col / nb;
-              const int row_ = row - jblock * nb;
-              const int col_ = col - jblock * nb;
-              const int start_block = clique_block_start_[child_sn][jblock];
-              const int ld = nc - nb * jblock;
-              daxpy_(&consecutive, &d_one,
-                     &child_clique[start_block + row_ + ld * col_], &i_one,
-                     &frontal[i + ldf * j - j * (j + 1) / 2], &i_one);
-            } break;
-          }
           row += consecutive;
         }
       }
@@ -295,54 +229,9 @@ int Factorise::processSupernode(int sn) {
   // Partial factorisation
   // ===================================================
   clock.start();
-  switch (S_.packFormat()) {
-    case PackType::Full:
-      if (S_.type() == FactType::NormEq) {
-        int status =
-            dense_fact_pdbf(ldf, sn_size, S_.blockSize(), frontal.data(), ldf,
-                            clique, ldc, times_dense_fact_.data());
-        if (status) return status;
 
-      } else {
-        int status =
-            dense_fact_pibf(ldf, sn_size, S_.blockSize(), frontal.data(), ldf,
-                            clique, ldc, times_dense_fact_.data());
-        if (status) return status;
-      }
-      break;
-
-    case PackType::Hybrid2: {
-      int status = dense_fact_l2h(frontal.data(), ldf, sn_size, S_.blockSize(),
-                                  times_dense_fact_.data());
-      if (status) return status;
-
-      if (S_.type() == FactType::NormEq) {
-        status = dense_fact_pdbh_2(ldf, sn_size, S_.blockSize(), frontal.data(),
-                                   clique, times_dense_fact_.data());
-        if (status) return status;
-      } else {
-        status = dense_fact_pibh_2(ldf, sn_size, S_.blockSize(), frontal.data(),
-                                   clique, times_dense_fact_.data());
-        if (status) return status;
-      }
-    } break;
-
-    case PackType::Hybrid: {
-      int status = dense_fact_l2h(frontal.data(), ldf, sn_size, S_.blockSize(),
-                                  times_dense_fact_.data());
-      if (status) return status;
-
-      if (S_.type() == FactType::NormEq) {
-        status = dense_fact_pdbh(ldf, sn_size, S_.blockSize(), frontal.data(),
-                                 clique, times_dense_fact_.data());
-        if (status) return status;
-      } else {
-        status = dense_fact_pibh(ldf, sn_size, S_.blockSize(), frontal.data(),
-                                 clique, times_dense_fact_.data());
-        if (status) return status;
-      }
-    } break;
-  }
+  int status = FH_->denseFactorise(times_dense_fact_);
+  if (status) return status;
 
   time_factorise_ += clock.stop();
 
@@ -369,165 +258,7 @@ int Factorise::processSupernode(int sn) {
     // size of clique of child sn
     const int nc = S_.ptr(child_sn + 1) - S_.ptr(child_sn) - child_size;
 
-    if (S_.packFormat() != PackType::Hybrid2) {
-      //   if (true) {
-      //   go through the columns of the contribution of the child
-      for (int col = 0; col < nc; ++col) {
-        // relative index of column in the frontal matrix
-        int j = S_.relindClique(child_sn, col);
-
-        if (j >= sn_size) {
-          // assemble into clique
-
-          // adjust relative index to access clique
-          j -= sn_size;
-
-          // go through the rows of the contribution of the child
-          int row = col;
-          while (row < nc) {
-            // relative index of the entry in the matrix clique
-            const int i = S_.relindClique(child_sn, row) - sn_size;
-
-            // how many entries to sum
-            const int consecutive = S_.consecutiveSums(child_sn, row);
-
-            // use daxpy_ for summing consecutive entries
-            const int i_one = 1;
-            const double d_one = 1.0;
-            switch (S_.packFormat()) {
-              case PackType::Full:
-                daxpy_(&consecutive, &d_one, &child_clique[row + nc * col],
-                       &i_one, &clique[i + ldc * j], &i_one);
-                break;
-
-              case PackType::Hybrid2: {
-                const int nb = S_.blockSize();
-                const int jblock_c = col / nb;
-                const int jb_c = std::min(nb, nc - nb * jblock_c);
-                const int row_ = row - jblock_c * nb;
-                const int col_ = col - jblock_c * nb;
-                const int start_block_c =
-                    clique_block_start_[child_sn][jblock_c];
-
-                const int jblock = j / nb;
-                const int jb = std::min(nb, ldc - nb * jblock);
-                const int i_ = i - jblock * nb;
-                const int j_ = j - jblock * nb;
-                const int start_block = clique_block_start_[sn][jblock];
-
-                daxpy_(&consecutive, &d_one,
-                       &child_clique[start_block_c + col_ + jb_c * row_], &jb_c,
-                       &clique[start_block + j_ + jb * i_], &jb);
-              } break;
-
-              case PackType::Hybrid: {
-                const int nb = S_.blockSize();
-                const int jblock_c = col / nb;
-                const int jb_c = std::min(nb, nc - nb * jblock_c);
-                const int row_ = row - jblock_c * nb;
-                const int col_ = col - jblock_c * nb;
-                const int start_block_c =
-                    clique_block_start_[child_sn][jblock_c];
-                const int ld_c = nc - nb * jblock_c;
-
-                const int jblock = j / nb;
-                const int jb = std::min(nb, ldc - nb * jblock);
-                const int i_ = i - jblock * nb;
-                const int j_ = j - jblock * nb;
-                const int start_block = clique_block_start_[sn][jblock];
-                const int ld = ldc - nb * jblock;
-
-                daxpy_(&consecutive, &d_one,
-                       &child_clique[start_block_c + row_ + ld_c * col_],
-                       &i_one, &clique[start_block + i_ + ld * j_], &i_one);
-              } break;
-            }
-            row += consecutive;
-          }
-        }
-
-        // j < sn_size was already done before, because it was needed before the
-        // partial factorisation. Assembling into the clique instead can be done
-        // after.
-      }
-    } else {
-      // assemble the child clique into the current clique by blocks of columns.
-      // within a block, assemble by rows.
-
-      const int nb = S_.blockSize();
-      const int n_blocks = (nc - 1) / nb + 1;
-
-      int row_start{};
-
-      // go through the blocks of columns of the child sn
-      for (int b = 0; b < n_blocks; ++b) {
-        const int b_start = clique_block_start_[child_sn][b];
-
-        const int col_start = row_start;
-        const int col_end = std::min(col_start + nb, nc);
-
-        // go through the rows within this block
-        for (int row = row_start; row < nc; ++row) {
-          const int i = S_.relindClique(child_sn, row) - sn_size;
-
-          // already assembled into frontal
-          if (i < 0) continue;
-
-          // go through the columns of the block
-          int col = col_start;
-          while (col < col_end) {
-            int j = S_.relindClique(child_sn, col);
-            if (j < sn_size) {
-              ++col;
-              continue;
-            }
-            j -= sn_size;
-
-            // information and sizes of child sn
-            const int jblock_c = b;
-            const int jb_c = std::min(nb, nc - nb * jblock_c);
-            const int row_ = row - jblock_c * nb;
-            const int col_ = col - jblock_c * nb;
-            const int start_block_c = b_start;
-
-            // sun consecutive entries in a row.
-            // consecutive need to be reduced, to account for edge of the block
-            const int zeros_stored_row =
-                std::max(0, jb_c - (row - row_start) - 1);
-            int consecutive = S_.consecutiveSums(child_sn, col);
-            const int left_in_child = col_end - col - zeros_stored_row;
-            consecutive = std::min(consecutive, left_in_child);
-
-            // consecutive need to account also for edge of block in parent
-            const int block_in_parent = j / nb;
-            const int col_end_parent =
-                std::min((block_in_parent + 1) * nb, ldc);
-            const int left_in_parent = col_end_parent - j;
-            consecutive = std::min(consecutive, left_in_parent);
-
-            // needed to deal with zeros stored in upper right part of block
-            if (consecutive == 0) break;
-
-            // information and sizes of current sn
-            const int jblock = block_in_parent;
-            const int jb = std::min(nb, ldc - nb * jblock);
-            const int i_ = i - jblock * nb;
-            const int j_ = j - jblock * nb;
-            const int start_block = clique_block_start_[sn][jblock];
-
-            const double d_one = 1.0;
-            const int i_one = 1;
-            daxpy_(&consecutive, &d_one,
-                   &child_clique[start_block_c + col_ + jb_c * row_], &i_one,
-                   &clique[start_block + j_ + jb * i_], &i_one);
-
-            col += consecutive;
-          }
-        }
-
-        row_start += nb;
-      }
-    }
+    FH_->assembleClique(child_clique, nc, child_sn);
 
     // Schur contribution of the child is no longer needed
     delete[] child_clique;
@@ -536,6 +267,9 @@ int Factorise::processSupernode(int sn) {
     child_sn = next_children_[child_sn];
   }
   time_assemble_children_C_ += clock.stop();
+
+  // detach from the format handler
+  FH_->detach();
 
   return kRetOk;
 }
@@ -546,7 +280,8 @@ bool Factorise::check() const {
   // Return true if check is successful, or if matrix is too large.
   // To be used for debug.
 
-  if (S_.type() == FactType::AugSys || S_.packFormat() == PackType::Hybrid) {
+  if (S_.type() == FactType::AugSys ||
+      S_.packFormat() == PackType::HybridPacked) {
     printf("\n==> Dense check not available\n");
     return true;
   }
@@ -685,6 +420,23 @@ int Factorise::run(Numeric& num, bool verbose) {
   time_per_sn_.resize(S_.sn());
   times_dense_fact_.resize(TimesInd::t_size);
   clique_block_start_.resize(S_.sn());
+
+  // Handle multiple formats
+  FullFormatHandler full_FH;
+  HybridPackedFormatHandler hybrid_packed_FH;
+  HybridHybridFormatHandler hybrid_hybrid_FH;
+
+  switch (S_.packFormat()) {
+    case PackType::Full:
+      FH_ = &full_FH;
+      break;
+    case PackType::HybridPacked:
+      FH_ = &hybrid_packed_FH;
+      break;
+    case PackType::HybridHybrid:
+      FH_ = &hybrid_hybrid_FH;
+      break;
+  }
 
   Clock clock_sn;
 

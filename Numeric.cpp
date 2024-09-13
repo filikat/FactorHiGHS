@@ -16,8 +16,8 @@ void Numeric::forwardSolve(std::vector<double>& x) const {
   // unit diagonal for augmented system only
   const char DD = S_->type() == FactType::NormEq ? 'N' : 'U';
 
-  if (S_->packFormat() == PackType::Hybrid ||
-      S_->packFormat() == PackType::Hybrid2) {
+  if (S_->packFormat() == PackType::HybridPacked ||
+      S_->packFormat() == PackType::HybridHybrid) {
     // supernode columns in hybrid-blocked format
 
     const int nb = S_->blockSize();
@@ -126,8 +126,8 @@ void Numeric::backwardSolve(std::vector<double>& x) const {
   // unit diagonal for augmented system only
   const char DD = S_->type() == FactType::NormEq ? 'N' : 'U';
 
-  if (S_->packFormat() == PackType::Hybrid ||
-      S_->packFormat() == PackType::Hybrid2) {
+  if (S_->packFormat() == PackType::HybridPacked ||
+      S_->packFormat() == PackType::HybridHybrid) {
     // supernode columns in hybrid-blocked format
 
     const int nb = S_->blockSize();
@@ -227,8 +227,8 @@ void Numeric::diagSolve(std::vector<double>& x) const {
   // Dsolve performed only for augmented system
   if (S_->type() == FactType::NormEq) return;
 
-  if (S_->packFormat() == PackType::Hybrid ||
-      S_->packFormat() == PackType::Hybrid2) {
+  if (S_->packFormat() == PackType::HybridPacked ||
+      S_->packFormat() == PackType::HybridHybrid) {
     // supernode columns in hybrid-blocked format
 
     const int nb = S_->blockSize();

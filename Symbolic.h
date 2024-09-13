@@ -6,14 +6,14 @@
 // Type of factorization:
 // normal equations or augmented system
 enum FactType { NormEq, AugSys };
-enum PackType { Full, Hybrid, Hybrid2 };
+enum PackType { Full, HybridPacked, HybridHybrid };
 
 class Symbolic {
   // Type of factorization
   FactType type_{};
 
   // Packed or full format
-  PackType pack_format_ = PackType::Hybrid;
+  PackType pack_format_ = PackType::HybridPacked;
 
   // Size of blocks for dense factorization
   const int block_size_ = 128;

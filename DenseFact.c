@@ -11,12 +11,14 @@
 
 /*
 Names:
-dense_fact_(pf)(di)(bu)(flh)
+dense_fact_(pf)(di)(bu)(flhs)
 
 pf: Partial or Full factorization
 di: (positive) Definite or Indefinite
 bu: Blocked or Unblocked
-flh: Full format, Lower packed format, or lower-blocked-Hybrid packed format
+flhs: Full format, Lower packed format, lower-blocked-Hybrid packed format
+      with packed schur complement, lower-blocked-hybrid packed format with
+      hybrid Schur complement
 
 */
 
@@ -1072,7 +1074,7 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
   return kRetOk;
 }
 
-int dense_fact_pdbh_2(int n, int k, int nb, double* A, double* B,
+int dense_fact_pdbs(int n, int k, int nb, double* A, double* B,
                       double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks in lower-blocked-hybrid
@@ -1083,7 +1085,7 @@ int dense_fact_pdbh_2(int n, int k, int nb, double* A, double* B,
 
   // check input
   if (n < 0 || k < 0 || !A || (k < n && !B)) {
-    printf("\ndense_fact_pdbh: invalid input\n");
+    printf("\ndense_fact_pdbs: invalid input\n");
     return kRetInvalidInput;
   }
 
@@ -1096,7 +1098,7 @@ int dense_fact_pdbh_2(int n, int k, int nb, double* A, double* B,
   // start of diagonal blocks
   int* diag_start = malloc(n_blocks * sizeof(double));
   if (!diag_start) {
-    printf("\ndense_fact_pdbh: out of memory\n");
+    printf("\ndense_fact_pdbs: out of memory\n");
     return kRetOutOfMemory;
   }
   diag_start[0] = 0;
@@ -1115,7 +1117,7 @@ int dense_fact_pdbh_2(int n, int k, int nb, double* A, double* B,
   // buffer for full-format diagonal blocks
   double* D = malloc(nb * nb * sizeof(double));
   if (!D) {
-    printf("\ndense_fact_pdbh: out of memory\n");
+    printf("\ndense_fact_pdbs: out of memory\n");
     return kRetOutOfMemory;
   }
 
@@ -1297,7 +1299,7 @@ int dense_fact_pdbh_2(int n, int k, int nb, double* A, double* B,
   return kRetOk;
 }
 
-int dense_fact_pibh_2(int n, int k, int nb, double* A, double* B,
+int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
                       double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks in lower-blocked-hybrid format.
@@ -1308,7 +1310,7 @@ int dense_fact_pibh_2(int n, int k, int nb, double* A, double* B,
 
   // check input
   if (n < 0 || k < 0 || !A || (k < n && !B)) {
-    printf("\ndense_fact_pibh: invalid input\n");
+    printf("\ndense_fact_pibs: invalid input\n");
     return kRetInvalidInput;
   }
 
@@ -1321,7 +1323,7 @@ int dense_fact_pibh_2(int n, int k, int nb, double* A, double* B,
   // start of diagonal blocks
   int* diag_start = malloc(n_blocks * sizeof(double));
   if (!diag_start) {
-    printf("\ndense_fact_pibh: out of memory\n");
+    printf("\ndense_fact_pibs: out of memory\n");
     return kRetOutOfMemory;
   }
   diag_start[0] = 0;
@@ -1340,14 +1342,14 @@ int dense_fact_pibh_2(int n, int k, int nb, double* A, double* B,
   // buffer for full-format diagonal blocks
   double* D = malloc(nb * nb * sizeof(double));
   if (!D) {
-    printf("\ndense_fact_pibh: out of memory\n");
+    printf("\ndense_fact_pibs: out of memory\n");
     return kRetOutOfMemory;
   }
 
   // buffer for copy of block scaled by pivots
   double* T = malloc(nb * nb * sizeof(double));
   if (!T) {
-    printf("\ndense_fact_pibh: out of memory\n");
+    printf("\ndense_fact_pibs: out of memory\n");
     return kRetOutOfMemory;
   }
 

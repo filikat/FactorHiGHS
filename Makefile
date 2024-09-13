@@ -11,7 +11,11 @@ cpp_sources = \
 	Factorise.cpp \
 	Numeric.cpp \
 	Symbolic.cpp \
-	main.cpp
+	main.cpp \
+	FormatHandler.cpp \
+	FullFormatHandler.cpp \
+	HybridPackedFormatHandler.cpp \
+	HybridHybridFormatHandler.cpp
 
 c_sources = \
 	hsl_wrapper.c \
