@@ -914,6 +914,12 @@ Very challenging bug to find...
 Now everything seems to run as expected in ProtoIPM, in the sense that the code stops for invalid pivots, and the early directions found are accurate (around 1e-12 or better comprared to other solver).
 ---
 
+*****
+13 Sep 2024
+Bug was not completely fixed. I forgot to initialize the starting position to zero, since I am now accessing D and not A.
+It was causing issues for larger problems.
+---
+
 
 *****
 To do:

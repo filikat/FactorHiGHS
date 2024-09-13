@@ -915,7 +915,7 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      int pivot_pos = diag_start[j];
+      int pivot_pos = 0;
       for (int col = 0; col < jb; ++col) {
         const double coeff = 1.0 / D[pivot_pos];
         dscal_(&M, &coeff, &A[R_pos + col], &jb);
@@ -1460,7 +1460,7 @@ int dense_fact_pibh_2(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
       t0 = GetTime();
 #endif
-      int pivot_pos = diag_start[j];
+      int pivot_pos = 0;
       for (int col = 0; col < jb; ++col) {
         double coeff = 1.0 / D[pivot_pos];
         dscal_(&M, &coeff, &A[R_pos + col], &jb);
