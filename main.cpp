@@ -274,8 +274,13 @@ int main(int argc, char** argv) {
   // ===========================================================================
   // Symbolic factorisation
   // ===========================================================================
+  int negative_pivots{};
+  if (type == AugSys) {
+    negative_pivots = nA;
+  }
+
   Symbolic S;
-  Analyse An(rowsLower, ptrLower, type, order_to_use);
+  Analyse An(rowsLower, ptrLower, type, order_to_use, negative_pivots);
   An.run(S, true);
   S.print();
 

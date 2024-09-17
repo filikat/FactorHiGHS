@@ -46,10 +46,10 @@ int HybridHybridFormatHandler::denseFactorise(std::vector<double>& times) {
 
   if (S_->type() == FactType::NormEq) {
     status = dense_fact_pdbs(ldf_, sn_size_, nb_, frontal_->data(), *clique_,
-                               times.data());
+                             times.data());
   } else {
-    status = dense_fact_pibs(ldf_, sn_size_, S_->blockSize(),
-                               frontal_->data(), *clique_, times.data());
+    status = dense_fact_pibs(ldf_, sn_size_, S_->blockSize(), frontal_->data(),
+                             *clique_, S_->pivotSign().data(), times.data());
   }
 
   return status;

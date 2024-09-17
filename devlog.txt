@@ -925,6 +925,15 @@ I introduced a format handler, to separate the implmentation of the various oper
 Now there is an abstract class that handles a generic format and various implementations of it, depending on the format.
 ---
 
+*****
+17 Sep 2024
+I added the pivot signs for the indefinite factorization.
+They are held inside Symbolic and passed around the dense factorization routines.
+At the beginning, I used a std::vector<bool> to save some space, but I realized that when I pass a bool* to C, coming from a std::vector<bool> in C++, I don't think that I can access the correct information.
+C will assume that bools are stored one in each byte, when actually they are stored one in each bit, since they come from a std::vector<bool>.
+So I use a std::vector<int>, which wastes a bit of space, but it shold be negligible compared to the rest.
+---
+
 
 *****
 To do:

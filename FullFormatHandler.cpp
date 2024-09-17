@@ -28,8 +28,9 @@ int FullFormatHandler::denseFactorise(std::vector<double>& times) {
     status = dense_fact_pdbf(ldf_, sn_size_, nb_, frontal_->data(), ldf_,
                              *clique_, ldc_, times.data());
   } else {
-    status = dense_fact_pibf(ldf_, sn_size_, nb_, frontal_->data(), ldf_,
-                             *clique_, ldc_, times.data());
+    status =
+        dense_fact_pibf(ldf_, sn_size_, nb_, frontal_->data(), ldf_, *clique_,
+                        ldc_, S_->pivotSign().data(), times.data());
   }
   return status;
 }

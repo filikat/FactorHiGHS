@@ -29,12 +29,15 @@ class Factorise {
   std::vector<int> first_children_{};
   std::vector<int> next_children_{};
 
-  // generated elements
+  // generated elements, aka Schur complements.
+  // NB: they cannot be stored as std::vector, since they need to be
+  // instantiated without being initialized to zero.
   std::vector<double*> schur_contribution_{};
 
   // columns of L, stored as dense supernodes
   std::vector<std::vector<double>> sn_columns_{};
 
+  // starting point of the diagonal blocks for hybrid format
   std::vector<std::vector<int>> clique_block_start_{};
 
  public:

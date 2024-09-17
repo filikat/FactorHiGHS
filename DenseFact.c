@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -96,7 +97,8 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda) {
   return kRetOk;
 }
 
-int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda) {
+int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
+                    const int* pivot_sign) {
   // ===========================================================================
   // Infedinite factorization without blocks.
   // BLAS calls: ddot_, dgemv_, dscal_.
@@ -341,7 +343,8 @@ int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
 }
 
 int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
-                    double* restrict B, int ldb, double* times) {
+                    double* restrict B, int ldb, const int* pivot_sign,
+                    double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks.
   // BLAS calls: dcopy_, dscal_, dgemm_, dtrsm_, dsyrk_
@@ -398,7 +401,7 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    int info = dense_fact_fiuf('L', N, D, lda);
+    int info = dense_fact_fiuf('L', N, D, lda, pivot_sign);
 #ifdef TIMING
     times[t_fact] += GetTime() - t0;
 #endif
@@ -754,7 +757,7 @@ int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
 }
 
 int dense_fact_pibh(int n, int k, int nb, double* restrict A,
-                    double* restrict B, double* times) {
+                    double* restrict B, const int* pivot_sign, double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks in lower-blocked-hybrid format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
@@ -897,7 +900,7 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    int info = dense_fact_fiuf('U', jb, D, jb);
+    int info = dense_fact_fiuf('U', jb, D, jb, pivot_sign);
 #ifdef TIMING
     times[t_fact] += GetTime() - t0;
 #endif
@@ -1074,8 +1077,7 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
   return kRetOk;
 }
 
-int dense_fact_pdbs(int n, int k, int nb, double* A, double* B,
-                      double* times) {
+int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks in lower-blocked-hybrid
   // format. A should be in lower-blocked-hybrid format. Schur complement is
@@ -1300,7 +1302,7 @@ int dense_fact_pdbs(int n, int k, int nb, double* A, double* B,
 }
 
 int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
-                      double* times) {
+                    const int* pivot_sign, double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks in lower-blocked-hybrid format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
@@ -1442,7 +1444,7 @@ int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    int info = dense_fact_fiuf('U', jb, D, jb);
+    int info = dense_fact_fiuf('U', jb, D, jb, pivot_sign);
 #ifdef TIMING
     times[t_fact] += GetTime() - t0;
 #endif

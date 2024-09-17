@@ -6,7 +6,8 @@
 #include <stack>
 
 Analyse::Analyse(const std::vector<int>& rows, const std::vector<int>& ptr,
-                 FactType type, const std::vector<int>& order) {
+                 FactType type, const std::vector<int>& order,
+                 int negative_pivots) {
   // Input the symmetric matrix to be analysed in CSC format.
   // row_ind contains the row indices.
   // col_ptr contains the starting points of each column.
@@ -17,6 +18,7 @@ Analyse::Analyse(const std::vector<int>& rows, const std::vector<int>& ptr,
   n_ = ptr.size() - 1;
   nz_ = rows.size();
   type_ = type;
+  negative_pivots_ = negative_pivots;
 
   // Create upper triangular part
   rows_upper_.resize(nz_);
@@ -109,7 +111,7 @@ void Analyse::getPermutation() {
   METIS_SetDefaultOptions(options);
   // fix seed of rng inside Metis, to make it deterministic (?)
   options[METIS_OPTION_SEED] = 123456789;
-  
+
   int status = METIS_NodeND(&n_, temp_ptr.data(), temp_rows.data(), NULL,
                             options, perm_.data(), iperm_.data());
   assert(status == METIS_OK);
@@ -1062,86 +1064,6 @@ void Analyse::printTimes() const {
          time_layer0_ / time_total_ * 100);
 }
 
-void Analyse::run(Symbolic& S, bool verbose) {
-  // Perform analyse phase and store the result into the symbolic object S.
-  // After Run returns, the Analyse object is not valid.
-
-  if (!ready_) return;
-
-  Clock clock0{};
-  clock0.start();
-
-  Clock clock{};
-
-  clock.start();
-  getPermutation();
-  time_metis_ = clock.stop();
-
-  clock.start();
-  permute(iperm_);
-  eTree();
-  postorder();
-  time_tree_ = clock.stop();
-
-  clock.start();
-  colCount();
-  time_count_ = clock.stop();
-
-  clock.start();
-  fundamentalSupernodes();
-  relaxSupernodes();
-  afterRelaxSn();
-  time_sn_ = clock.stop();
-
-  clock.start();
-  reorderChildren();
-  time_reorder_ = clock.stop();
-
-  clock.start();
-  snPattern();
-  time_pattern_ = clock.stop();
-
-  clock.start();
-  relativeIndCols();
-  relativeIndClique();
-  time_relind_ = clock.stop();
-
-  clock.start();
-  generateLayer0(4, 0.7);
-  time_layer0_ = clock.stop();
-
-  time_total_ = clock0.stop();
-
-  if (verbose) printTimes();
-
-  // move relevant stuff into S
-  S.type_ = type_;
-  S.n_ = n_;
-  S.nz_ = nz_factor_;
-  S.fillin_ = (double)nz_factor_ / nz_;
-  S.sn_ = sn_count_;
-  S.artificial_nz_ = artificial_nz_;
-  S.artificial_ops_ = (double)operations_ - operations_no_relax_;
-  S.assembly_ops_ = operations_assembly_;
-  S.largest_front_ = *std::max_element(sn_indices_.begin(), sn_indices_.end());
-  S.max_storage_ = max_storage_;
-
-  std::vector<int> temp(sn_start_);
-  for (int i = sn_count_; i > 0; --i) temp[i] -= temp[i - 1];
-  S.largest_sn_ = *std::max_element(temp.begin(), temp.end());
-
-  S.dense_ops_ = operations_;
-  S.perm_ = std::move(perm_);
-  S.iperm_ = std::move(iperm_);
-  S.rows_ = std::move(rows_sn_);
-  S.ptr_ = std::move(ptr_sn_);
-  S.sn_parent_ = std::move(sn_parent_);
-  S.sn_start_ = std::move(sn_start_);
-  S.relind_cols_ = std::move(relind_cols_);
-  S.relind_clique_ = std::move(relind_clique_);
-  S.consecutive_sums_ = std::move(consecutive_sums_);
-}
-
 void Analyse::generateLayer0(int n_threads, double imbalance_ratio) {
   // linked lists of children
   std::vector<int> head, next;
@@ -1438,4 +1360,92 @@ void Analyse::reorderChildren() {
   // Update perm and iperm
   permuteVector(perm_, new_perm);
   inversePerm(perm_, iperm_);
+}
+
+void Analyse::run(Symbolic& S, bool verbose) {
+  // Perform analyse phase and store the result into the symbolic object S.
+  // After Run returns, the Analyse object is not valid.
+
+  if (!ready_) return;
+
+  Clock clock0{};
+  clock0.start();
+
+  Clock clock{};
+
+  clock.start();
+  getPermutation();
+  time_metis_ = clock.stop();
+
+  clock.start();
+  permute(iperm_);
+  eTree();
+  postorder();
+  time_tree_ = clock.stop();
+
+  clock.start();
+  colCount();
+  time_count_ = clock.stop();
+
+  clock.start();
+  fundamentalSupernodes();
+  relaxSupernodes();
+  afterRelaxSn();
+  time_sn_ = clock.stop();
+
+  clock.start();
+  reorderChildren();
+  time_reorder_ = clock.stop();
+
+  clock.start();
+  snPattern();
+  time_pattern_ = clock.stop();
+
+  clock.start();
+  relativeIndCols();
+  relativeIndClique();
+  time_relind_ = clock.stop();
+
+  clock.start();
+  generateLayer0(4, 0.7);
+  time_layer0_ = clock.stop();
+
+  time_total_ = clock0.stop();
+
+  if (verbose) printTimes();
+
+  // move relevant stuff into S
+  S.type_ = type_;
+  S.n_ = n_;
+  S.nz_ = nz_factor_;
+  S.fillin_ = (double)nz_factor_ / nz_;
+  S.sn_ = sn_count_;
+  S.artificial_nz_ = artificial_nz_;
+  S.artificial_ops_ = (double)operations_ - operations_no_relax_;
+  S.assembly_ops_ = operations_assembly_;
+  S.largest_front_ = *std::max_element(sn_indices_.begin(), sn_indices_.end());
+  S.max_storage_ = max_storage_;
+
+  // compute largest supernode
+  std::vector<int> temp(sn_start_);
+  for (int i = sn_count_; i > 0; --i) temp[i] -= temp[i - 1];
+  S.largest_sn_ = *std::max_element(temp.begin(), temp.end());
+
+  // initialize sign of pivots and permute them
+  if (type_ == AugSys) {
+    S.pivot_sign_.insert(S.pivot_sign_.end(), negative_pivots_, -1);
+    S.pivot_sign_.insert(S.pivot_sign_.end(), n_ - negative_pivots_, 1);
+    permuteVector(S.pivot_sign_, perm_);
+  }
+
+  S.dense_ops_ = operations_;
+  S.perm_ = std::move(perm_);
+  S.iperm_ = std::move(iperm_);
+  S.rows_ = std::move(rows_sn_);
+  S.ptr_ = std::move(ptr_sn_);
+  S.sn_parent_ = std::move(sn_parent_);
+  S.sn_start_ = std::move(sn_start_);
+  S.relind_cols_ = std::move(relind_cols_);
+  S.relind_clique_ = std::move(relind_clique_);
+  S.consecutive_sums_ = std::move(consecutive_sums_);
 }

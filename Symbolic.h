@@ -92,6 +92,13 @@ class Symbolic {
   //   and increment equal to one.
   std::vector<std::vector<int>> consecutive_sums_{};
 
+  // Sign of each pivot (for indefinite factorization)
+  // - pivot_sign_[i] = 1  if pivot i is supposed to be positive.
+  // - pivot_sign_[i] = -1 is pivot i is supposed to be negative.
+  // This is used when regularizing the pivots, to know the sign that the pivot
+  // should have.
+  std::vector<int> pivot_sign_{};
+
   friend class Analyse;
 
  public:
@@ -118,6 +125,7 @@ class Symbolic {
   const std::vector<int>& iperm() const;
   const std::vector<int>& snParent() const;
   const std::vector<int>& snStart() const;
+  const std::vector<int>& pivotSign() const;
 };
 
 // Explanation of relative indices:

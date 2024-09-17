@@ -26,8 +26,9 @@ void HybridPackedFormatHandler::assembleFrontal(int i, int j, double val) {
 }
 
 void HybridPackedFormatHandler::assembleFrontalMultiple(int num, double* child,
-                                                  int nc, int child_sn, int row,
-                                                  int col, int i, int j) {
+                                                        int nc, int child_sn,
+                                                        int row, int col, int i,
+                                                        int j) {
   const int jblock = col / nb_;
   const int row_ = row - jblock * nb_;
   const int col_ = col - jblock * nb_;
@@ -48,13 +49,14 @@ int HybridPackedFormatHandler::denseFactorise(std::vector<double>& times) {
                              times.data());
   } else {
     status = dense_fact_pibh(ldf_, sn_size_, nb_, frontal_->data(), *clique_,
-                             times.data());
+                             S_->pivotSign().data(), times.data());
   }
 
   return status;
 }
 
-void HybridPackedFormatHandler::assembleClique(double* child, int nc, int child_sn) {
+void HybridPackedFormatHandler::assembleClique(double* child, int nc,
+                                               int child_sn) {
   //   go through the columns of the contribution of the child
   for (int col = 0; col < nc; ++col) {
     // relative index of column in the frontal matrix
