@@ -25,7 +25,8 @@ flhs: Full format, Lower packed format, lower-blocked-Hybrid packed format
 
 double t0;
 
-int dense_fact_fduf(char uplo, int n, double* restrict A, int lda) {
+int dense_fact_fduf(char uplo, int n, double* restrict A, int lda,
+                    double thresh) {
   // ===========================================================================
   // Positive definite factorization without blocks.
   // BLAS calls: ddot_, dgemv_, dscal_.
@@ -48,21 +49,54 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda) {
 
       // update diagonal element
       double Ajj = A[j + lda * j] - ddot_(&N, &A[j], &lda, &A[j], &lda);
-      if (Ajj <= 0.0 || isnan(Ajj)) {
+      if (isnan(Ajj)) {
         A[j + lda * j] = Ajj;
         printf("\ndense_fact_fduf: invalid pivot %e\n", Ajj);
         return kRetInvalidPivot;
       }
 
+      // update column j
+      if (j < n - 1) {
+        dgemv_(&c_N, &M, &N, &d_m_one, &A[j + 1], &lda, &A[j], &lda, &d_one,
+               &A[j + 1 + j * lda], &i_one);
+      }
+
       // compute diagonal element
-      Ajj = sqrt(Ajj);
+      if (Ajj <= thresh * thresh) {
+        // if pivot is not acceptable (its sqrt would be below thresh),
+        // push it up to thresh
+        printf("small pivot %e ", Ajj);
+        Ajj = thresh;
+
+        // compute the minimum pivot required to keep the diagonal of the
+        // current block acceptable:
+        // b is column below pivot, d is diagonal of block, p is pivot
+        // we want d_k - b_k^2 / p^2 \ge thresh^2
+        // i.e.
+        // p^2 \ge b_k^2 / (d_k - thresh^2)
+        //
+        double required_pivot = 0.0;
+        for (int k = j + 1; k < n; ++k) {
+          double bk = A[k + j * lda];
+          double dk = A[k + lda * k];
+          double temp = (dk * dk - thresh * thresh);
+          if (temp <= 0) continue;
+          temp = sqrt((bk * bk) / temp);
+          required_pivot = max(required_pivot, temp);
+        }
+
+        Ajj = max(Ajj, required_pivot);
+        printf("set to %e\n", Ajj);
+      } else {
+        // if pivot is acceptable, leave it as it is
+        Ajj = sqrt(Ajj);
+      }
+
       A[j + lda * j] = Ajj;
       const double coeff = 1.0 / Ajj;
 
       // compute column j
       if (j < n - 1) {
-        dgemv_(&c_N, &M, &N, &d_m_one, &A[j + 1], &lda, &A[j], &lda, &d_one,
-               &A[j + 1 + j * lda], &i_one);
         dscal_(&M, &coeff, &A[j + 1 + j * lda], &i_one);
       }
     }
@@ -74,21 +108,54 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda) {
       // update diagonal element
       double Ajj =
           A[j + lda * j] - ddot_(&N, &A[lda * j], &i_one, &A[lda * j], &i_one);
-      if (Ajj <= 0.0 || isnan(Ajj)) {
+      if (isnan(Ajj)) {
         A[j + lda * j] = Ajj;
         printf("\ndense_fact_fduf: invalid pivot %e\n", Ajj);
         return kRetInvalidPivot;
       }
 
+      // update column j
+      if (j < n - 1) {
+        dgemv_(&c_T, &N, &M, &d_m_one, &A[lda * (j + 1)], &lda, &A[lda * j],
+               &i_one, &d_one, &A[j + (j + 1) * lda], &lda);
+      }
+
       // compute diagonal element
-      Ajj = sqrt(Ajj);
+      if (Ajj <= thresh * thresh) {
+        // if pivot is not acceptable (its sqrt would be below thresh),
+        // push it up to thresh
+        printf("small pivot %e ", Ajj);
+        Ajj = thresh;
+
+        // compute the minimum pivot required to keep the diagonal of the
+        // current block acceptable:
+        // b is column below pivot, d is diagonal of block, p is pivot
+        // we want d_k - b_k^2 / p^2 \ge thresh^2
+        // i.e.
+        // p^2 \ge b_k^2 / (d_k - thresh^2)
+        //
+        double required_pivot = 0.0;
+        for (int k = j + 1; k < n; ++k) {
+          double bk = A[j + k * lda];
+          double dk = A[k + lda * k];
+          double temp = (dk * dk - thresh * thresh);
+          if (temp <= 0) continue;
+          temp = sqrt((bk * bk) / temp);
+          required_pivot = max(required_pivot, temp);
+        }
+
+        Ajj = max(Ajj, required_pivot);
+        printf("set to %e\n", Ajj);
+      } else {
+        // if pivot is acceptable, leave it as it is
+        Ajj = sqrt(Ajj);
+      }
+
       A[j + lda * j] = Ajj;
       const double coeff = 1.0 / Ajj;
 
       // compute column j
       if (j < n - 1) {
-        dgemv_(&c_T, &N, &M, &d_m_one, &A[lda * (j + 1)], &lda, &A[lda * j],
-               &i_one, &d_one, &A[j + (j + 1) * lda], &lda);
         dscal_(&M, &coeff, &A[j + (j + 1) * lda], &lda);
       }
     }
@@ -246,7 +313,7 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
 // ===========================================================================
 
 int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
-                    double* restrict B, int ldb, double* times) {
+                    double* restrict B, int ldb, double* times, double thresh) {
   // ===========================================================================
   // Positive definite factorization with blocks.
   // BLAS calls: dsyrk_, dgemm_, dtrsm_.
@@ -298,7 +365,7 @@ int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
     t0 = GetTime();
 #endif
 
-    int info = dense_fact_fduf('L', N, D, lda);
+    int info = dense_fact_fduf('L', N, D, lda, thresh);
 
 #ifdef TIMING
     times[t_fact] += GetTime() - t0;
@@ -508,7 +575,7 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
 }
 
 int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
-                    double* restrict B, double* times) {
+                    double* restrict B, double* times, double thresh) {
   // ===========================================================================
   // Positive definite factorization with blocks in lower-blocked-hybrid
   // format. A should be in lower-blocked-hybrid format. Schur complement is
@@ -617,7 +684,7 @@ int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    int info = dense_fact_fduf('U', jb, D, jb);
+    int info = dense_fact_fduf('U', jb, D, jb, thresh);
 #ifdef TIMING
     times[t_fact] += GetTime() - t0;
 #endif
@@ -1077,7 +1144,8 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
   return kRetOk;
 }
 
-int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double* times) {
+int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double* times,
+                    double thresh) {
   // ===========================================================================
   // Positive definite factorization with blocks in lower-blocked-hybrid
   // format. A should be in lower-blocked-hybrid format. Schur complement is
@@ -1185,7 +1253,7 @@ int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double* times) {
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    int info = dense_fact_fduf('U', jb, D, jb);
+    int info = dense_fact_fduf('U', jb, D, jb, thresh);
 #ifdef TIMING
     times[t_fact] += GetTime() - t0;
 #endif

@@ -40,6 +40,9 @@ class Factorise {
   // starting point of the diagonal blocks for hybrid format
   std::vector<std::vector<int>> clique_block_start_{};
 
+  // largest diagonal element in the original matrix
+  double max_diag{};
+
  public:
   void permute(const std::vector<int>& iperm);
   int processSupernode(int sn);

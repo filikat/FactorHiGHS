@@ -67,7 +67,7 @@ class FormatHandler {
   virtual void assembleFrontalMultiple(int num, double* child, int nc,
                                        int child_sn, int row, int col, int i,
                                        int j) = 0;
-  virtual int denseFactorise(std::vector<double>& times) = 0;
+  virtual int denseFactorise(double reg_thresh, std::vector<double>& times) = 0;
   virtual void assembleClique(double* child, int nc, int child_sn) = 0;
 };
 

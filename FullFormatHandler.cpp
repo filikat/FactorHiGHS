@@ -22,11 +22,12 @@ void FullFormatHandler::assembleFrontalMultiple(int num, double* child, int nc,
          &(*frontal_)[i + ldf_ * j], &i_one);
 }
 
-int FullFormatHandler::denseFactorise(std::vector<double>& times) {
+int FullFormatHandler::denseFactorise(double reg_thresh,
+                                      std::vector<double>& times) {
   int status;
   if (S_->type() == FactType::NormEq) {
     status = dense_fact_pdbf(ldf_, sn_size_, nb_, frontal_->data(), ldf_,
-                             *clique_, ldc_, times.data());
+                             *clique_, ldc_, times.data(),reg_thresh);
   } else {
     status =
         dense_fact_pibf(ldf_, sn_size_, nb_, frontal_->data(), ldf_, *clique_,

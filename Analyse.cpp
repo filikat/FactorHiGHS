@@ -1156,15 +1156,15 @@ void Analyse::generateLayer0(int n_threads, double imbalance_ratio) {
   const double max_load =
       *std::max_element(processors.begin(), processors.end());
   double ops_left = total_ops;
-  printf("\nProcessors loads: ");
+  //printf("\nProcessors loads: ");
   for (int i = 0; i < processors.size(); ++i) {
-    printf("%.2f ", processors[i] / max_load);
+    //printf("%.2f ", processors[i] / max_load);
     ops_left -= processors[i];
   }
-  printf("\n");
+  //printf("\n");
 
-  printf("Left / total %%: %.2f\n", ops_left / total_ops * 100);
-  printf("Speedup: %.2f\n\n", total_ops / (ops_left + max_load));
+  //printf("Left / total %%: %.2f\n", ops_left / total_ops * 100);
+  //printf("Speedup: %.2f\n\n", total_ops / (ops_left + max_load));
 }
 
 void Analyse::reorderChildren() {

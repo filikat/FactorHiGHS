@@ -38,7 +38,8 @@ void HybridHybridFormatHandler::assembleFrontalMultiple(int num, double* child,
          &(*frontal_)[i + ldf_ * j - j * (j + 1) / 2], &i_one);
 }
 
-int HybridHybridFormatHandler::denseFactorise(std::vector<double>& times) {
+int HybridHybridFormatHandler::denseFactorise(double reg_thresh,
+                                              std::vector<double>& times) {
   int status;
 
   status = dense_fact_l2h(frontal_->data(), ldf_, sn_size_, nb_, times.data());
@@ -46,7 +47,7 @@ int HybridHybridFormatHandler::denseFactorise(std::vector<double>& times) {
 
   if (S_->type() == FactType::NormEq) {
     status = dense_fact_pdbs(ldf_, sn_size_, nb_, frontal_->data(), *clique_,
-                             times.data());
+                             times.data(), reg_thresh);
   } else {
     status = dense_fact_pibs(ldf_, sn_size_, S_->blockSize(), frontal_->data(),
                              *clique_, S_->pivotSign().data(), times.data());

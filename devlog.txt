@@ -933,8 +933,44 @@ At the beginning, I used a std::vector<bool> to save some space, but I realized 
 C will assume that bools are stored one in each byte, when actually they are stored one in each bit, since they come from a std::vector<bool>.
 So I use a std::vector<int>, which wastes a bit of space, but it shold be negligible compared to the rest.
 ---
+I just lost two hours to debug something. I was getting super weird errors, it seemed like the symbolic factorization was wrong. But it was working on the first iterations.
+Was something modifying the symbolic object? some buffer overflow? you'd think right???
+No, it was that the function that Julian wrote to compute the normal equations removes small entries...
+I knew that, I just forgot that it would have an effect at later stages of IPM, because some entries do become very small.
+Since I am reusing the symbolic factorization, they did not match anymore.
+---
+I am now getting convergence with normal equations for many problems.
+I do not get very big negative pivots anymore (so far).
+I do get pivots which are barely negative, easy to deal with regularization.
+This looks good now.
+---
+I added some simple regularization, it solves some problems but it fails on some others.
+The problems seems to be that if I regularize with a small value, then the rest of the matrix is factorized completely wrong and very large negative pivots appear.
+---
+
+*****
+18 Sep 2024
+I added regularization that depends on the maximum diagonal element of the matrix.
+I scale it down by machine precision, as Jacek suggested.
+It solves the problem that I was having with d6cube, but it not enough for qap12.
+The troubles appear to be all in the same supernode and in the same block (last and last).
+I should try to implement the look-ahead heuristic of Jacek on a given block, it may be enough.
+---
+It's actually quite easy to implement:
+p is the pivot (after sqrt)
+b is the column below the pivot
+d is the diagonal of the block
+
+The update would produce d_k <- d_k - b_k^2 / p^2, for each k
+We want d_k - b_k^2 / p^2 \ge tau^2, for some threshold tau
+Therefore, p^2 \ge b_k^2 / (d_k - tau^2), for each k
+It seems to work, but I don't get convergence for qap15. The factorization does not break down, so I suspect that I need some refinement now.
+Indeed, comparing with a second linear solver, the error shoots up as soon as regularizaiton kicks in.
+---
 
 
 *****
 To do:
+- add proper regularization
+- add iterative refinement
 - parallel stuff
