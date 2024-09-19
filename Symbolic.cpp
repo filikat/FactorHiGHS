@@ -57,3 +57,5 @@ const std::vector<int>& Symbolic::iperm() const { return iperm_; }
 const std::vector<int>& Symbolic::snParent() const { return sn_parent_; }
 const std::vector<int>& Symbolic::snStart() const { return sn_start_; }
 const std::vector<int>& Symbolic::pivotSign() const { return pivot_sign_; }
+
+void Symbolic::setPackType(int i) const { pack_format_ = (PackType)i; }

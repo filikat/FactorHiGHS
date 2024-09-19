@@ -13,7 +13,7 @@ class Symbolic {
   FactType type_{};
 
   // Packed or full format
-  PackType pack_format_ = PackType::HybridPacked;
+  mutable PackType pack_format_ = PackType::HybridPacked;
 
   // Size of blocks for dense factorization
   const int block_size_ = 128;
@@ -126,6 +126,8 @@ class Symbolic {
   const std::vector<int>& snParent() const;
   const std::vector<int>& snStart() const;
   const std::vector<int>& pivotSign() const;
+
+  void setPackType(int i) const;
 };
 
 // Explanation of relative indices:

@@ -967,10 +967,27 @@ Therefore, p^2 \ge b_k^2 / (d_k - tau^2), for each k
 It seems to work, but I don't get convergence for qap15. The factorization does not break down, so I suspect that I need some refinement now.
 Indeed, comparing with a second linear solver, the error shoots up as soon as regularizaiton kicks in.
 ---
+I actually got it wrong. Jacek told me that he avoid sqrt, so all the check are done to the pivot, before square root. 
+My numbers for the factorization threshold are wrong then.
+I still want to keep both factorizations available. I may switch everything to ldl if it works better, but for now I want both to work.
+He also explained to me that he does not only check the pivot agains the column, to detect when it will create problems, but also against the row.
+If the pivot is much smaller than the row, then this is row is basically linearly dependent on the previous ones, and can be ignored.
+This is done by putting a large (infinite) pivot, to ignore this row and column.
+To do this, I need to keep track of the largest element seen so far in each row.
+Reading a paper about this, it also seems smart to store the inverse of the elements of D, rather that the elements themselves. 
+In this way, I don't need to do divisions (which are expensive) and I can just set the inverse entry to zero if I want to ignore a row.
+---
+
+*****
+19 Sep 2024
+I changed the option of protoIPM, there is no more option to choose predcor, but there is to choose the format.
+---
 
 
 *****
 To do:
-- add proper regularization
+- regularization withour sqrt
+- row growth factor
+- inverse of D stored (change in densefact and solves)
 - add iterative refinement
 - parallel stuff
