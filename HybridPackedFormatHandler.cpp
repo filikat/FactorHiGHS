@@ -49,8 +49,12 @@ int HybridPackedFormatHandler::denseFactorise(double reg_thresh,
     status = dense_fact_pdbh(ldf_, sn_size_, nb_, frontal_->data(), *clique_,
                              times.data(), reg_thresh);
   } else {
+    // find the position within pivot_sign corresponding to this supernode
+    int sn_start = S_->snStart(sn_);
+    const int* pivot_sign = &S_->pivotSign().data()[sn_start];
+
     status = dense_fact_pibh(ldf_, sn_size_, nb_, frontal_->data(), *clique_,
-                             S_->pivotSign().data(), times.data());
+                             pivot_sign, reg_thresh, times.data());
   }
 
   return status;

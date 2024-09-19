@@ -27,11 +27,15 @@ int FullFormatHandler::denseFactorise(double reg_thresh,
   int status;
   if (S_->type() == FactType::NormEq) {
     status = dense_fact_pdbf(ldf_, sn_size_, nb_, frontal_->data(), ldf_,
-                             *clique_, ldc_, times.data(),reg_thresh);
+                             *clique_, ldc_, times.data(), reg_thresh);
   } else {
+    // find the position within pivot_sign corresponding to this supernode
+    int sn_start = S_->snStart(sn_);
+    const int* pivot_sign = &S_->pivotSign().data()[sn_start];
+
     status =
         dense_fact_pibf(ldf_, sn_size_, nb_, frontal_->data(), ldf_, *clique_,
-                        ldc_, S_->pivotSign().data(), times.data());
+                        ldc_, pivot_sign, reg_thresh, times.data());
   }
   return status;
 }

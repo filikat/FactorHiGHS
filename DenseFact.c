@@ -91,7 +91,7 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda,
       A[j + lda * j] = Ajj;
       const double coeff = 1.0 / Ajj;
 
-      // compute column j
+      // scale column j
       if (j < n - 1) {
         dscal_(&M, &coeff, &A[j + 1 + j * lda], &i_one);
       }
@@ -146,7 +146,7 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda,
       A[j + lda * j] = Ajj;
       const double coeff = 1.0 / Ajj;
 
-      // compute column j
+      // scale column j
       if (j < n - 1) {
         dscal_(&M, &coeff, &A[j + (j + 1) * lda], &lda);
       }
@@ -157,7 +157,7 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda,
 }
 
 int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
-                    const int* pivot_sign) {
+                    const int* pivot_sign, double thresh) {
   // ===========================================================================
   // Infedinite factorization without blocks.
   // BLAS calls: ddot_, dgemv_, dscal_.
@@ -192,20 +192,64 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
 
       // update diagonal element
       double Ajj = A[j + lda * j] - ddot_(&N, &A[j], &lda, temp, &i_one);
-      if (Ajj == 0.0 || isnan(Ajj)) {
+      if (isnan(Ajj)) {
         A[j + lda * j] = Ajj;
         printf("\ndense_fact_fiuf: invalid pivot %e\n", Ajj);
         return kRetInvalidPivot;
+      }
+
+      // update column j
+      if (j < n - 1) {
+        dgemv_(&c_N, &M, &N, &d_m_one, &A[j + 1], &lda, temp, &i_one, &d_one,
+               &A[j + 1 + j * lda], &i_one);
+      }
+
+      // compute diagonal element
+      if (fabs(Ajj) <= thresh) {
+        double sign = (double)pivot_sign[j];
+
+        // if pivot is not acceptable, push it up to thresh
+        printf("small pivot %e, with sign %d ", Ajj, pivot_sign[j]);
+        Ajj = thresh * sign;
+
+        // compute the minimum pivot required to keep the diagonal of the
+        // current block acceptable:
+        // b is column below pivot, d is diagonal of block, p is pivot
+        // we want d_k - b_k^2 / p \ge thresh
+        // i.e.
+        // p \ge b_k^2 / (d_k - thresh)
+        //
+        double required_pivot = 0.0;
+        for (int k = j + 1; k < n; ++k) {
+          double bk = A[k + j * lda];
+          double dk = A[k + lda * k];
+
+          // if pivot and dk have different sign, skip
+          if (sign * (double)pivot_sign[k] < 0) continue;
+
+          double temp = (dk - sign * thresh);
+          temp = (bk * bk) / temp;
+
+          if (sign > 0)
+            required_pivot = max(required_pivot, temp);
+          else
+            required_pivot = min(required_pivot, temp);
+        }
+
+        if (sign > 0)
+          Ajj = max(Ajj, required_pivot);
+        else
+          Ajj = min(Ajj, required_pivot);
+
+        printf("set to %e\n", Ajj);
       }
 
       // save diagonal element
       A[j + lda * j] = Ajj;
       const double coeff = 1.0 / Ajj;
 
-      // compute column j
+      // scale column j
       if (j < n - 1) {
-        dgemv_(&c_N, &M, &N, &d_m_one, &A[j + 1], &lda, temp, &i_one, &d_one,
-               &A[j + 1 + j * lda], &i_one);
         dscal_(&M, &coeff, &A[j + 1 + j * lda], &i_one);
       }
     }
@@ -231,20 +275,64 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
       // update diagonal element
       double Ajj =
           A[j + lda * j] - ddot_(&N, &A[j * lda], &i_one, temp, &i_one);
-      if (Ajj == 0.0 || isnan(Ajj)) {
+      if (isnan(Ajj)) {
         A[j + lda * j] = Ajj;
         printf("\ndense_fact_fiuf: invalid pivot %e\n", Ajj);
         return kRetInvalidPivot;
+      }
+
+      // update column j
+      if (j < n - 1) {
+        dgemv_(&c_T, &N, &M, &d_m_one, &A[(j + 1) * lda], &lda, temp, &i_one,
+               &d_one, &A[j + (j + 1) * lda], &lda);
+      }
+
+      // compute diagonal element
+      if (fabs(Ajj) <= thresh) {
+        double sign = (double)pivot_sign[j];
+
+        // if pivot is not acceptable, push it up to thresh
+        printf("small pivot %e, with sign %d ", Ajj, pivot_sign[j]);
+        Ajj = thresh * sign;
+
+        // compute the minimum pivot required to keep the diagonal of the
+        // current block acceptable:
+        // b is column below pivot, d is diagonal of block, p is pivot
+        // we want d_k - b_k^2 / p \ge thresh
+        // i.e.
+        // p \ge b_k^2 / (d_k - thresh)
+        //
+        double required_pivot = 0.0;
+        for (int k = j + 1; k < n; ++k) {
+          double bk = A[j + k * lda];
+          double dk = A[k + lda * k];
+
+          // if pivot and dk have different sign, skip
+          if (sign * (double)pivot_sign[k] < 0) continue;
+
+          double temp = (dk - sign * thresh);
+          temp = (bk * bk) / temp;
+
+          if (sign > 0)
+            required_pivot = max(required_pivot, temp);
+          else
+            required_pivot = min(required_pivot, temp);
+        }
+
+        if (sign > 0)
+          Ajj = max(Ajj, required_pivot);
+        else
+          Ajj = min(Ajj, required_pivot);
+
+        printf("set to %e\n", Ajj);
       }
 
       // save diagonal element
       A[j + lda * j] = Ajj;
       const double coeff = 1.0 / Ajj;
 
-      // compute column j
+      // scale column j
       if (j < n - 1) {
-        dgemv_(&c_T, &N, &M, &d_m_one, &A[(j + 1) * lda], &lda, temp, &i_one,
-               &d_one, &A[j + (j + 1) * lda], &lda);
         dscal_(&M, &coeff, &A[j + (j + 1) * lda], &lda);
       }
     }
@@ -403,7 +491,7 @@ int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
 
 int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
                     double* restrict B, int ldb, const int* pivot_sign,
-                    double* times) {
+                    double thresh, double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks.
   // BLAS calls: dcopy_, dscal_, dgemm_, dtrsm_, dsyrk_
@@ -460,7 +548,8 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    int info = dense_fact_fiuf('L', N, D, lda, pivot_sign);
+    const int* pivot_sign_current = &pivot_sign[j];
+    int info = dense_fact_fiuf('L', N, D, lda, pivot_sign_current, thresh);
 #ifdef TIMING
     times[t_fact] += GetTime() - t0;
 #endif
@@ -816,7 +905,8 @@ int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
 }
 
 int dense_fact_pibh(int n, int k, int nb, double* restrict A,
-                    double* restrict B, const int* pivot_sign, double* times) {
+                    double* restrict B, const int* pivot_sign, double thresh,
+                    double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks in lower-blocked-hybrid format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
@@ -959,7 +1049,8 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    int info = dense_fact_fiuf('U', jb, D, jb, pivot_sign);
+    const int* pivot_sign_current = &pivot_sign[j * nb];
+    int info = dense_fact_fiuf('U', jb, D, jb, pivot_sign_current, thresh);
 #ifdef TIMING
     times[t_fact] += GetTime() - t0;
 #endif
@@ -1362,7 +1453,7 @@ int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double* times,
 }
 
 int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
-                    const int* pivot_sign, double* times) {
+                    const int* pivot_sign, double thresh, double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks in lower-blocked-hybrid format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
@@ -1504,7 +1595,8 @@ int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
 #ifdef TIMING
     t0 = GetTime();
 #endif
-    int info = dense_fact_fiuf('U', jb, D, jb, pivot_sign);
+    const int* pivot_sign_current = &pivot_sign[j * nb];
+    int info = dense_fact_fiuf('U', jb, D, jb, pivot_sign_current, thresh);
 #ifdef TIMING
     times[t_fact] += GetTime() - t0;
 #endif

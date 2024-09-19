@@ -47,10 +47,10 @@ Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
   schur_contribution_.resize(S_.sn(), nullptr);
   sn_columns_.resize(S_.sn());
 
-  // compute largest diagonal entry
+  // compute largest diagonal entry in absolute value
   max_diag = 0.0;
   for (int col = 0; col < n_; ++col) {
-    double temp = valA_[ptrA_[col]];
+    double temp = std::fabs(valA_[ptrA_[col]]);
     max_diag = std::max(max_diag, temp);
   }
 }

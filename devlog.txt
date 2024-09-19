@@ -991,6 +991,10 @@ The problem now is that I regularize too much. I need the refinement.
 Sometimes however I seem to regularize too little.
 Strange behaviour.
 ---
+I realized that I don't need to pass around a pointer to the whole pivot_sign vector, I need to pass a pointer to the portion that corresponds to the supernode or block.
+The signs should be correct now.
+I added the regularization to the augmented system, taking into account the sign that the pivot should have.
+---
 
 *****
 To do:
