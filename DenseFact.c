@@ -62,36 +62,32 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda,
       }
 
       // compute diagonal element
-      if (Ajj <= thresh * thresh) {
-        // if pivot is not acceptable (its sqrt would be below thresh),
-        // push it up to thresh
+      if (Ajj <= thresh) {
+        // if pivot is not acceptable, push it up to thresh
         printf("small pivot %e ", Ajj);
         Ajj = thresh;
 
         // compute the minimum pivot required to keep the diagonal of the
         // current block acceptable:
         // b is column below pivot, d is diagonal of block, p is pivot
-        // we want d_k - b_k^2 / p^2 \ge thresh^2
+        // we want d_k - b_k^2 / p \ge thresh
         // i.e.
-        // p^2 \ge b_k^2 / (d_k - thresh^2)
+        // p \ge b_k^2 / (d_k - thresh)
         //
         double required_pivot = 0.0;
         for (int k = j + 1; k < n; ++k) {
           double bk = A[k + j * lda];
           double dk = A[k + lda * k];
-          double temp = (dk * dk - thresh * thresh);
-          if (temp <= 0) continue;
-          temp = sqrt((bk * bk) / temp);
+          double temp = (dk - thresh);
+          temp = (bk * bk) / temp;
           required_pivot = max(required_pivot, temp);
         }
 
         Ajj = max(Ajj, required_pivot);
         printf("set to %e\n", Ajj);
-      } else {
-        // if pivot is acceptable, leave it as it is
-        Ajj = sqrt(Ajj);
       }
 
+      Ajj = sqrt(Ajj);
       A[j + lda * j] = Ajj;
       const double coeff = 1.0 / Ajj;
 
@@ -121,36 +117,32 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda,
       }
 
       // compute diagonal element
-      if (Ajj <= thresh * thresh) {
-        // if pivot is not acceptable (its sqrt would be below thresh),
-        // push it up to thresh
+      if (Ajj <= thresh) {
+        // if pivot is not acceptable, push it up to thresh
         printf("small pivot %e ", Ajj);
         Ajj = thresh;
 
         // compute the minimum pivot required to keep the diagonal of the
         // current block acceptable:
         // b is column below pivot, d is diagonal of block, p is pivot
-        // we want d_k - b_k^2 / p^2 \ge thresh^2
+        // we want d_k - b_k^2 / p \ge thresh
         // i.e.
-        // p^2 \ge b_k^2 / (d_k - thresh^2)
+        // p \ge b_k^2 / (d_k - thresh)
         //
         double required_pivot = 0.0;
         for (int k = j + 1; k < n; ++k) {
           double bk = A[j + k * lda];
           double dk = A[k + lda * k];
-          double temp = (dk * dk - thresh * thresh);
-          if (temp <= 0) continue;
-          temp = sqrt((bk * bk) / temp);
+          double temp = (dk - thresh);
+          temp = (bk * bk) / temp;
           required_pivot = max(required_pivot, temp);
         }
 
         Ajj = max(Ajj, required_pivot);
         printf("set to %e\n", Ajj);
-      } else {
-        // if pivot is acceptable, leave it as it is
-        Ajj = sqrt(Ajj);
       }
 
+      Ajj = sqrt(Ajj);
       A[j + lda * j] = Ajj;
       const double coeff = 1.0 / Ajj;
 

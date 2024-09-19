@@ -982,12 +982,18 @@ In this way, I don't need to do divisions (which are expensive) and I can just s
 19 Sep 2024
 I changed the option of protoIPM, there is no more option to choose predcor, but there is to choose the format.
 ---
-
+I realized that I cannot store the reciprocal of the pivots, because I need to multiply columns by the pivots in multiple parts of the code (for ldl).
+For Cholesky this is also not possible, because I use trsm with diagonal.
+I may change all the pivots to be the inverse when the factorization is done, so that the infinity pivots can be zero, but for now I leave it as it is.
+---
+I changed the regularizaiton so that it applies before the sqrt.
+The problem now is that I regularize too much. I need the refinement.
+Sometimes however I seem to regularize too little.
+Strange behaviour.
+---
 
 *****
 To do:
-- regularization withour sqrt
 - row growth factor
-- inverse of D stored (change in densefact and solves)
 - add iterative refinement
 - parallel stuff
