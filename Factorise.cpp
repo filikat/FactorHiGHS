@@ -288,8 +288,8 @@ bool Factorise::check() const {
   // Return true if check is successful, or if matrix is too large.
   // To be used for debug.
 
-  if (S_.type() == FactType::AugSys ||
-      S_.packFormat() == PackType::HybridPacked) {
+  if (S_.factType() == FactType::LDLt ||
+      S_.formatType() == FormatType::HybridPacked) {
     printf("\n==> Dense check not available\n");
     return true;
   }
@@ -434,14 +434,14 @@ int Factorise::run(Numeric& num, bool verbose) {
   HybridPackedFormatHandler hybrid_packed_FH;
   HybridHybridFormatHandler hybrid_hybrid_FH;
 
-  switch (S_.packFormat()) {
-    case PackType::Full:
+  switch (S_.formatType()) {
+    case FormatType::Full:
       FH_ = &full_FH;
       break;
-    case PackType::HybridPacked:
+    case FormatType::HybridPacked:
       FH_ = &hybrid_packed_FH;
       break;
-    case PackType::HybridHybrid:
+    case FormatType::HybridHybrid:
       FH_ = &hybrid_hybrid_FH;
       break;
   }

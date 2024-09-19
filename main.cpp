@@ -179,7 +179,7 @@ int main(int argc, char** argv) {
   int n;
   int nz;
 
-  if (type == FactType::AugSys) {
+  if (type == FactType::LDLt) {
     // Augmented system, lower triangular
 
     const HighsSparseMatrix& A = lp.a_matrix_;
@@ -275,12 +275,12 @@ int main(int argc, char** argv) {
   // Symbolic factorisation
   // ===========================================================================
   int negative_pivots{};
-  if (type == AugSys) {
+  if (type == FactType::LDLt) {
     negative_pivots = nA;
   }
 
   Symbolic S;
-  Analyse An(rowsLower, ptrLower, type, order_to_use, negative_pivots);
+  Analyse An(rowsLower, ptrLower, order_to_use, negative_pivots);
   An.run(S, true);
   S.print();
 
@@ -391,7 +391,7 @@ int main(int argc, char** argv) {
   double ma87_time_analyse{};
   double ma87_time_factorise{};
   double ma87_time_solve{};
-  if (atoi(argv[3]) == 1 && S.type() == FactType::NormEq) {
+  if (atoi(argv[3]) == 1 && S.factType() == FactType::Chol) {
     std::vector<double> solMa87(rhs);
 
     MA87Data ma87_data;
@@ -447,7 +447,7 @@ int main(int argc, char** argv) {
   double ma97_time_factorise{};
   double ma97_time_solve{};
   MA97Data ma97_data;
-  if (atoi(argv[3]) == 1 && S.type() == FactType::NormEq) {
+  if (atoi(argv[3]) == 1 && S.factType() == FactType::Chol) {
     std::vector<double> solMa97(rhs);
 
     clock.start();

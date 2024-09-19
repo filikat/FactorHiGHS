@@ -6,8 +6,7 @@
 #include <stack>
 
 Analyse::Analyse(const std::vector<int>& rows, const std::vector<int>& ptr,
-                 FactType type, const std::vector<int>& order,
-                 int negative_pivots) {
+                 const std::vector<int>& order, int negative_pivots) {
   // Input the symmetric matrix to be analysed in CSC format.
   // row_ind contains the row indices.
   // col_ptr contains the starting points of each column.
@@ -17,7 +16,6 @@ Analyse::Analyse(const std::vector<int>& rows, const std::vector<int>& ptr,
 
   n_ = ptr.size() - 1;
   nz_ = rows.size();
-  type_ = type;
   negative_pivots_ = negative_pivots;
 
   // Create upper triangular part
@@ -1156,15 +1154,15 @@ void Analyse::generateLayer0(int n_threads, double imbalance_ratio) {
   const double max_load =
       *std::max_element(processors.begin(), processors.end());
   double ops_left = total_ops;
-  //printf("\nProcessors loads: ");
+  // printf("\nProcessors loads: ");
   for (int i = 0; i < processors.size(); ++i) {
-    //printf("%.2f ", processors[i] / max_load);
+    // printf("%.2f ", processors[i] / max_load);
     ops_left -= processors[i];
   }
-  //printf("\n");
+  // printf("\n");
 
-  //printf("Left / total %%: %.2f\n", ops_left / total_ops * 100);
-  //printf("Speedup: %.2f\n\n", total_ops / (ops_left + max_load));
+  // printf("Left / total %%: %.2f\n", ops_left / total_ops * 100);
+  // printf("Speedup: %.2f\n\n", total_ops / (ops_left + max_load));
 }
 
 void Analyse::reorderChildren() {
@@ -1415,7 +1413,6 @@ void Analyse::run(Symbolic& S, bool verbose) {
   if (verbose) printTimes();
 
   // move relevant stuff into S
-  S.type_ = type_;
   S.n_ = n_;
   S.nz_ = nz_factor_;
   S.fillin_ = (double)nz_factor_ / nz_;
@@ -1432,11 +1429,9 @@ void Analyse::run(Symbolic& S, bool verbose) {
   S.largest_sn_ = *std::max_element(temp.begin(), temp.end());
 
   // initialize sign of pivots and permute them
-  if (type_ == AugSys) {
-    S.pivot_sign_.insert(S.pivot_sign_.end(), negative_pivots_, -1);
-    S.pivot_sign_.insert(S.pivot_sign_.end(), n_ - negative_pivots_, 1);
-    permuteVector(S.pivot_sign_, perm_);
-  }
+  S.pivot_sign_.insert(S.pivot_sign_.end(), negative_pivots_, -1);
+  S.pivot_sign_.insert(S.pivot_sign_.end(), n_ - negative_pivots_, 1);
+  permuteVector(S.pivot_sign_, perm_);
 
   S.dense_ops_ = operations_;
   S.perm_ = std::move(perm_);

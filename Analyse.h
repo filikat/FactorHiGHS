@@ -31,7 +31,6 @@ class Analyse {
   double operations_{};
   double operations_no_relax_{};
   double operations_assembly_{};
-  FactType type_{};
   int negative_pivots_{};
 
   // Permutation and inverse permutation from Metis
@@ -99,8 +98,7 @@ class Analyse {
  public:
   // Constructor: matrix must be in lower triangular format
   Analyse(const std::vector<int>& rows, const std::vector<int>& ptr,
-          FactType type, const std::vector<int>& order = {},
-          int negative_pivots = 0);
+          const std::vector<int>& order = {}, int negative_pivots = 0);
 
   // Run analyse phase and save the result in Symbolic object S
   void run(Symbolic& S, bool verbose = false);

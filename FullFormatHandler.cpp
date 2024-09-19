@@ -25,7 +25,7 @@ void FullFormatHandler::assembleFrontalMultiple(int num, double* child, int nc,
 int FullFormatHandler::denseFactorise(double reg_thresh,
                                       std::vector<double>& times) {
   int status;
-  if (S_->type() == FactType::NormEq) {
+  if (S_->factType() == FactType::Chol) {
     status = dense_fact_pdbf(ldf_, sn_size_, nb_, frontal_->data(), ldf_,
                              *clique_, ldc_, times.data(), reg_thresh);
   } else {

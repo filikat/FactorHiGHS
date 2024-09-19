@@ -995,6 +995,9 @@ I realized that I don't need to pass around a pointer to the whole pivot_sign ve
 The signs should be correct now.
 I added the regularization to the augmented system, taking into account the sign that the pivot should have.
 ---
+I changed the option of ProtoIPM again, so that now I can select what approach to use (aug sys or norm eq) and also which factorization to use (chol or ldl).
+Factorizing the normal equations with LDL works, and actually seems to be more precise. Jacek mentioned that this may happen, because the sqrt could be problematic (??).
+---
 
 *****
 To do:

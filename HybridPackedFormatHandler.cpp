@@ -45,7 +45,7 @@ int HybridPackedFormatHandler::denseFactorise(double reg_thresh,
   status = dense_fact_l2h(frontal_->data(), ldf_, sn_size_, nb_, times.data());
   if (status) return status;
 
-  if (S_->type() == FactType::NormEq) {
+  if (S_->factType() == FactType::Chol) {
     status = dense_fact_pdbh(ldf_, sn_size_, nb_, frontal_->data(), *clique_,
                              times.data(), reg_thresh);
   } else {

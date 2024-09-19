@@ -4,16 +4,24 @@
 #include <vector>
 
 // Type of factorization:
-// normal equations or augmented system
-enum FactType { NormEq, AugSys };
-enum PackType { Full, HybridPacked, HybridHybrid };
+// - Cholesky
+// - LDLt
+enum class FactType { Chol, LDLt };
 
+// Storage format for dense matrices:
+// - full
+// - lower-blocked hybrid with packed Schur complement
+// - lower-blocked hybrid with hybrid Schur complement
+// (see report for details)
+enum class FormatType { Full, HybridPacked, HybridHybrid };
+
+// Symbolic factorization object
 class Symbolic {
   // Type of factorization
-  FactType type_{};
+  mutable FactType fact_type_ = FactType::LDLt;
 
-  // Packed or full format
-  mutable PackType pack_format_ = PackType::HybridPacked;
+  // Format
+  mutable FormatType format_type_ = FormatType::HybridPacked;
 
   // Size of blocks for dense factorization
   const int block_size_ = 128;
@@ -106,8 +114,8 @@ class Symbolic {
   void print() const;
 
   // provide const access to symbolic factorization
-  FactType type() const;
-  PackType packFormat() const;
+  FactType factType() const;
+  FormatType formatType() const;
   int blockSize() const;
   int size() const;
   int nz() const;
@@ -127,7 +135,8 @@ class Symbolic {
   const std::vector<int>& snStart() const;
   const std::vector<int>& pivotSign() const;
 
-  void setPackType(int i) const;
+  void setFact(FactType i) const;
+  void setFormat(FormatType i) const;
 };
 
 // Explanation of relative indices:

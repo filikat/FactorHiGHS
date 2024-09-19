@@ -5,7 +5,7 @@
 void Symbolic::print() const {
   printf("Symbolic factorisation:\n");
   printf(" - type                 %s\n",
-         type_ == FactType::NormEq ? "Normal equations" : "Augmented system");
+         fact_type_ == FactType::Chol ? "Cholesky" : "LDLt");
   printf(" - size                 %d\n", n_);
   printf(" - nonzero entries      %.2e\n", (double)nz_);
   printf(" - density              %.2f\n", ((double)nz_ / n_) / n_);
@@ -34,8 +34,8 @@ void Symbolic::print() const {
   }
 }
 
-FactType Symbolic::type() const { return type_; }
-PackType Symbolic::packFormat() const { return pack_format_; }
+FactType Symbolic::factType() const { return fact_type_; }
+FormatType Symbolic::formatType() const { return format_type_; }
 int Symbolic::blockSize() const { return block_size_; }
 int Symbolic::size() const { return n_; }
 int Symbolic::nz() const { return nz_; }
@@ -58,4 +58,5 @@ const std::vector<int>& Symbolic::snParent() const { return sn_parent_; }
 const std::vector<int>& Symbolic::snStart() const { return sn_start_; }
 const std::vector<int>& Symbolic::pivotSign() const { return pivot_sign_; }
 
-void Symbolic::setPackType(int i) const { pack_format_ = (PackType)i; }
+void Symbolic::setFact(FactType i) const { fact_type_ = i; }
+void Symbolic::setFormat(FormatType i) const { format_type_ = i; }
