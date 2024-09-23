@@ -47,23 +47,12 @@ class Factorise {
   void permute(const std::vector<int>& iperm);
   int processSupernode(int sn);
   bool check() const;
-  void printTimes() const;
 
  public:
   Factorise(const Symbolic& S, const std::vector<int>& rowsA,
             const std::vector<int>& ptrA, const std::vector<double>& valA);
 
-  int run(Numeric& num, bool verbose = false);
-
-  std::vector<double> time_per_sn_{};
-
-  double time_prepare_{};
-  double time_assemble_original_{};
-  double time_assemble_children_F_{};
-  double time_assemble_children_C_{};
-  double time_factorise_{};
-  double time_total_{};
-  std::vector<double> times_dense_fact_;
+  int run(Numeric& num);
 };
 
 #endif

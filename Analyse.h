@@ -89,11 +89,8 @@ class Analyse {
   void relativeIndCols();
   void relativeIndClique();
   bool check() const;
-
   void generateLayer0(int n_threads, double imbalance_ratio);
   void reorderChildren();
-
-  void printTimes() const;
 
  public:
   // Constructor: matrix must be in lower triangular format
@@ -101,18 +98,7 @@ class Analyse {
           const std::vector<int>& order = {}, int negative_pivots = 0);
 
   // Run analyse phase and save the result in Symbolic object S
-  void run(Symbolic& S, bool verbose = false);
-
-  // times
-  double time_metis_{};
-  double time_tree_{};
-  double time_count_{};
-  double time_pattern_{};
-  double time_sn_{};
-  double time_reorder_{};
-  double time_relind_{};
-  double time_total_{};
-  double time_layer0_{};
+  void run(Symbolic& S);
 
   // save metis iperm to be used by hsl codes for comparison
   std::vector<int> metis_order_{};

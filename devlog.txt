@@ -1000,7 +1000,14 @@ Factorizing the normal equations with LDL works, and actually seems to be more p
 ---
 
 *****
+23 Sep 2024
+I changed the timing, so that it propagates throughout the IPM iterations.
+It is now stored in Symbolic and passed around the various routines.
+I added some #define, to have three levels of timing.
+---
+
+*****
 To do:
+- fix iterative refinement
 - row growth factor
-- add iterative refinement
 - parallel stuff

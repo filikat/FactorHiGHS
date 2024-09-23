@@ -1039,29 +1039,6 @@ bool Analyse::check() const {
   }
 }
 
-void Analyse::printTimes() const {
-  printf("\n----------------------------------------------------\n");
-  printf("\t\tAnalyse\n");
-  printf("----------------------------------------------------\n");
-  printf("\nAnalyse time            \t%8.4f\n", time_total_);
-  printf("\tMetis:                  %8.4f (%4.1f%%)\n", time_metis_,
-         time_metis_ / time_total_ * 100);
-  printf("\tTree:                   %8.4f (%4.1f%%)\n", time_tree_,
-         time_tree_ / time_total_ * 100);
-  printf("\tCounts:                 %8.4f (%4.1f%%)\n", time_count_,
-         time_count_ / time_total_ * 100);
-  printf("\tSupernodes:             %8.4f (%4.1f%%)\n", time_sn_,
-         time_sn_ / time_total_ * 100);
-  printf("\tReorder:                %8.4f (%4.1f%%)\n", time_reorder_,
-         time_reorder_ / time_total_ * 100);
-  printf("\tSn sparsity pattern:    %8.4f (%4.1f%%)\n", time_pattern_,
-         time_pattern_ / time_total_ * 100);
-  printf("\tRelative indices:       %8.4f (%4.1f%%)\n", time_relind_,
-         time_relind_ / time_total_ * 100);
-  printf("\tLayer 0:                %8.4f (%4.1f%%)\n", time_layer0_,
-         time_layer0_ / time_total_ * 100);
-}
-
 void Analyse::generateLayer0(int n_threads, double imbalance_ratio) {
   // linked lists of children
   std::vector<int> head, next;
@@ -1360,57 +1337,89 @@ void Analyse::reorderChildren() {
   inversePerm(perm_, iperm_);
 }
 
-void Analyse::run(Symbolic& S, bool verbose) {
+void Analyse::run(Symbolic& S) {
   // Perform analyse phase and store the result into the symbolic object S.
   // After Run returns, the Analyse object is not valid.
 
   if (!ready_) return;
 
-  Clock clock0{};
-  clock0.start();
+  S.times().resize(kTimeSize);
 
-  Clock clock{};
+  Clock clock_total{};
+  Clock clock_items{};
 
-  clock.start();
+#ifdef COARSE_TIMING
+  clock_total.start();
+#endif
+
+#ifdef FINE_TIMING
+  clock_items.start();
+#endif
   getPermutation();
-  time_metis_ = clock.stop();
+#ifdef FINE_TIMING
+  S.times(kTimeAnalyseMetis) += clock_items.stop();
+#endif
 
-  clock.start();
+#ifdef FINE_TIMING
+  clock_items.start();
+#endif
   permute(iperm_);
   eTree();
   postorder();
-  time_tree_ = clock.stop();
+#ifdef FINE_TIMING
+  S.times(kTimeAnalyseTree) += clock_items.stop();
+#endif
 
-  clock.start();
+#ifdef FINE_TIMING
+  clock_items.start();
+#endif
   colCount();
-  time_count_ = clock.stop();
+#ifdef FINE_TIMING
+  S.times(kTimeAnalyseCount) += clock_items.stop();
+#endif
 
-  clock.start();
+#ifdef FINE_TIMING
+  clock_items.start();
+#endif
   fundamentalSupernodes();
   relaxSupernodes();
   afterRelaxSn();
-  time_sn_ = clock.stop();
+#ifdef FINE_TIMING
+  S.times(kTimeAnalyseSn) += clock_items.stop();
+#endif
 
-  clock.start();
+#ifdef FINE_TIMING
+  clock_items.start();
+#endif
   reorderChildren();
-  time_reorder_ = clock.stop();
+#ifdef FINE_TIMING
+  S.times(kTimeAnalyseReorder) += clock_items.stop();
+#endif
 
-  clock.start();
+#ifdef FINE_TIMING
+  clock_items.start();
+#endif
   snPattern();
-  time_pattern_ = clock.stop();
+#ifdef FINE_TIMING
+  S.times(kTimeAnalysePattern) += clock_items.stop();
+#endif
 
-  clock.start();
+#ifdef FINE_TIMING
+  clock_items.start();
+#endif
   relativeIndCols();
   relativeIndClique();
-  time_relind_ = clock.stop();
+#ifdef FINE_TIMING
+  S.times(kTimeAnalyseRelInd) += clock_items.stop();
+#endif
 
-  clock.start();
+#ifdef FINE_TIMING
+  clock_items.start();
+#endif
   generateLayer0(4, 0.7);
-  time_layer0_ = clock.stop();
-
-  time_total_ = clock0.stop();
-
-  if (verbose) printTimes();
+#ifdef FINE_TIMING
+  S.times(kTimeAnalyseLayer0) += clock_items.stop();
+#endif
 
   // move relevant stuff into S
   S.n_ = n_;
@@ -1443,4 +1452,8 @@ void Analyse::run(Symbolic& S, bool verbose) {
   S.relind_cols_ = std::move(relind_cols_);
   S.relind_clique_ = std::move(relind_clique_);
   S.consecutive_sums_ = std::move(consecutive_sums_);
+
+#ifdef COARSE_TIMING
+  S.times(kTimeAnalyse) += clock_total.stop();
+#endif
 }

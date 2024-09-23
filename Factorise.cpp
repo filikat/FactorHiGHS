@@ -127,7 +127,9 @@ int Factorise::processSupernode(int sn) {
   // store the result.
   Clock clock;
 
+#ifdef FINE_TIMING
   clock.start();
+#endif
   // ===================================================
   // Supernode information
   // ===================================================
@@ -154,9 +156,13 @@ int Factorise::processSupernode(int sn) {
   // initialize clique
   FH_->initClique();
 
-  time_prepare_ += clock.stop();
+#ifdef FINE_TIMING
+  S_.times(kTimeFactorisePrepare) += clock.stop();
+#endif
 
+#ifdef FINE_TIMING
   clock.start();
+#endif
   // ===================================================
   // Assemble original matrix A into frontal
   // ===================================================
@@ -173,12 +179,16 @@ int Factorise::processSupernode(int sn) {
       FH_->assembleFrontal(i, j, valA_[el]);
     }
   }
-  time_assemble_original_ += clock.stop();
+#ifdef FINE_TIMING
+  S_.times(kTimeFactoriseAssembleOriginal) += clock.stop();
+#endif
 
   // ===================================================
   // Assemble frontal matrices of children into frontal
   // ===================================================
+#ifdef FINE_TIMING
   clock.start();
+#endif
   int child_sn = first_children_[sn];
   while (child_sn != -1) {
     // Schur contribution of the current child
@@ -230,23 +240,34 @@ int Factorise::processSupernode(int sn) {
     // move on to the next child
     child_sn = next_children_[child_sn];
   }
-  time_assemble_children_F_ += clock.stop();
+#ifdef FINE_TIMING
+  S_.times(kTimeFactoriseAssembleChildrenF) += clock.stop();
+#endif
 
   // ===================================================
   // Partial factorisation
   // ===================================================
+#ifdef FINE_TIMING
   clock.start();
+#endif
 
-  double reg_thresh = max_diag * 1e-16;
-  int status = FH_->denseFactorise(reg_thresh, times_dense_fact_);
+  // threshold for regularization
+  double reg_thresh = max_diag * 1e-16 * 1e-10;
+
+  int status = FH_->denseFactorise(reg_thresh, S_.times());
   if (status) return status;
 
-  time_factorise_ += clock.stop();
+#ifdef FINE_TIMING
+  S_.times(kTimeFactoriseDenseFact) += clock.stop();
+#endif
 
   // ===================================================
   // Assemble frontal matrices of children into clique
   // ===================================================
+#ifdef FINE_TIMING
   clock.start();
+#endif
+
   child_sn = first_children_[sn];
   while (child_sn != -1) {
     // Schur contribution of the current child
@@ -274,7 +295,10 @@ int Factorise::processSupernode(int sn) {
     // move on to the next child
     child_sn = next_children_[child_sn];
   }
-  time_assemble_children_C_ += clock.stop();
+
+#ifdef FINE_TIMING
+  S_.times(kTimeFactoriseAssembleChildrenC) += clock.stop();
+#endif
 
   // detach from the format handler
   FH_->detach();
@@ -375,58 +399,13 @@ bool Factorise::check() const {
   }
 }
 
-void Factorise::printTimes() const {
-  printf("\n----------------------------------------------------\n");
-  printf("\t\tFactorise\n");
-  printf("----------------------------------------------------\n");
-  printf("\nFactorise time          \t%8.4f\n", time_total_);
-  printf("\tPrepare:                %8.4f (%4.1f%%)\n", time_prepare_,
-         time_prepare_ / time_total_ * 100);
-  printf("\tAssembly original:      %8.4f (%4.1f%%)\n", time_assemble_original_,
-         time_assemble_original_ / time_total_ * 100);
-  printf("\tAssembly into frontal:  %8.4f (%4.1f%%)\n",
-         time_assemble_children_F_,
-         time_assemble_children_F_ / time_total_ * 100);
-  printf("\tAssembly into clique:   %8.4f (%4.1f%%)\n",
-         time_assemble_children_C_,
-         time_assemble_children_C_ / time_total_ * 100);
-  printf("\tDense factorisation:    %8.4f (%4.1f%%)\n", time_factorise_,
-         time_factorise_ / time_total_ * 100);
-
-  if (times_dense_fact_[t_dtrsm] + times_dense_fact_[t_dsyrk] +
-          times_dense_fact_[t_dgemm] + times_dense_fact_[t_fact] +
-          times_dense_fact_[t_dcopy] + times_dense_fact_[t_dscal] +
-          times_dense_fact_[t_convert] ==
-      0.0) {
-    return;
-  }
-
-  printf("\t\t  |\n");
-  printf("\t\t  |   trsm:     %8.4f (%4.1f%%)\n", times_dense_fact_[t_dtrsm],
-         times_dense_fact_[t_dtrsm] / time_factorise_ * 100);
-  printf("\t\t  |_  syrk:     %8.4f (%4.1f%%)\n", times_dense_fact_[t_dsyrk],
-         times_dense_fact_[t_dsyrk] / time_factorise_ * 100);
-  printf("\t\t      gemm:     %8.4f (%4.1f%%)\n", times_dense_fact_[t_dgemm],
-         times_dense_fact_[t_dgemm] / time_factorise_ * 100);
-  printf("\t\t      fact:     %8.4f (%4.1f%%)\n", times_dense_fact_[t_fact],
-         times_dense_fact_[t_fact] / time_factorise_ * 100);
-  printf("\t\t      copy:     %8.4f (%4.1f%%)\n", times_dense_fact_[t_dcopy],
-         times_dense_fact_[t_dcopy] / time_factorise_ * 100);
-  printf("\t\t      copy sch: %8.4f (%4.1f%%)\n",
-         times_dense_fact_[t_dcopy_schur],
-         times_dense_fact_[t_dcopy_schur] / time_factorise_ * 100);
-  printf("\t\t      scal:     %8.4f (%4.1f%%)\n", times_dense_fact_[t_dscal],
-         times_dense_fact_[t_dscal] / time_factorise_ * 100);
-  printf("\t\t      convert:  %8.4f (%4.1f%%)\n", times_dense_fact_[t_convert],
-         times_dense_fact_[t_convert] / time_factorise_ * 100);
-}
-
-int Factorise::run(Numeric& num, bool verbose) {
+int Factorise::run(Numeric& num) {
   Clock clock;
-  clock.start();
 
-  time_per_sn_.resize(S_.sn());
-  times_dense_fact_.resize(TimesInd::t_size);
+#ifdef COARSE_TIMING
+  clock.start();
+#endif
+
   clique_block_start_.resize(S_.sn());
 
   // Handle multiple formats
@@ -446,25 +425,21 @@ int Factorise::run(Numeric& num, bool verbose) {
       break;
   }
 
-  Clock clock_sn;
-
   int status{};
   for (int sn = 0; sn < S_.sn(); ++sn) {
-    clock_sn.start();
     status = processSupernode(sn);
-    time_per_sn_[sn] = clock_sn.stop();
     if (status) break;
   }
-
-  time_total_ = clock.stop();
-
-  if (verbose) printTimes();
 
   if (status) return status;
 
   // move factorisation to numerical object
   num.sn_columns_ = std::move(sn_columns_);
   num.S_ = &S_;
+
+#ifdef COARSE_TIMING
+  S_.times(kTimeFactorise) += clock.stop();
+#endif
 
   return kRetOk;
 }

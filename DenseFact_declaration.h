@@ -37,18 +37,6 @@ int dense_fact_l2h(double* A, int nrow, int ncol, int nb, double* times);
 }
 #endif
 
-enum TimesInd {
-  t_dtrsm,
-  t_dsyrk,
-  t_dgemm,
-  t_fact,
-  t_dcopy,
-  t_dcopy_schur,
-  t_dscal,
-  t_convert,
-  t_size
-};
-
 enum RetValue {
   kRetOk,
   kRetInvalidInput,
