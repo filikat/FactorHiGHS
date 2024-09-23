@@ -19,7 +19,9 @@ cpp_sources = \
 
 c_sources = \
 	hsl_wrapper.c \
-	DenseFact.c 
+	DenseFact.c \
+	CallAndTimeBlas.c \
+	timing.c
 
 # binary file name
 binary_name = fact

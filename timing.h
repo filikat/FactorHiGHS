@@ -2,7 +2,7 @@
 #define TIMING_H
 
 // choose level of timing: 1, 2, 3
-#define TIMING_3
+#define TIMING_2
 
 // define for timing
 #if (defined(TIMING_1) || defined(TIMING_2) || defined(TIMING_3))
@@ -49,5 +49,7 @@ enum TimeItems {
   // enum size
   kTimeSize
 };
+
+double GetTime();
 
 #endif

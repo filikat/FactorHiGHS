@@ -2,13 +2,8 @@
 #define DENSE_FACT_H
 
 #include <time.h>
-#include "Blas_declaration.h"
 
-double GetTime() {
-  struct timespec now;
-  clock_gettime(CLOCK_REALTIME, &now);
-  return now.tv_sec + now.tv_nsec * 1e-9;
-}
+#include "Blas_declaration.h"
 
 #define max(i, j) ((i) >= (j) ? (i) : (j))
 #define min(i, j) ((i) >= (j) ? (j) : (i))

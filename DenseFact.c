@@ -1,11 +1,10 @@
 #include "DenseFact.h"
 
-#include <assert.h>
 #include <math.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "CallAndTimeBlas.h"
 #include "DenseFact_declaration.h"
 #include "timing.h"
 
@@ -399,12 +398,8 @@ int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
   // ===========================================================================
 
   // check input
-  if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k))) {
-    printf("\ndense_fact_pdbf: invalid input\n");
-    return kRetInvalidInput;
-  }
-
-  if (!times) {
+  if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k)) ||
+      !times) {
     printf("\ndense_fact_pdbf: invalid input\n");
     return kRetInvalidInput;
   }
@@ -428,57 +423,27 @@ int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
     const double* Q = &A[j + N];
     double* R = &A[j + N + lda * j];
 
-// update diagonal block
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
-    dsyrk_(&c_L, &c_N, &N, &K, &d_m_one, P, &lda, &d_one, D, &lda);
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_syrk] += GetTime() - t0;
-#endif
+    // update diagonal block
+    callAndTime_dsyrk('L', 'N', N, K, -1.0, P, lda, 1.0, D, lda, times);
 
-// factorize diagonal block
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
-    int info = dense_fact_fduf('L', N, D, lda, thresh);
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_fact] += GetTime() - t0;
-#endif
+    // factorize diagonal block
+    int info = callAndTime_fduf('L', N, D, lda, thresh, times);
     if (info != 0) return info;
 
     if (j + jb < n) {
-// update block of columns
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
-      dgemm_(&c_N, &c_T, &M, &N, &K, &d_m_one, Q, &lda, P, &lda, &d_one, R,
-             &lda);
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_gemm] += GetTime() - t0;
-#endif
+      // update block of columns
+      callAndTime_dgemm('N', 'T', M, N, K, -1.0, Q, lda, P, lda, 1.0, R, lda,
+                        times);
 
-// solve block of columns with diagonal block
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
-      dtrsm_(&c_R, &c_L, &c_T, &c_N, &M, &N, &d_one, D, &lda, R, &lda);
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_trsm] += GetTime() - t0;
-#endif
+      // solve block of columns with diagonal block
+      callAndTime_dtrsm('R', 'L', 'T', 'N', M, N, 1.0, D, lda, R, lda, times);
     }
   }
 
   // update Schur complement if partial factorization is required
   if (k < n) {
     const int N = n - k;
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
-    dsyrk_(&c_L, &c_N, &N, &k, &d_m_one, &A[k], &lda, &d_zero, B, &ldb);
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_syrk] += GetTime() - t0;
-#endif
+    callAndTime_dsyrk('L', 'N', N, k, -1.0, &A[k], lda, 0.0, B, ldb, times);
   }
 
   return kRetOk;
@@ -524,71 +489,34 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
       return kRetOutOfMemory;
     }
     int ldt = jb;
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
     for (int i = 0; i < j; ++i) {
-      dcopy_(&N, &A[j + i * lda], &i_one, &T[i * ldt], &i_one);
-      dscal_(&N, &A[i + i * lda], &T[i * ldt], &i_one);
+      callAndTime_dcopy(N, &A[j + i * lda], 1, &T[i * ldt], 1, times);
+      callAndTime_dscal(N, A[i + i * lda], &T[i * ldt], 1, times);
     }
-#ifdef FINEST_TIMING
-    double temp = GetTime() - t0;
-    times[kTimeDenseFact_copy] += temp / 2;
-    times[kTimeDenseFact_scal] += temp / 2;
-#endif
 
-// update diagonal block using dgemm_
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
-    dgemm_(&c_N, &c_T, &jb, &jb, &j, &d_m_one, P, &lda, T, &ldt, &d_one, D,
-           &lda);
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_gemm] += GetTime() - t0;
-#endif
+    // update diagonal block using dgemm_
+    callAndTime_dgemm('N', 'T', jb, jb, j, -1.0, P, lda, T, ldt, 1.0, D, lda,
+                      times);
 
-// factorize diagonal block
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
+    // factorize diagonal block
     const int* pivot_sign_current = &pivot_sign[j];
-    int info = dense_fact_fiuf('L', N, D, lda, pivot_sign_current, thresh);
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_fact] += GetTime() - t0;
-#endif
+    int info =
+        callAndTime_fiuf('L', N, D, lda, pivot_sign_current, thresh, times);
     if (info != 0) return info;
 
     if (j + jb < n) {
-// update block of columns
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
-      dgemm_(&c_N, &c_T, &M, &N, &K, &d_m_one, Q, &lda, T, &ldt, &d_one, R,
-             &lda);
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_gemm] += GetTime() - t0;
-#endif
+      // update block of columns
+      callAndTime_dgemm('N', 'T', M, N, K, -1.0, Q, lda, T, ldt, 1.0, R, lda,
+                        times);
 
-// solve block of columns with L
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
-      dtrsm_(&c_R, &c_L, &c_T, &c_U, &M, &N, &d_one, D, &lda, R, &lda);
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_trsm] += GetTime() - t0;
-#endif
+      // solve block of columns with L
+      callAndTime_dtrsm('R', 'L', 'T', 'U', M, N, 1.0, D, lda, R, lda, times);
 
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
       // solve block of columns with D
       for (int i = 0; i < jb; ++i) {
         const double coeff = 1.0 / A[j + i + (j + i) * lda];
-        dscal_(&M, &coeff, &A[j + jb + lda * (j + i)], &i_one);
+        callAndTime_dscal(M, coeff, &A[j + jb + lda * (j + i)], 1, times);
       }
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_scal] += GetTime() - t0;
-#endif
     }
 
     free(T);
@@ -623,9 +551,6 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
 
     const int ldt = n - k;
 
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
     // the copies of the columns are multiplied by sqrt(|Ajj|)
     int start_pos = 0;
     int start_neg = 0;
@@ -633,37 +558,30 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
       double Ajj = A[j + lda * j];
       if (Ajj >= 0.0) {
         Ajj = sqrt(Ajj);
-        dcopy_(&N, &A[k + j * lda], &i_one, &temp_pos[start_pos * ldt], &i_one);
-        dscal_(&N, &Ajj, &temp_pos[start_pos * ldt], &i_one);
+        callAndTime_dcopy(N, &A[k + j * lda], 1, &temp_pos[start_pos * ldt], 1,
+                          times);
+        callAndTime_dscal(N, Ajj, &temp_pos[start_pos * ldt], 1, times);
         ++start_pos;
       } else {
         Ajj = sqrt(-Ajj);
-        dcopy_(&N, &A[k + j * lda], &i_one, &temp_neg[start_neg * ldt], &i_one);
-        dscal_(&N, &Ajj, &temp_neg[start_neg * ldt], &i_one);
+        callAndTime_dcopy(N, &A[k + j * lda], 1, &temp_neg[start_neg * ldt], 1,
+                          times);
+        callAndTime_dscal(N, Ajj, &temp_neg[start_neg * ldt], 1, times);
         ++start_neg;
       }
     }
-#ifdef FINEST_TIMING
-    double temp = GetTime() - t0;
-    times[kTimeDenseFact_copy] += temp / 2;
-    times[kTimeDenseFact_scal] += temp / 2;
-#endif
 
-// Update schur complement by subtracting contribution of positive columns
-// and adding contribution of negative columns.
-// In this way, I can use dsyrk_ instead of dgemm_ and avoid updating the
-// full square schur complement. First call uses beta = 0.0, to clear
-// content of B. Second call uses beta = 1.0, to not clear the result of
-// the first call.
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
-    dsyrk_(&c_L, &c_N, &N, &pos_pivot, &d_m_one, temp_pos, &ldt, &d_zero, B,
-           &ldb);
-    dsyrk_(&c_L, &c_N, &N, &neg_pivot, &d_one, temp_neg, &ldt, &d_one, B, &ldb);
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_syrk] += GetTime() - t0;
-#endif
+    // Update schur complement by subtracting contribution of positive columns
+    // and adding contribution of negative columns.
+    // In this way, I can use dsyrk_ instead of dgemm_ and avoid updating the
+    // full square schur complement. First call uses beta = 0.0, to clear
+    // content of B. Second call uses beta = 1.0, to not clear the result of
+    // the first call.
+
+    callAndTime_dsyrk('L', 'N', N, pos_pivot, -1.0, temp_pos, ldt, 0.0, B, ldb,
+                      times);
+    callAndTime_dsyrk('L', 'N', N, neg_pivot, 1.0, temp_neg, ldt, 1.0, B, ldb,
+                      times);
 
     free(temp_pos);
     free(temp_neg);
@@ -728,19 +646,14 @@ int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
     const int this_diag_size = jb * (jb + 1) / 2;
     const int this_full_size = nb * jb;
 
-// full copy of diagonal block by rows, in D
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
+    // full copy of diagonal block by rows, in D
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       const int N = Drow + 1;
-      dcopy_(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
+      callAndTime_dcopy(N, &A[diag_start[j] + offset], 1, &D[Drow * jb], 1,
+                        times);
       offset += N;
     }
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_copy] += GetTime() - t0;
-#endif
 
     // number of rows left below block j
     const int M = n - nb * j - jb;
@@ -755,63 +668,34 @@ int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
       if (j > k + 1) Pk_pos += full_size * (j - k - 1);
       const double* Pk = &A[Pk_pos];
 
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
-      dsyrk_(&c_U, &c_T, &jb, &nb, &d_m_one, Pk, &nb, &d_one, D, &jb);
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_syrk] += GetTime() - t0;
-#endif
+      callAndTime_dsyrk('U', 'T', jb, nb, -1.0, Pk, nb, 1.0, D, jb, times);
 
       if (M > 0) {
         const int Qk_pos = Pk_pos + this_full_size;
         const double* Qk = &A[Qk_pos];
 
-#ifdef FINEST_TIMING
-        t0 = GetTime();
-#endif
-        dgemm_(&c_T, &c_N, &jb, &M, &nb, &d_m_one, Pk, &nb, Qk, &nb, &d_one, R,
-               &jb);
-#ifdef FINEST_TIMING
-        times[kTimeDenseFact_gemm] += GetTime() - t0;
-#endif
+        callAndTime_dgemm('T', 'N', jb, M, nb, -1.0, Pk, nb, Qk, nb, 1.0, R, jb,
+                          times);
       }
     }
 
-// factorize diagonal block
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
-    int info = dense_fact_fduf('U', jb, D, jb, thresh);
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_fact] += GetTime() - t0;
-#endif
+    // factorize diagonal block
+    int info = callAndTime_fduf('U', jb, D, jb, thresh, times);
     if (info != 0) return info;
 
     if (M > 0) {
-// solve block of columns with diagonal block
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
-      dtrsm_(&c_L, &c_U, &c_T, &c_N, &jb, &M, &d_one, D, &jb, R, &jb);
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_trsm] += GetTime() - t0;
-#endif
+      // solve block of columns with diagonal block
+      callAndTime_dtrsm('L', 'U', 'T', 'N', jb, M, 1.0, D, jb, R, jb, times);
     }
 
-// put D back into packed format
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
+    // put D back into packed format
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       const int N = Drow + 1;
-      dcopy_(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
+      callAndTime_dcopy(N, &D[Drow * jb], 1, &A[diag_start[j] + offset], 1,
+                        times);
       offset += N;
     }
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_copy] += GetTime() - t0;
-#endif
   }
   free(D);
 
@@ -867,28 +751,16 @@ int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
         }
         diag_pos += sb * this_full_size;
 
-// update diagonal block
-#ifdef FINEST_TIMING
-        t0 = GetTime();
-#endif
-        dsyrk_(&c_U, &c_T, &ncol, &jb, &d_m_one, &A[diag_pos], &jb, &beta,
-               schur_buf, &ncol);
-#ifdef FINEST_TIMING
-        times[kTimeDenseFact_syrk] += GetTime() - t0;
-#endif
+        // update diagonal block
+        callAndTime_dsyrk('U', 'T', ncol, jb, -1.0, &A[diag_pos], jb, beta,
+                          schur_buf, ncol, times);
 
         // update subdiagonal part
         const int M = nrow - nb;
         if (M > 0) {
-#ifdef FINEST_TIMING
-          t0 = GetTime();
-#endif
-          dgemm_(&c_T, &c_N, &nb, &M, &jb, &d_m_one, &A[diag_pos], &jb,
-                 &A[diag_pos + this_full_size], &jb, &beta,
-                 &schur_buf[ncol * ncol], &ncol);
-#ifdef FINEST_TIMING
-          times[kTimeDenseFact_gemm] += GetTime() - t0;
-#endif
+          callAndTime_dgemm('T', 'N', nb, M, jb, -1.0, &A[diag_pos], jb,
+                            &A[diag_pos + this_full_size], jb, beta,
+                            &schur_buf[ncol * ncol], ncol, times);
         }
 
         // beta is 0 for the first time (to avoid initializing schur_buf) and
@@ -896,21 +768,15 @@ int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
         beta = 1.0;
       }
 
-// schur_buf contains Schur complement in hybrid format (with full
-// diagonal blocks). Put it in lower-packed format in B.
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
+      // schur_buf contains Schur complement in hybrid format (with full
+      // diagonal blocks). Put it in lower-packed format in B.
+
       for (int buf_row = 0; buf_row < nrow; ++buf_row) {
         const int N = ncol;
-        dcopy_(&N, &schur_buf[buf_row * ncol], &i_one, &B[B_start + buf_row],
-               &nrow);
+        callAndTime_dcopy_schur(N, &schur_buf[buf_row * ncol], 1,
+                                &B[B_start + buf_row], nrow, times);
       }
       B_start += nrow * ncol;
-
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_copyschur] += GetTime() - t0;
-#endif
     }
 
     free(schur_buf);
@@ -987,19 +853,14 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
     const int this_diag_size = jb * (jb + 1) / 2;
     const int this_full_size = nb * jb;
 
-// full copy of diagonal block by rows, in D
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
+    // full copy of diagonal block by rows, in D
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       const int N = Drow + 1;
-      dcopy_(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
+      callAndTime_dcopy(N, &A[diag_start[j] + offset], 1, &D[Drow * jb], 1,
+                        times);
       offset += N;
     }
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_copy] += GetTime() - t0;
-#endif
 
     // number of rows left below block j
     const int M = n - nb * j - jb;
@@ -1015,102 +876,56 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
       if (j > k + 1) Pk_pos += full_size * (j - k - 1);
       const double* Pk = &A[Pk_pos];
 
-// copy block jk into temp
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
-      dcopy_(&this_full_size, Pk, &i_one, T, &i_one);
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_copy] += GetTime() - t0;
-#endif
+      // copy block jk into temp
+      callAndTime_dcopy(this_full_size, Pk, 1, T, 1, times);
 
-// scale temp by pivots
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
+      // scale temp by pivots
       int pivot_pos = diag_start[k];
       for (int col = 0; col < nb; ++col) {
-        dscal_(&jb, &A[pivot_pos], &T[col], &nb);
+        callAndTime_dscal(jb, A[pivot_pos], &T[col], nb, times);
         pivot_pos += col + 2;
       }
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_scal] += GetTime() - t0;
-#endif
 
-// update diagonal block with dgemm_
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
-      dgemm_(&c_T, &c_N, &jb, &jb, &nb, &d_m_one, T, &nb, Pk, &nb, &d_one, D,
-             &jb);
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_gemm] += GetTime() - t0;
-#endif
+      // update diagonal block with dgemm_
+      callAndTime_dgemm('T', 'N', jb, jb, nb, -1.0, T, nb, Pk, nb, 1.0, D, jb,
+                        times);
 
       // update rectangular block
       if (M > 0) {
         const int Qk_pos = Pk_pos + this_full_size;
         const double* Qk = &A[Qk_pos];
-#ifdef FINEST_TIMING
-        t0 = GetTime();
-#endif
-        dgemm_(&c_T, &c_N, &jb, &M, &nb, &d_m_one, T, &nb, Qk, &nb, &d_one, R,
-               &jb);
-#ifdef FINEST_TIMING
-        times[kTimeDenseFact_gemm] += GetTime() - t0;
-#endif
+        callAndTime_dgemm('T', 'N', jb, M, nb, -1.0, T, nb, Qk, nb, 1.0, R, jb,
+                          times);
       }
     }
 
-// factorize diagonal block
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
+    // factorize diagonal block
     const int* pivot_sign_current = &pivot_sign[j * nb];
-    int info = dense_fact_fiuf('U', jb, D, jb, pivot_sign_current, thresh);
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_fact] += GetTime() - t0;
-#endif
+    int info =
+        callAndTime_fiuf('U', jb, D, jb, pivot_sign_current, thresh, times);
     if (info != 0) return info;
 
     if (M > 0) {
-// solve block of columns with diagonal block
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
-      dtrsm_(&c_L, &c_U, &c_T, &c_U, &jb, &M, &d_one, D, &jb, R, &jb);
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_trsm] += GetTime() - t0;
-#endif
+      // solve block of columns with diagonal block
+      callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D, jb, R, jb, times);
 
-// scale columns by pivots
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
+      // scale columns by pivots
       int pivot_pos = 0;
       for (int col = 0; col < jb; ++col) {
         const double coeff = 1.0 / D[pivot_pos];
-        dscal_(&M, &coeff, &A[R_pos + col], &jb);
+        callAndTime_dscal(M, coeff, &A[R_pos + col], jb, times);
         pivot_pos += jb + 1;
       }
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_scal] += GetTime() - t0;
-#endif
     }
 
-// put D back into packed format
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
+    // put D back into packed format
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       const int N = Drow + 1;
-      dcopy_(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
+      callAndTime_dcopy(N, &D[Drow * jb], 1, &A[diag_start[j] + offset], 1,
+                        times);
       offset += N;
     }
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_copy] += GetTime() - t0;
-#endif
   }
   free(D);
 
@@ -1168,48 +983,25 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
 
         // create copy of block, multiplied by pivots
         const int N = ncol * jb;
-#ifdef FINEST_TIMING
-        t0 = GetTime();
-#endif
-        dcopy_(&N, &A[diag_pos], &i_one, T, &i_one);
-#ifdef FINEST_TIMING
-        times[kTimeDenseFact_copy] += GetTime() - t0;
-#endif
+        callAndTime_dcopy(N, &A[diag_pos], 1, T, 1, times);
 
         int pivot_pos = diag_start[j];
-#ifdef FINEST_TIMING
-        t0 = GetTime();
-#endif
+
         for (int col = 0; col < jb; ++col) {
-          dscal_(&ncol, &A[pivot_pos], &T[col], &jb);
+          callAndTime_dscal(ncol, A[pivot_pos], &T[col], jb, times);
           pivot_pos += col + 2;
         }
-#ifdef FINEST_TIMING
-        times[kTimeDenseFact_scal] += GetTime() - t0;
-#endif
 
-// update diagonal block using dgemm_
-#ifdef FINEST_TIMING
-        t0 = GetTime();
-#endif
-        dgemm_(&c_T, &c_N, &ncol, &ncol, &jb, &d_m_one, T, &jb, &A[diag_pos],
-               &jb, &beta, schur_buf, &ncol);
-#ifdef FINEST_TIMING
-        times[kTimeDenseFact_gemm] += GetTime() - t0;
-#endif
+        // update diagonal block using dgemm_
+        callAndTime_dgemm('T', 'N', ncol, ncol, jb, -1.0, T, jb, &A[diag_pos],
+                          jb, beta, schur_buf, ncol, times);
 
         // update subdiagonal part
         const int M = nrow - nb;
         if (M > 0) {
-#ifdef FINEST_TIMING
-          t0 = GetTime();
-#endif
-          dgemm_(&c_T, &c_N, &ncol, &M, &jb, &d_m_one, T, &jb,
-                 &A[diag_pos + this_full_size], &jb, &beta,
-                 &schur_buf[ncol * ncol], &ncol);
-#ifdef FINEST_TIMING
-          times[kTimeDenseFact_gemm] += GetTime() - t0;
-#endif
+          callAndTime_dgemm('T', 'N', ncol, M, jb, -1.0, T, jb,
+                            &A[diag_pos + this_full_size], jb, beta,
+                            &schur_buf[ncol * ncol], ncol, times);
         }
 
         // beta is 0 for the first time (to avoid initializing schur_buf) and
@@ -1217,20 +1009,14 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
         beta = 1.0;
       }
 
-// schur_buf contains Schur complement in hybrid format (with full
-// diagonal blocks). Put it in lower-packed format in B.
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
+      // schur_buf contains Schur complement in hybrid format (with full
+      // diagonal blocks). Put it in lower-packed format in B.
       for (int buf_row = 0; buf_row < nrow; ++buf_row) {
         const int N = ncol;
-        dcopy_(&N, &schur_buf[buf_row * ncol], &i_one, &B[B_start + buf_row],
-               &nrow);
+        callAndTime_dcopy_schur(N, &schur_buf[buf_row * ncol], 1,
+                                &B[B_start + buf_row], nrow, times);
       }
       B_start += nrow * ncol;
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_copyschur] += GetTime() - t0;
-#endif
     }
 
     free(schur_buf);
@@ -1298,19 +1084,14 @@ int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double* times,
     const int this_diag_size = jb * (jb + 1) / 2;
     const int this_full_size = nb * jb;
 
-// full copy of diagonal block by rows, in D
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
+    // full copy of diagonal block by rows, in D
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       const int N = Drow + 1;
-      dcopy_(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
+      callAndTime_dcopy(N, &A[diag_start[j] + offset], 1, &D[Drow * jb], 1,
+                        times);
       offset += N;
     }
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_copy] += GetTime() - t0;
-#endif
 
     // number of rows left below block j
     const int M = n - nb * j - jb;
@@ -1325,62 +1106,33 @@ int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double* times,
       if (j > k + 1) Pk_pos += full_size * (j - k - 1);
       const double* Pk = &A[Pk_pos];
 
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
-      dsyrk_(&c_U, &c_T, &jb, &nb, &d_m_one, Pk, &nb, &d_one, D, &jb);
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_syrk] += GetTime() - t0;
-#endif
+      callAndTime_dsyrk('U', 'T', jb, nb, -1.0, Pk, nb, 1.0, D, jb, times);
 
       if (M > 0) {
         const int Qk_pos = Pk_pos + this_full_size;
         const double* Qk = &A[Qk_pos];
-#ifdef FINEST_TIMING
-        t0 = GetTime();
-#endif
-        dgemm_(&c_T, &c_N, &jb, &M, &nb, &d_m_one, Pk, &nb, Qk, &nb, &d_one, R,
-               &jb);
-#ifdef FINEST_TIMING
-        times[kTimeDenseFact_gemm] += GetTime() - t0;
-#endif
+        callAndTime_dgemm('T', 'N', jb, M, nb, -1.0, Pk, nb, Qk, nb, 1.0, R, jb,
+                          times);
       }
     }
 
-// factorize diagonal block
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
-    int info = dense_fact_fduf('U', jb, D, jb, thresh);
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_fact] += GetTime() - t0;
-#endif
+    // factorize diagonal block
+    int info = callAndTime_fduf('U', jb, D, jb, thresh, times);
     if (info != 0) return info;
 
     if (M > 0) {
-// solve block of columns with diagonal block
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
-      dtrsm_(&c_L, &c_U, &c_T, &c_N, &jb, &M, &d_one, D, &jb, R, &jb);
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_trsm] += GetTime() - t0;
-#endif
+      // solve block of columns with diagonal block
+      callAndTime_dtrsm('L', 'U', 'T', 'N', jb, M, 1.0, D, jb, R, jb, times);
     }
 
-// put D back into packed format
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
+    // put D back into packed format
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       const int N = Drow + 1;
-      dcopy_(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
+      callAndTime_dcopy(N, &D[Drow * jb], 1, &A[diag_start[j] + offset], 1,
+                        times);
       offset += N;
     }
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_copy] += GetTime() - t0;
-#endif
   }
   free(D);
 
@@ -1429,28 +1181,16 @@ int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double* times,
         }
         diag_pos += sb * this_full_size;
 
-// update diagonal block
-#ifdef FINEST_TIMING
-        t0 = GetTime();
-#endif
-        dsyrk_(&c_U, &c_T, &ncol, &jb, &d_m_one, &A[diag_pos], &jb, &beta,
-               schur_buf, &ncol);
-#ifdef FINEST_TIMING
-        times[kTimeDenseFact_syrk] += GetTime() - t0;
-#endif
+        // update diagonal block
+        callAndTime_dsyrk('U', 'T', ncol, jb, -1.0, &A[diag_pos], jb, beta,
+                          schur_buf, ncol, times);
 
         // update subdiagonal part
         const int M = nrow - nb;
         if (M > 0) {
-#ifdef FINEST_TIMING
-          t0 = GetTime();
-#endif
-          dgemm_(&c_T, &c_N, &nb, &M, &jb, &d_m_one, &A[diag_pos], &jb,
-                 &A[diag_pos + this_full_size], &jb, &beta,
-                 &schur_buf[ncol * ncol], &ncol);
-#ifdef FINEST_TIMING
-          times[kTimeDenseFact_gemm] += GetTime() - t0;
-#endif
+          callAndTime_dgemm('T', 'N', nb, M, jb, -1.0, &A[diag_pos], jb,
+                            &A[diag_pos + this_full_size], jb, beta,
+                            &schur_buf[ncol * ncol], ncol, times);
         }
 
         // beta is 0 for the first time (to avoid initializing schur_buf) and
@@ -1530,19 +1270,14 @@ int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
     const int this_diag_size = jb * (jb + 1) / 2;
     const int this_full_size = nb * jb;
 
-// full copy of diagonal block by rows, in D
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
+    // full copy of diagonal block by rows, in D
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       const int N = Drow + 1;
-      dcopy_(&N, &A[diag_start[j] + offset], &i_one, &D[Drow * jb], &i_one);
+      callAndTime_dcopy(N, &A[diag_start[j] + offset], 1, &D[Drow * jb], 1,
+                        times);
       offset += N;
     }
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_copy] += GetTime() - t0;
-#endif
 
     // number of rows left below block j
     const int M = n - nb * j - jb;
@@ -1558,103 +1293,57 @@ int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
       if (j > k + 1) Pk_pos += full_size * (j - k - 1);
       const double* Pk = &A[Pk_pos];
 
-// copy block jk into temp
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
-      dcopy_(&this_full_size, Pk, &i_one, T, &i_one);
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_copy] += GetTime() - t0;
-#endif
+      // copy block jk into temp
+      callAndTime_dcopy(this_full_size, Pk, 1, T, 1, times);
 
-// scale temp by pivots
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
+      // scale temp by pivots
       int pivot_pos = diag_start[k];
       for (int col = 0; col < nb; ++col) {
-        dscal_(&jb, &A[pivot_pos], &T[col], &nb);
+        callAndTime_dscal(jb, A[pivot_pos], &T[col], nb, times);
         pivot_pos += col + 2;
       }
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_scal] += GetTime() - t0;
-#endif
 
-// update diagonal block with dgemm_
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
-      dgemm_(&c_T, &c_N, &jb, &jb, &nb, &d_m_one, T, &nb, Pk, &nb, &d_one, D,
-             &jb);
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_gemm] += GetTime() - t0;
-#endif
+      // update diagonal block with dgemm_
+      callAndTime_dgemm('T', 'N', jb, jb, nb, -1.0, T, nb, Pk, nb, 1.0, D, jb,
+                        times);
 
       // update rectangular block
       if (M > 0) {
         const int Qk_pos = Pk_pos + this_full_size;
         double* Qk = &A[Qk_pos];
 
-#ifdef FINEST_TIMING
-        t0 = GetTime();
-#endif
-        dgemm_(&c_T, &c_N, &jb, &M, &nb, &d_m_one, T, &nb, Qk, &nb, &d_one, R,
-               &jb);
-#ifdef FINEST_TIMING
-        times[kTimeDenseFact_gemm] += GetTime() - t0;
-#endif
+        callAndTime_dgemm('T', 'N', jb, M, nb, -1.0, T, nb, Qk, nb, 1.0, R, jb,
+                          times);
       }
     }
 
-// factorize diagonal block
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
+    // factorize diagonal block
     const int* pivot_sign_current = &pivot_sign[j * nb];
-    int info = dense_fact_fiuf('U', jb, D, jb, pivot_sign_current, thresh);
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_fact] += GetTime() - t0;
-#endif
+    int info =
+        callAndTime_fiuf('U', jb, D, jb, pivot_sign_current, thresh, times);
     if (info != 0) return info;
 
     if (M > 0) {
-// solve block of columns with diagonal block
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
-      dtrsm_(&c_L, &c_U, &c_T, &c_U, &jb, &M, &d_one, D, &jb, R, &jb);
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_trsm] += GetTime() - t0;
-#endif
+      // solve block of columns with diagonal block
+      callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D, jb, R, jb, times);
 
-// scale columns by pivots
-#ifdef FINEST_TIMING
-      t0 = GetTime();
-#endif
+      // scale columns by pivots
       int pivot_pos = 0;
       for (int col = 0; col < jb; ++col) {
         double coeff = 1.0 / D[pivot_pos];
-        dscal_(&M, &coeff, &A[R_pos + col], &jb);
+        callAndTime_dscal(M, coeff, &A[R_pos + col], jb, times);
         pivot_pos += jb + 1;
       }
-#ifdef FINEST_TIMING
-      times[kTimeDenseFact_scal] += GetTime() - t0;
-#endif
     }
 
     // put D back into packed format
-#ifdef FINEST_TIMING
-    t0 = GetTime();
-#endif
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       const int N = Drow + 1;
-      dcopy_(&N, &D[Drow * jb], &i_one, &A[diag_start[j] + offset], &i_one);
+      callAndTime_dcopy(N, &D[Drow * jb], 1, &A[diag_start[j] + offset], 1,
+                        times);
       offset += N;
     }
-#ifdef FINEST_TIMING
-    times[kTimeDenseFact_copy] += GetTime() - t0;
-#endif
   }
   free(D);
 
@@ -1705,47 +1394,24 @@ int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
 
         // create copy of block, multiplied by pivots
         const int N = ncol * jb;
-#ifdef FINEST_TIMING
-        t0 = GetTime();
-#endif
-        dcopy_(&N, &A[diag_pos], &i_one, T, &i_one);
-#ifdef FINEST_TIMING
-        times[kTimeDenseFact_copy] += GetTime() - t0;
-#endif
+        callAndTime_dcopy(N, &A[diag_pos], 1, T, 1, times);
+
         int pivot_pos = diag_start[j];
-#ifdef FINEST_TIMING
-        t0 = GetTime();
-#endif
         for (int col = 0; col < jb; ++col) {
-          dscal_(&ncol, &A[pivot_pos], &T[col], &jb);
+          callAndTime_dscal(ncol, A[pivot_pos], &T[col], jb, times);
           pivot_pos += col + 2;
         }
-#ifdef FINEST_TIMING
-        times[kTimeDenseFact_scal] += GetTime() - t0;
-#endif
 
-// update diagonal block using dgemm_
-#ifdef FINEST_TIMING
-        t0 = GetTime();
-#endif
-        dgemm_(&c_T, &c_N, &ncol, &ncol, &jb, &d_m_one, T, &jb, &A[diag_pos],
-               &jb, &beta, schur_buf, &ncol);
-#ifdef FINEST_TIMING
-        times[kTimeDenseFact_gemm] += GetTime() - t0;
-#endif
+        // update diagonal block using dgemm_
+        callAndTime_dgemm('T', 'N', ncol, ncol, jb, -1.0, T, jb, &A[diag_pos],
+                          jb, beta, schur_buf, ncol, times);
 
         // update subdiagonal part
         const int M = nrow - nb;
         if (M > 0) {
-#ifdef FINEST_TIMING
-          t0 = GetTime();
-#endif
-          dgemm_(&c_T, &c_N, &ncol, &M, &jb, &d_m_one, T, &jb,
-                 &A[diag_pos + this_full_size], &jb, &beta,
-                 &schur_buf[ncol * ncol], &ncol);
-#ifdef FINEST_TIMING
-          times[kTimeDenseFact_gemm] += GetTime() - t0;
-#endif
+          callAndTime_dgemm('T', 'N', ncol, M, jb, -1.0, T, jb,
+                            &A[diag_pos + this_full_size], jb, beta,
+                            &schur_buf[ncol * ncol], ncol, times);
         }
 
         // beta is 0 for the first time (to avoid initializing schur_buf) and

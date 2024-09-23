@@ -281,7 +281,7 @@ int main(int argc, char** argv) {
 
   Symbolic S;
   Analyse An(rowsLower, ptrLower, order_to_use, negative_pivots);
-  An.run(S, true);
+  An.run(S);
   S.print();
 
   // save inverse permutation to pass to MAxx
@@ -292,7 +292,7 @@ int main(int argc, char** argv) {
   // ===========================================================================
   Numeric Num;
   Factorise F(S, rowsLower, ptrLower, valLower);
-  int ret_status = F.run(Num, true);
+  int ret_status = F.run(Num);
   if (ret_status) return 1;
 
   // ===========================================================================
@@ -577,7 +577,6 @@ int main(int argc, char** argv) {
     print(out_file, S.snStart(), "sn_start");
     print(out_file, S.snParent(), "sn_parent");
     print(out_file, S.ptr(), "ptrsn");
-    print(out_file, F.time_per_sn_, "time_per_sn");
 
     // extract problem name witout mps from path
     std::string pb_name{};

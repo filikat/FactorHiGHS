@@ -1005,6 +1005,9 @@ I changed the timing, so that it propagates throughout the IPM iterations.
 It is now stored in Symbolic and passed around the various routines.
 I added some #define, to have three levels of timing.
 ---
+I changed DenseFact, so that there are no #ifdef TIMING_3 around anymore, since it was making everything complicated to understand.
+Now, the BLAS calls are done through an interface called callAndTime_xxxx, so that if timing is required, the times are automatically recorded.
+---
 
 *****
 To do:
