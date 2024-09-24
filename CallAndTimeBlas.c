@@ -76,11 +76,11 @@ void callAndTime_dscal(int n, const double da, double* dx, int incx,
 }
 
 int callAndTime_fduf(char uplo, int n, double* A, int lda, double thresh,
-                     double* times) {
+                     double* regul, double* times) {
 #ifdef FINEST_TIMING
   double t0 = GetTime();
 #endif
-  int info = dense_fact_fduf(uplo, n, A, lda, thresh);
+  int info = dense_fact_fduf(uplo, n, A, lda, thresh, regul);
 #ifdef FINEST_TIMING
   times[kTimeDenseFact_fact] += GetTime() - t0;
 #endif
@@ -89,11 +89,12 @@ int callAndTime_fduf(char uplo, int n, double* A, int lda, double thresh,
 }
 
 int callAndTime_fiuf(char uplo, int n, double* A, int lda,
-                     const int* pivot_sign, double thresh, double* times) {
+                     const int* pivot_sign, double thresh, double* regul,
+                     double* times) {
 #ifdef FINEST_TIMING
   double t0 = GetTime();
 #endif
-  int info = dense_fact_fiuf(uplo, n, A, lda, pivot_sign, thresh);
+  int info = dense_fact_fiuf(uplo, n, A, lda, pivot_sign, thresh, regul);
 #ifdef FINEST_TIMING
   times[kTimeDenseFact_fact] += GetTime() - t0;
 #endif

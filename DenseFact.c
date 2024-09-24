@@ -21,10 +21,8 @@ flhs: Full format, Lower packed format, lower-blocked-Hybrid packed format
 
 */
 
-double t0;
-
 int dense_fact_fduf(char uplo, int n, double* restrict A, int lda,
-                    double thresh) {
+                    double thresh, double* regul) {
   // ===========================================================================
   // Positive definite factorization without blocks.
   // BLAS calls: ddot_, dgemv_, dscal_.
@@ -62,7 +60,8 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda,
       // compute diagonal element
       if (Ajj <= thresh) {
         // if pivot is not acceptable, push it up to thresh
-        printf("small pivot %e ", Ajj);
+        // printf("small pivot %e ", Ajj);
+        double old_pivot = Ajj;
         Ajj = thresh;
 
         // compute the minimum pivot required to keep the diagonal of the
@@ -82,7 +81,11 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda,
         }
 
         Ajj = max(Ajj, required_pivot);
-        printf("set to %e\n", Ajj);
+
+        // record regularization used
+        regul[j] += Ajj - old_pivot;
+
+        // printf("set to %e\n", Ajj);
       }
 
       Ajj = sqrt(Ajj);
@@ -117,7 +120,8 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda,
       // compute diagonal element
       if (Ajj <= thresh) {
         // if pivot is not acceptable, push it up to thresh
-        printf("small pivot %e ", Ajj);
+        // printf("small pivot %e ", Ajj);
+        double old_pivot = Ajj;
         Ajj = thresh;
 
         // compute the minimum pivot required to keep the diagonal of the
@@ -137,7 +141,11 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda,
         }
 
         Ajj = max(Ajj, required_pivot);
-        printf("set to %e\n", Ajj);
+
+        // record regularization used
+        regul[j] += Ajj - old_pivot;
+
+        // printf("set to %e\n", Ajj);
       }
 
       Ajj = sqrt(Ajj);
@@ -155,7 +163,7 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda,
 }
 
 int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
-                    const int* pivot_sign, double thresh) {
+                    const int* pivot_sign, double thresh, double* regul) {
   // ===========================================================================
   // Infedinite factorization without blocks.
   // BLAS calls: ddot_, dgemv_, dscal_.
@@ -208,6 +216,7 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
 
         // if pivot is not acceptable, push it up to thresh
         // printf("small pivot %e, with sign %d ", Ajj, pivot_sign[j]);
+        double old_pivot = Ajj;
         Ajj = thresh * sign;
 
         // compute the minimum pivot required to keep the diagonal of the
@@ -238,6 +247,9 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
           Ajj = max(Ajj, required_pivot);
         else
           Ajj = min(Ajj, required_pivot);
+
+        // record regularization used
+        regul[j] += fabs(Ajj - old_pivot);
 
         // printf("set to %e\n", Ajj);
       }
@@ -290,7 +302,8 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
         double sign = (double)pivot_sign[j];
 
         // if pivot is not acceptable, push it up to thresh
-        // printf("small pivot %e, with sign %d ", Ajj, pivot_sign[j]);
+        //printf("small pivot %e, with sign %d ", Ajj, pivot_sign[j]);
+        double old_pivot = Ajj;
         Ajj = thresh * sign;
 
         // compute the minimum pivot required to keep the diagonal of the
@@ -322,7 +335,10 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
         else
           Ajj = min(Ajj, required_pivot);
 
-        // printf("set to %e\n", Ajj);
+        // record regularization used
+        regul[j] += fabs(Ajj - old_pivot);
+
+        //printf("set to %e\n", Ajj);
       }
 
       // save diagonal element
@@ -391,7 +407,8 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
 // ===========================================================================
 
 int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
-                    double* restrict B, int ldb, double* times, double thresh) {
+                    double* restrict B, int ldb, double thresh, double* regul,
+                    double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks.
   // BLAS calls: dsyrk_, dgemm_, dtrsm_.
@@ -427,7 +444,8 @@ int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
     callAndTime_dsyrk('L', 'N', N, K, -1.0, P, lda, 1.0, D, lda, times);
 
     // factorize diagonal block
-    int info = callAndTime_fduf('L', N, D, lda, thresh, times);
+    double* regul_current = &regul[j];
+    int info = callAndTime_fduf('L', N, D, lda, thresh, regul_current, times);
     if (info != 0) return info;
 
     if (j + jb < n) {
@@ -451,7 +469,7 @@ int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
 
 int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
                     double* restrict B, int ldb, const int* pivot_sign,
-                    double thresh, double* times) {
+                    double thresh, double* regul, double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks.
   // BLAS calls: dcopy_, dscal_, dgemm_, dtrsm_, dsyrk_
@@ -500,8 +518,9 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
 
     // factorize diagonal block
     const int* pivot_sign_current = &pivot_sign[j];
-    int info =
-        callAndTime_fiuf('L', N, D, lda, pivot_sign_current, thresh, times);
+    double* regul_current = &regul[j];
+    int info = callAndTime_fiuf('L', N, D, lda, pivot_sign_current, thresh,
+                                regul_current, times);
     if (info != 0) return info;
 
     if (j + jb < n) {
@@ -591,7 +610,8 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
 }
 
 int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
-                    double* restrict B, double* times, double thresh) {
+                    double* restrict B, double thresh, double* regul,
+                    double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks in lower-blocked-hybrid
   // format. A should be in lower-blocked-hybrid format. Schur complement is
@@ -680,7 +700,8 @@ int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
     }
 
     // factorize diagonal block
-    int info = callAndTime_fduf('U', jb, D, jb, thresh, times);
+    double* regul_current = &regul[j * nb];
+    int info = callAndTime_fduf('U', jb, D, jb, thresh, regul_current, times);
     if (info != 0) return info;
 
     if (M > 0) {
@@ -789,7 +810,7 @@ int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
 
 int dense_fact_pibh(int n, int k, int nb, double* restrict A,
                     double* restrict B, const int* pivot_sign, double thresh,
-                    double* times) {
+                    double* regul, double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks in lower-blocked-hybrid format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
@@ -900,9 +921,10 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
     }
 
     // factorize diagonal block
+    double* regul_current = &regul[j * nb];
     const int* pivot_sign_current = &pivot_sign[j * nb];
-    int info =
-        callAndTime_fiuf('U', jb, D, jb, pivot_sign_current, thresh, times);
+    int info = callAndTime_fiuf('U', jb, D, jb, pivot_sign_current, thresh,
+                                regul_current, times);
     if (info != 0) return info;
 
     if (M > 0) {
@@ -1028,8 +1050,8 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
   return kRetOk;
 }
 
-int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double* times,
-                    double thresh) {
+int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double thresh,
+                    double* regul, double* times) {
   // ===========================================================================
   // Positive definite factorization with blocks in lower-blocked-hybrid
   // format. A should be in lower-blocked-hybrid format. Schur complement is
@@ -1117,7 +1139,8 @@ int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double* times,
     }
 
     // factorize diagonal block
-    int info = callAndTime_fduf('U', jb, D, jb, thresh, times);
+    double* regul_current = &regul[j * nb];
+    int info = callAndTime_fduf('U', jb, D, jb, thresh, regul_current, times);
     if (info != 0) return info;
 
     if (M > 0) {
@@ -1208,7 +1231,8 @@ int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double* times,
 }
 
 int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
-                    const int* pivot_sign, double thresh, double* times) {
+                    const int* pivot_sign, double thresh, double* regul,
+                    double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks in lower-blocked-hybrid format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
@@ -1319,8 +1343,9 @@ int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
 
     // factorize diagonal block
     const int* pivot_sign_current = &pivot_sign[j * nb];
-    int info =
-        callAndTime_fiuf('U', jb, D, jb, pivot_sign_current, thresh, times);
+    double* regul_current = &regul[j * nb];
+    int info = callAndTime_fiuf('U', jb, D, jb, pivot_sign_current, thresh,
+                                regul_current, times);
     if (info != 0) return info;
 
     if (M > 0) {
@@ -1438,7 +1463,7 @@ int dense_fact_l2h(double* restrict A, int nrow, int ncol, int nb,
   // ===========================================================================
 
 #ifdef FINEST_TIMING
-  t0 = GetTime();
+  double t0 = GetTime();
 #endif
 
   double* buf = malloc(nrow * nb * sizeof(double));

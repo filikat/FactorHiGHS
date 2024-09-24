@@ -19,8 +19,9 @@ void callAndTime_dscal(int n, const double da, double* dx, int incx,
                        double* times);
 
 int callAndTime_fduf(char uplo, int n, double* A, int lda, double thresh,
-                     double* times);
+                     double* regul, double* times);
 int callAndTime_fiuf(char uplo, int n, double* A, int lda,
-                     const int* pivot_sign, double thresh, double* times);
+                     const int* pivot_sign, double thresh, double* regul,
+                     double* times);
 
 #endif

@@ -23,19 +23,25 @@ void FullFormatHandler::assembleFrontalMultiple(int num, double* child, int nc,
 }
 
 int FullFormatHandler::denseFactorise(double reg_thresh,
+                                      std::vector<double>& regularization,
                                       std::vector<double>& times) {
   int status;
   if (S_->factType() == FactType::Chol) {
+    // find the position within regularization corresponding to this supernode
+    int sn_start = S_->snStart(sn_);
+    double* regul = &regularization[sn_start];
+
     status = dense_fact_pdbf(ldf_, sn_size_, nb_, frontal_->data(), ldf_,
-                             *clique_, ldc_, times.data(), reg_thresh);
+                             *clique_, ldc_, reg_thresh, regul, times.data());
   } else {
     // find the position within pivot_sign corresponding to this supernode
     int sn_start = S_->snStart(sn_);
     const int* pivot_sign = &S_->pivotSign().data()[sn_start];
+    double* regul = &regularization[sn_start];
 
     status =
         dense_fact_pibf(ldf_, sn_size_, nb_, frontal_->data(), ldf_, *clique_,
-                        ldc_, pivot_sign, reg_thresh, times.data());
+                        ldc_, pivot_sign, reg_thresh, regul, times.data());
   }
   return status;
 }

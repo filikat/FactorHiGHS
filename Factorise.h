@@ -41,7 +41,7 @@ class Factorise {
   std::vector<std::vector<int>> clique_block_start_{};
 
   // largest diagonal element in the original matrix
-  double max_diag{};
+  double max_diag_{};
 
  public:
   void permute(const std::vector<int>& iperm);

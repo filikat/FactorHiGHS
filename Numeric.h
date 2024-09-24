@@ -7,6 +7,7 @@
 #include "Blas_declaration.h"
 #include "DenseFact_declaration.h"
 #include "Symbolic.h"
+#include "timing.h"
 
 class Numeric {
   std::vector<std::vector<double>> sn_columns_{};

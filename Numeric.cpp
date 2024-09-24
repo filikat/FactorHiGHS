@@ -292,9 +292,18 @@ void Numeric::diagSolve(std::vector<double>& x) const {
 }
 
 void Numeric::solve(std::vector<double>& x) const {
+#ifdef COARSE_TIMING
+  Clock clock{};
+  clock.start();
+#endif
+
   permuteVector(x, S_->perm());
   forwardSolve(x);
   diagSolve(x);
   backwardSolve(x);
   permuteVector(x, S_->iperm());
+
+#ifdef COARSE_TIMING
+  S_->times(kTimeSolve) += clock.stop();
+#endif
 }

@@ -48,10 +48,10 @@ Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
   sn_columns_.resize(S_.sn());
 
   // compute largest diagonal entry in absolute value
-  max_diag = 0.0;
+  max_diag_ = 0.0;
   for (int col = 0; col < n_; ++col) {
     double temp = std::fabs(valA_[ptrA_[col]]);
-    max_diag = std::max(max_diag, temp);
+    max_diag_ = std::max(max_diag_, temp);
   }
 }
 
@@ -252,9 +252,9 @@ int Factorise::processSupernode(int sn) {
 #endif
 
   // threshold for regularization
-  double reg_thresh = max_diag * 1e-16 * 1e-10;
+  double reg_thresh = max_diag_ * 1e-16 * 1e-10;
 
-  int status = FH_->denseFactorise(reg_thresh, S_.times());
+  int status = FH_->denseFactorise(reg_thresh, S_.dynamicReg(), S_.times());
   if (status) return status;
 
 #ifdef FINE_TIMING
@@ -407,6 +407,7 @@ int Factorise::run(Numeric& num) {
 #endif
 
   clique_block_start_.resize(S_.sn());
+  S_.dynamicReg().assign(n_, 0.0);
 
   // Handle multiple formats
   FullFormatHandler full_FH;

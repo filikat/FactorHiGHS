@@ -29,6 +29,7 @@ const std::vector<int>& Symbolic::pivotSign() const { return pivot_sign_; }
 void Symbolic::setFact(FactType i) const { fact_type_ = i; }
 void Symbolic::setFormat(FormatType i) const { format_type_ = i; }
 double& Symbolic::times(TimeItems i) const { return times_record_[i]; }
+std::vector<double>& Symbolic::dynamicReg() const { return dynamic_reg_; }
 std::vector<double>& Symbolic::times() const { return times_record_; }
 
 void Symbolic::print() const {
@@ -124,40 +125,42 @@ void Symbolic::printTimes() const {
 #endif
 
 #ifdef FINEST_TIMING
-  printf("\t\t  |\n");
-  printf("\t\t  |   trsm:     %8.4f (%4.1f%%)\n",
+  printf("\n");
+  printf("\t\ttrsm:           %8.4f (%4.1f%%)\n",
          times_record_[kTimeDenseFact_trsm],
          times_record_[kTimeDenseFact_trsm] /
              times_record_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\t  |_  syrk:     %8.4f (%4.1f%%)\n",
+  printf("\t\tsyrk:           %8.4f (%4.1f%%)\n",
          times_record_[kTimeDenseFact_syrk],
          times_record_[kTimeDenseFact_syrk] /
              times_record_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\t      gemm:     %8.4f (%4.1f%%)\n",
+  printf("\t\tgemm:           %8.4f (%4.1f%%)\n",
          times_record_[kTimeDenseFact_gemm],
          times_record_[kTimeDenseFact_gemm] /
              times_record_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\t      fact:     %8.4f (%4.1f%%)\n",
+  printf("\t\tfact:           %8.4f (%4.1f%%)\n",
          times_record_[kTimeDenseFact_fact],
          times_record_[kTimeDenseFact_fact] /
              times_record_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\t      copy:     %8.4f (%4.1f%%)\n",
+  printf("\t\tcopy:           %8.4f (%4.1f%%)\n",
          times_record_[kTimeDenseFact_copy],
          times_record_[kTimeDenseFact_copy] /
              times_record_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\t      copy sch: %8.4f (%4.1f%%)\n",
+  printf("\t\tcopy sch:       %8.4f (%4.1f%%)\n",
          times_record_[kTimeDenseFact_copyschur],
          times_record_[kTimeDenseFact_copyschur] /
              times_record_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\t      scal:     %8.4f (%4.1f%%)\n",
+  printf("\t\tscal:           %8.4f (%4.1f%%)\n",
          times_record_[kTimeDenseFact_scal],
          times_record_[kTimeDenseFact_scal] /
              times_record_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\t      convert:  %8.4f (%4.1f%%)\n",
+  printf("\t\tconvert:        %8.4f (%4.1f%%)\n",
          times_record_[kTimeDenseFact_convert],
          times_record_[kTimeDenseFact_convert] /
              times_record_[kTimeFactoriseDenseFact] * 100);
 #endif
+  printf("----------------------------------------------------\n");
+  printf("Solve time              \t%8.4f\n", times_record_[kTimeSolve]);
   printf("----------------------------------------------------\n");
 
 #endif

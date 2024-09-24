@@ -1,7 +1,11 @@
 #ifndef TIMING_H
 #define TIMING_H
 
-// choose level of timing: 1, 2, 3
+// choose level of timing:
+// - TIMING_0: no timing
+// - TIMING_1: basic timing
+// - TIMING_2: advanced timing
+// - TIMING_3: extreme timing (it slows down considerably)
 #define TIMING_2
 
 // define for timing
@@ -46,6 +50,8 @@ enum TimeItems {
   kTimeDenseFact_copyschur,  // TIMING_3
   kTimeDenseFact_scal,       // TIMING_3
   kTimeDenseFact_convert,    // TIMING_3
+  // Solve times
+  kTimeSolve,  // TIMING_1
   // enum size
   kTimeSize
 };

@@ -1008,9 +1008,36 @@ I added some #define, to have three levels of timing.
 I changed DenseFact, so that there are no #ifdef TIMING_3 around anymore, since it was making everything complicated to understand.
 Now, the BLAS calls are done through an interface called callAndTime_xxxx, so that if timing is required, the times are automatically recorded.
 ---
+I added a record of the regularization that has been added.
+I need to undo the permutation to apply properly when computing the residuals during the refinement.
+And then I need to fix the refinement.
+---
+The calls to dense_fact are becoming too complicated, with too many arguments, and I still have to add more things.
+Maybe I should turn them into non-virtual member functions of FormatHandler. 
+The object could hold the data, that then doesn't need to be passed around as argument.
+I thought also that I could make the whole Factorise abstract, without relying on FormatHandler. But I want Factorise to be part of the external interface, so it's better to avoid it.
+---
+
+*****
+24 Sep 2024
+I decided against moving DenseFact to cpp, inside FormatHandler. For now at least.
+---
+I realized that both approaches are already using a default primal regularization, because it is incorporated into scaling.
+I added the default dual regularization also to the normal equations, and it seems to fix dfl001. 
+---
+I fixed the iterative refinement.
+It now considers the regularization, both static and dynamic.
+Now, the refinement is triggered only if the relative residual is above 1e-8.
+It is almost never triggered.
+For cycle, it triggers a lot: in the early iterations, it reduces the residual. In some of the late iterations it makes it worse. Weird.
+I now reject the correction if the residual grows.
+---
+I managed to get greenbea to converge, reducing the static regularization to 1e-12/1e-10, instead of 1e-10/1e-8.
+pilot.we still struggles though.
+---
+
 
 *****
 To do:
-- fix iterative refinement
 - row growth factor
 - parallel stuff

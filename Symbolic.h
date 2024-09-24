@@ -109,7 +109,10 @@ class Symbolic {
   // should have.
   std::vector<int> pivot_sign_{};
 
-  // keep record of times
+  // Dynamic regularization
+  mutable std::vector<double> dynamic_reg_{};
+
+  // Keep record of times
   mutable std::vector<double> times_record_{};
 
   friend class Analyse;
@@ -144,6 +147,7 @@ class Symbolic {
   void setFact(FactType i) const;
   void setFormat(FormatType i) const;
   double& times(TimeItems i) const;
+  std::vector<double>& dynamicReg() const;
   std::vector<double>& times() const;
 };
 
