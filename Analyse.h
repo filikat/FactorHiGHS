@@ -8,6 +8,7 @@
 #include "GKlib.h"
 #include "Symbolic.h"
 #include "metis.h"
+#include "ReturnValues.h"
 
 // parameters for supernode amalgamation
 const int kStartThreshRelax = 256;
@@ -76,7 +77,7 @@ class Analyse {
   // estimate of maximum storage
   double max_storage_{};
 
-  void getPermutation();
+  int getPermutation();
   void permute(const std::vector<int>& iperm);
   void eTree();
   void postorder();
@@ -98,7 +99,7 @@ class Analyse {
           const std::vector<int>& order = {}, int negative_pivots = 0);
 
   // Run analyse phase and save the result in Symbolic object S
-  void run(Symbolic& S);
+  int run(Symbolic& S);
 
   // save metis iperm to be used by hsl codes for comparison
   std::vector<int> metis_order_{};

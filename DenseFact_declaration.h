@@ -40,12 +40,4 @@ int dense_fact_l2h(double* A, int nrow, int ncol, int nb, double* times);
 }
 #endif
 
-enum RetValue {
-  kRetOk,
-  kRetInvalidInput,
-  kRetOutOfMemory,
-  kRetInvalidPivot,
-  kRetGeneric
-};
-
 #endif

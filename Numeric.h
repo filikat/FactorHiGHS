@@ -12,6 +12,7 @@
 class Numeric {
   std::vector<std::vector<double>> sn_columns_{};
   const Symbolic* S_;
+  std::vector<double> colscale_{};
 
   friend class Factorise;
 

@@ -8,6 +8,7 @@
 #include "DenseFact_declaration.h"
 #include "FormatHandler.h"
 #include "Numeric.h"
+#include "ReturnValues.h"
 #include "Symbolic.h"
 
 class Factorise {
@@ -42,11 +43,22 @@ class Factorise {
 
   // largest diagonal element in the original matrix
   double max_diag_{};
+  double min_diag_{};
+
+  // symmetric scaling to apply to the original matrix
+  std::vector<double> colscale_{};
 
  public:
   void permute(const std::vector<int>& iperm);
   int processSupernode(int sn);
   bool check() const;
+  void equilibrate();
+
+  // extreme values of the factorisation
+  double maxD_ = 0.0;
+  double minD_ = std::numeric_limits<double>::max();
+  double maxoffD_ = 0.0;
+  double minoffD_ = std::numeric_limits<double>::max();
 
  public:
   Factorise(const Symbolic& S, const std::vector<int>& rowsA,

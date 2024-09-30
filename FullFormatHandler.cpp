@@ -80,3 +80,25 @@ void FullFormatHandler::assembleClique(double* child, int nc, int child_sn) {
     // after.
   }
 }
+
+void FullFormatHandler::extremeEntries(double& minD, double& maxD,
+                                       double& minoffD, double& maxoffD) {
+  minD = 1e100;
+  maxD = 0.0;
+  minoffD = 1e100;
+  maxoffD = 0.0;
+
+  for (int col = 0; col < sn_size_; ++col) {
+    // diagonal entry
+    minD = std::min(minD, std::abs((*frontal_)[col + ldf_ * col]));
+    maxD = std::max(maxD, std::abs((*frontal_)[col + ldf_ * col]));
+
+    // off diagonal entries
+    for (int row = col + 1; row < ldf_; ++row) {
+      if ((*frontal_)[row + ldf_ * col] != 0.0) {
+        minoffD = std::min(minoffD, std::abs((*frontal_)[row + ldf_ * col]));
+        maxoffD = std::max(maxoffD, std::abs((*frontal_)[row + ldf_ * col]));
+      }
+    }
+  }
+}

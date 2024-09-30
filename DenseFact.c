@@ -6,6 +6,7 @@
 
 #include "CallAndTimeBlas.h"
 #include "DenseFact_declaration.h"
+#include "ReturnValues.h"
 #include "timing.h"
 
 /*
@@ -302,7 +303,7 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
         double sign = (double)pivot_sign[j];
 
         // if pivot is not acceptable, push it up to thresh
-        //printf("small pivot %e, with sign %d ", Ajj, pivot_sign[j]);
+        // printf("small pivot %e, with sign %d ", Ajj, pivot_sign[j]);
         double old_pivot = Ajj;
         Ajj = thresh * sign;
 
@@ -338,7 +339,7 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
         // record regularization used
         regul[j] += fabs(Ajj - old_pivot);
 
-        //printf("set to %e\n", Ajj);
+        // printf("set to %e\n", Ajj);
       }
 
       // save diagonal element
@@ -859,7 +860,7 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
   }
 
   // buffer for copy of block scaled by pivots
-  double* T = malloc(nb * nb * sizeof(double) + 10);
+  double* T = malloc(nb * nb * sizeof(double));
   if (!T) {
     printf("\ndense_fact_pibh: out of memory\n");
     return kRetOutOfMemory;
@@ -963,7 +964,7 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
     double beta = 0.0;
 
     // buffer for full-format of block of columns of Schur complement
-    double* schur_buf = malloc(ns * nb * sizeof(double) + 10);
+    double* schur_buf = malloc(ns * nb * sizeof(double));
     if (!schur_buf) {
       printf("\ndense_fact_pibh: out of memory\n");
       return kRetOutOfMemory;
@@ -1015,7 +1016,11 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
         }
 
         // update diagonal block using dgemm_
-        callAndTime_dgemm('T', 'N', ncol, ncol, jb, -1.0, T, jb, &A[diag_pos],
+        // printf("T: size %d, access %d\n", nb * nb, jb * ncol);
+        // printf("A: size %d, access %d\n", sizeA, diag_pos + ncol * jb);
+        // printf("S: size %d, acceess %d\n", ns * nb, ncol * ncol);
+
+        callAndTime_dgemm('T', 'N', ncol, ncol, jb, -1.0, &A[diag_pos], jb, T,
                           jb, beta, schur_buf, ncol, times);
 
         // update subdiagonal part

@@ -1035,9 +1035,53 @@ I now reject the correction if the residual grows.
 I managed to get greenbea to converge, reducing the static regularization to 1e-12/1e-10, instead of 1e-10/1e-8.
 pilot.we still struggles though.
 ---
+Mittelman struggles a lot.
+It looks as though it does not get directions that are accurate enough.
+The IR fails many times. There must be something wrong.
+---
+
+*****
+26 Sep 2024
+I added the scaling of matrix A, taken from IPX.
+I need to figure out if there is any other scaling to apply. 
+I remember Jacek mentioning that he would scale the costs or rhs, or something else.
+---
+I fixed the segfault during setup.
+It was caused by computeAAT failing, because the matrix has too many entries.
+It risks overflowing the pointers.
+If that happens, I changed setup to return an error and the ipm stops.
+I also added a check for the number of bad iterations inside the ipm, i.e., the iterations with small stepsize. If it happens too many times, the code stops.
+---
+I tried to run the ill-fated dgemm instruction with my own implementation, using address sanitizer, but there is no buffer overflow. I really don't understand what is happening.
+Printing some data, it looks as if the segfault always happens when I access the last entry of A, and the crash report says that I am off by one. Weird.
+For now, I fixed (I hope) by allocatin a few enrties more to A.
+It seems not to segfault anymore.
+---
+
+*****
+30 Sep 2024
+I removed perm_ from Symbolic. All permutation can be done with iperm_, storing one fewer vector.
+I also modified computeAAt so that it computed the lower triangle. I still need to keep the original function for the other solvers, but it can be removed once the other solvers are not used anymore.
+I removed the assert from getPermutation and added a return value.
+I thought of using BLAS for VectorOperations, but all the componentwise operations do not have a corresponding function. 
+There would be little advantage then. I will leave them as they are.
+---
+I added matrix equilibration inside Factorise, so that the matrix is scaled before being factorised.
+However, this does not seem to help. Actually, it hurts convergence in some cases.
+I think that some entries are pushed to be too small and this triggers too much regularization.
+It may need to be tuned better.
+---
+I switched the scaling to the standard one, instead of the one that Lukas is using.
+It seems to behave better. It attempts to produce a matrix with rows and columns of /infty-norm equal to one.
+Some problems are better with scaling, some problems are better without. However, I think that having the scaling is better because it creates univorm absolute values that I can use to regularize.
+---
 
 
 *****
 To do:
-- row growth factor
+- row growth factor (and store inverse of D?)
 - parallel stuff
+- check forplan
+- col growth uses infinity pivots
+- any other scaling of the LP?
+- check iterative refinement

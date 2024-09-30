@@ -2,7 +2,8 @@
 
 void HybridPackedFormatHandler::initFrontal() {
   // frontal is initialized to zero
-  frontal_->resize(ldf_ * sn_size_ - sn_size_ * (sn_size_ - 1) / 2);
+  frontal_->resize(ldf_ * sn_size_ - sn_size_ * (sn_size_ - 1) / 2 + 10);
+  // NB: the plus 10 is not needed, but it avoids weird problems later on.
 }
 
 void HybridPackedFormatHandler::initClique() {
@@ -114,5 +115,53 @@ void HybridPackedFormatHandler::assembleClique(double* child, int nc,
     // j < sn_size was already done before, because it was needed before the
     // partial factorisation. Assembling into the clique instead can be done
     // after.
+  }
+}
+
+void HybridPackedFormatHandler::extremeEntries(double& minD, double& maxD,
+                                               double& minoffD,
+                                               double& maxoffD) {
+  minD = 1e100;
+  maxD = 0.0;
+  minoffD = 1e100;
+  maxoffD = 0.0;
+
+  // number of blocks of columns
+  const int n_blocks = (sn_size_ - 1) / nb_ + 1;
+
+  // index to access frontal
+  int index{};
+
+  // go through blocks of columns for this supernode
+  for (int j = 0; j < n_blocks; ++j) {
+    // number of columns in the block
+    const int jb = std::min(nb_, sn_size_ - nb_ * j);
+
+    for (int k = 0; k < jb; ++k) {
+      // off diagonal entries
+      for (int i = 0; i < k; ++i) {
+        if ((*frontal_)[index] != 0.0) {
+          minoffD = std::min(minoffD, std::abs((*frontal_)[index]));
+          maxoffD = std::max(maxoffD, std::abs((*frontal_)[index]));
+        }
+        index++;
+      }
+
+      // diagonal entry
+      minD = std::min(minD, std::abs((*frontal_)[index]));
+      maxD = std::max(maxD, std::abs((*frontal_)[index]));
+      index++;
+    }
+
+    // temporary space for gemv
+    const int entries_left = (ldf_ - nb_ * j - jb) * jb;
+
+    for (int i = 0; i < entries_left; ++i) {
+      if ((*frontal_)[index] != 0.0) {
+        minoffD = std::min(minoffD, std::abs((*frontal_)[index]));
+        maxoffD = std::max(maxoffD, std::abs((*frontal_)[index]));
+      }
+      index++;
+    }
   }
 }

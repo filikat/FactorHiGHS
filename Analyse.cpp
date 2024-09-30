@@ -51,12 +51,12 @@ Analyse::Analyse(const std::vector<int>& rows, const std::vector<int>& ptr,
   ready_ = true;
 }
 
-void Analyse::getPermutation() {
+int Analyse::getPermutation() {
   // Use Metis to compute a nested dissection permutation of the original matrix
 
   if (!perm_.empty()) {
     // permutation already provided by user
-    return;
+    return kRetOk;
   }
 
   perm_.resize(n_);
@@ -108,13 +108,17 @@ void Analyse::getPermutation() {
   int options[METIS_NOPTIONS];
   METIS_SetDefaultOptions(options);
   // fix seed of rng inside Metis, to make it deterministic (?)
-  options[METIS_OPTION_SEED] = 123456789;
+  options[METIS_OPTION_SEED] = 42;
 
   int status = METIS_NodeND(&n_, temp_ptr.data(), temp_rows.data(), NULL,
                             options, perm_.data(), iperm_.data());
-  assert(status == METIS_OK);
+  if (status != METIS_OK) {
+    printf("Error with Metis\n");
+    return kRetMetisError;
+  }
 
   metis_order_ = iperm_;
+  return kRetOk;
 }
 
 void Analyse::permute(const std::vector<int>& iperm) {
@@ -1337,11 +1341,11 @@ void Analyse::reorderChildren() {
   inversePerm(perm_, iperm_);
 }
 
-void Analyse::run(Symbolic& S) {
+int Analyse::run(Symbolic& S) {
   // Perform analyse phase and store the result into the symbolic object S.
   // After Run returns, the Analyse object is not valid.
 
-  if (!ready_) return;
+  if (!ready_) return kRetGeneric;
 
   S.times().resize(kTimeSize);
 
@@ -1355,7 +1359,8 @@ void Analyse::run(Symbolic& S) {
 #ifdef FINE_TIMING
   clock_items.start();
 #endif
-  getPermutation();
+  int metis_status = getPermutation();
+  if (metis_status) return kRetMetisError;
 #ifdef FINE_TIMING
   S.times(kTimeAnalyseMetis) += clock_items.stop();
 #endif
@@ -1443,7 +1448,6 @@ void Analyse::run(Symbolic& S) {
   permuteVector(S.pivot_sign_, perm_);
 
   S.dense_ops_ = operations_;
-  S.perm_ = std::move(perm_);
   S.iperm_ = std::move(iperm_);
   S.rows_ = std::move(rows_sn_);
   S.ptr_ = std::move(ptr_sn_);
@@ -1456,4 +1460,6 @@ void Analyse::run(Symbolic& S) {
 #ifdef COARSE_TIMING
   S.times(kTimeAnalyse) += clock_total.stop();
 #endif
+
+  return kRetOk;
 }

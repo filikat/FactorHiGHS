@@ -60,7 +60,10 @@ class FormatHandler {
   // reset the FormatHandler
   void detach();
 
-  // pure virtual functions
+  // =================================================================
+  // Pure virtual functions.
+  // These need to be defined by any derived class.
+  // =================================================================
   virtual void initFrontal() = 0;
   virtual void initClique() = 0;
   virtual void assembleFrontal(int i, int j, double val) = 0;
@@ -71,6 +74,15 @@ class FormatHandler {
                              std::vector<double>& regularization,
                              std::vector<double>& times) = 0;
   virtual void assembleClique(double* child, int nc, int child_sn) = 0;
+  // =================================================================
+
+  // =================================================================
+  // Virtual functions.
+  // These may be overridden by derived classes, if needed.
+  // =================================================================
+  virtual void extremeEntries(double& minD, double& maxD, double& minoffD,
+                              double& maxoffD) {}
+  // =================================================================
 };
 
 #endif

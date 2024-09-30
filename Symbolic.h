@@ -51,8 +51,7 @@ class Symbolic {
   int largest_front_{};
   int largest_sn_{};
 
-  // Permutation and inverse permutation
-  std::vector<int> perm_{};
+  // Inverse permutation
   std::vector<int> iperm_{};
 
   // Sparsity pattern of each supernode of L
@@ -138,7 +137,6 @@ class Symbolic {
   int relindClique(int i, int j) const;
   int consecutiveSums(int i, int j) const;
   const std::vector<int>& ptr() const;
-  const std::vector<int>& perm() const;
   const std::vector<int>& iperm() const;
   const std::vector<int>& snParent() const;
   const std::vector<int>& snStart() const;

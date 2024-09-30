@@ -28,7 +28,7 @@ Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
   ptrA_ = ptrA;
 
   // Permute the matrix.
-  // This also removes any entry not in the upper triangle.
+  // This also removes any entry not in the lower triangle.
   permute(S_.iperm());
 
   nzA_ = ptrA_.back();
@@ -47,12 +47,18 @@ Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
   schur_contribution_.resize(S_.sn(), nullptr);
   sn_columns_.resize(S_.sn());
 
+  // scale the matrix
+  equilibrate();
+
   // compute largest diagonal entry in absolute value
   max_diag_ = 0.0;
+  min_diag_ = std::numeric_limits<double>::max();
   for (int col = 0; col < n_; ++col) {
-    double temp = std::fabs(valA_[ptrA_[col]]);
-    max_diag_ = std::max(max_diag_, temp);
+    double val = std::fabs(valA_[ptrA_[col]]);
+    max_diag_ = std::max(max_diag_, val);
+    min_diag_ = std::min(min_diag_, val);
   }
+  // printf("diag in [%e,%e]\n", min_diag_, max_diag_);
 }
 
 void Factorise::permute(const std::vector<int>& iperm) {
@@ -261,6 +267,14 @@ int Factorise::processSupernode(int sn) {
   S_.times(kTimeFactoriseDenseFact) += clock.stop();
 #endif
 
+  // compute largest elements in factorization
+  double minD{}, maxD{}, minoffD{}, maxoffD{};
+  FH_->extremeEntries(minD, maxD, minoffD, maxoffD);
+  minD_ = std::min(minD_, minD);
+  maxD_ = std::max(maxD_, maxD);
+  minoffD_ = std::min(minoffD_, minoffD);
+  maxoffD_ = std::max(maxoffD_, maxoffD);
+
   // ===================================================
   // Assemble frontal matrices of children into clique
   // ===================================================
@@ -399,6 +413,71 @@ bool Factorise::check() const {
   }
 }
 
+void Factorise::equilibrate() {
+  // Scale the matrix, according to:
+  // D. Ruiz, "A Scaling Algorithm to Equilibrate Both Rows and Columns Norms in
+  // Matrices", RAL-TR-2001-034.
+  // It attempts to obtain a matrix with /infty-norm of the rows and columns
+  // equal to one.
+
+  const int maxiter = 10;
+
+  // initialize equilibration factors
+  colscale_.resize(n_, 1.0);
+
+  // initialize vectors for max entry in cols
+  std::vector<double> colmax(n_);
+
+  // iterate
+  for (int iter = 0; iter < maxiter; ++iter) {
+    // compute \infty norm of cols
+    colmax.assign(n_, 0.0);
+    for (int col = 0; col < n_; ++col) {
+      for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
+        int row = rowsA_[el];
+        double val = std::abs(valA_[el]);
+        // Matrix is stored as lower triangle, so this element contributes both
+        // to columns col and row.
+        colmax[col] = std::max(colmax[col], val);
+        if (col != row) colmax[row] = std::max(colmax[row], val);
+      }
+    }
+
+    // check stopping criterion
+    double max_deviation{};
+    for (int i = 0; i < n_; ++i) {
+      double val = std::abs(1.0 - colmax[i]);
+      max_deviation = std::max(max_deviation, val);
+    }
+    if (max_deviation < .01) break;
+
+    // compute scaling factors for columns
+    for (int col = 0; col < n_; ++col) {
+      colmax[col] = 1.0 / sqrt(colmax[col]);
+      colscale_[col] *= colmax[col];
+    }
+
+    // apply scaling to matrix
+    for (int col = 0; col < n_; ++col) {
+      for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
+        int row = rowsA_[el];
+        valA_[el] *= colmax[col];
+        valA_[el] *= colmax[row];
+      }
+    }
+  }
+
+  /*double max_scale = 0.0;
+  double min_scale = std::numeric_limits<double>::max();
+  for (double d : colscale_) {
+    max_scale = std::max(max_scale, d);
+    min_scale = std::min(min_scale, d);
+  }
+
+  printf("Scaling in [%e,%e]\n", min_scale, max_scale);
+  */
+}
+
 int Factorise::run(Numeric& num) {
   Clock clock;
 
@@ -437,6 +516,7 @@ int Factorise::run(Numeric& num) {
   // move factorisation to numerical object
   num.sn_columns_ = std::move(sn_columns_);
   num.S_ = &S_;
+  num.colscale_ = std::move(colscale_);
 
 #ifdef COARSE_TIMING
   S_.times(kTimeFactorise) += clock.stop();

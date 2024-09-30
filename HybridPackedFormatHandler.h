@@ -12,6 +12,8 @@ class HybridPackedFormatHandler : public FormatHandler {
   int denseFactorise(double reg_thresh, std::vector<double>& regularization,
                      std::vector<double>& times) override;
   void assembleClique(double* child, int nc, int child_sn) override;
+  void extremeEntries(double& minD, double& maxD, double& minoffD,
+                      double& maxoffD) override;
 };
 
 #endif

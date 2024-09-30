@@ -17,10 +17,10 @@ void transpose(const std::vector<int>& ptr, const std::vector<int>& rows,
 void childrenLinkedList(const std::vector<int>& parent, std::vector<int>& head,
                         std::vector<int>& next);
 void dfsPostorder(int node, int& start, std::vector<int>& head,
-              const std::vector<int>& next, std::vector<int>& order);
+                  const std::vector<int>& next, std::vector<int>& order);
 void processEdge(int j, int i, const std::vector<int>& first,
-          std::vector<int>& maxfirst, std::vector<int>& delta,
-          std::vector<int>& prevleaf, std::vector<int>& ancestor);
+                 std::vector<int>& maxfirst, std::vector<int>& delta,
+                 std::vector<int>& prevleaf, std::vector<int>& ancestor);
 
 template <typename T>
 void permuteVector(std::vector<T>& v, const std::vector<int>& perm) {
@@ -28,6 +28,16 @@ void permuteVector(std::vector<T>& v, const std::vector<int>& perm) {
   std::vector<T> new_v(v.size());
   for (int i = 0; i < v.size(); ++i) {
     new_v[i] = v[perm[i]];
+  }
+  v = std::move(new_v);
+}
+
+template <typename T>
+void permuteVectorInverse(std::vector<T>& v, const std::vector<int>& iperm) {
+  // Permute vector v according to inverse permutation iperm.
+  std::vector<T> new_v(v.size());
+  for (int i = 0; i < v.size(); ++i) {
+    new_v[iperm[i]] = v[i];
   }
   v = std::move(new_v);
 }
