@@ -1076,12 +1076,39 @@ It seems to behave better. It attempts to produce a matrix with rows and columns
 Some problems are better with scaling, some problems are better without. However, I think that having the scaling is better because it creates univorm absolute values that I can use to regularize.
 ---
 
+*****
+01 Oct 2024
+I changed the printing, so that I can choose whether to print the standard data or the extended data.
+Extended data include max and min regularized Theta, max and min entry in D (pivots), max and min entry in L, number of regularized pivots, max regularization applied, max residual after refinement.
+---
+
+*****
+02 Oct 2024
+I found a source of inaccuracy in the dense factorisation.
+When I update the pivots, I subtract the result of ddot from the current pivot.
+If I subtract the single contributions from the pivot instead, there is less loss of accuracy (kind of like modified Gram Schmidt?).
+This removes the problem of pivots going to exactly zero, even though it seems like it still happens sometimes.
+It looks to make things better, because if the pivot goes to exactly zero, it means that all information has been lost and I can only regularize with a random value.
+---
+I changed the code so that instead of computing the corrector, I directly compute the final direction. Hopefully, this helps in reducing inaccuracies in the direction.
+---
+I cannot understand if the refinement is correct or not.
+The residual sometimes are large, but I cannot find a reason.
+---
+
+*****
+03 Oct 2024
+I switched the summation of the pivots to be the Kahan compensated summation. This should further reduce the pivots that suffer from numerical inaccuracies.
+---
+I set a combination of regularization that seems reasonable. It still struggles with greenbea/dfl001.
+I think that Jacek in hopdm does something different than what I am doing here. I need to check better.
+---
+
+
 
 *****
 To do:
 - row growth factor (and store inverse of D?)
 - parallel stuff
-- check forplan
-- col growth uses infinity pivots
 - any other scaling of the LP?
 - check iterative refinement

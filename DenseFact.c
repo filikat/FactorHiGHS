@@ -163,11 +163,57 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda,
   return kRetOk;
 }
 
+double pivot_compensated_sum_2(double base, int k, const double* row, int ldr,
+                               const double* piv, int ldp) {
+  // Use Kahan-Babushka compensated summation, Neumaier version, to compute the
+  // pivot. Compute base + \sum_0^k row[i*ldr]^2*piv[i*ldp]
+
+  double sum = base;
+  volatile double c = 0.0;
+
+  for (int i = 0; i < k; ++i) {
+    double value = -row[ldr * i] * piv[ldp * i] * row[ldr * i];
+    double t = sum + value;
+    if (fabs(sum) >= fabs(value)) {
+      volatile double temp = sum - t;
+      c += temp + value;
+    } else {
+      volatile double temp = value - t;
+      c += temp + sum;
+    }
+    sum = t;
+  }
+
+  return sum + c;
+}
+
+double pivot_compensated_sum(double base, int k, const double* row, int ldr,
+                             const double* piv, int ldp) {
+  // Use Kahan-Babushka compensated summation to compute the pivot.
+  // Compute base + \sum_0^k row[i*ldr]^2*piv[i*ldp]
+
+  double sum = base;
+  volatile double c = 0.0;
+
+  for (int i = 0; i < k; ++i) {
+    double value = -row[ldr * i] * piv[ldp * i] * row[ldr * i];
+    double y = value - c;
+    // use volatile or compiler optimization might use associativity to
+    // eliminate operations
+    volatile double t = sum + y;
+    volatile double z = t - sum;
+    c = z - y;
+    sum = t;
+  }
+
+  return sum;
+}
+
 int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
                     const int* pivot_sign, double thresh, double* regul) {
   // ===========================================================================
   // Infedinite factorization without blocks.
-  // BLAS calls: ddot_, dgemv_, dscal_.
+  // BLAS calls: dgemv_, dscal_.
   // ===========================================================================
 
   // check input
@@ -198,7 +244,9 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
       }
 
       // update diagonal element
-      double Ajj = A[j + lda * j] - ddot_(&N, &A[j], &lda, temp, &i_one);
+      double Ajj =
+          pivot_compensated_sum(A[j + lda * j], N, &A[j], lda, A, lda + 1);
+
       if (isnan(Ajj)) {
         A[j + lda * j] = Ajj;
         printf("\ndense_fact_fiuf: invalid pivot %e\n", Ajj);
@@ -211,49 +259,60 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
                &A[j + 1 + j * lda], &i_one);
       }
 
-      // compute diagonal element
-      if (fabs(Ajj) <= thresh) {
-        double sign = (double)pivot_sign[j];
+      // sign of pivot
+      double sign = (double)pivot_sign[j];
+      double old_pivot = Ajj;
 
+      // lift pivots that are too small or have wrong sign
+      if (sign * Ajj <= thresh) {
         // if pivot is not acceptable, push it up to thresh
-        // printf("small pivot %e, with sign %d ", Ajj, pivot_sign[j]);
-        double old_pivot = Ajj;
-        Ajj = thresh * sign;
+        printf("%d: small pivot %e, with sign %d set to ", j, Ajj,
+               pivot_sign[j]);
 
-        // compute the minimum pivot required to keep the diagonal of the
-        // current block acceptable:
-        // b is column below pivot, d is diagonal of block, p is pivot
-        // we want d_k - b_k^2 / p \ge thresh
-        // i.e.
-        // p \ge b_k^2 / (d_k - thresh)
-        //
-        double required_pivot = 0.0;
-        for (int k = j + 1; k < n; ++k) {
-          double bk = A[k + j * lda];
-          double dk = A[k + lda * k];
+        if (sign * Ajj <= -thresh * 1e3) {
+          Ajj = sign * max(thresh * 1e100, 1e100);
+          printf("%e\n", Ajj);
+        } else {
+          Ajj = thresh * sign;
+          printf("%e\n", Ajj);
 
-          // if pivot and dk have different sign, skip
-          if (sign * (double)pivot_sign[k] < 0) continue;
+          // compute the minimum pivot required to keep the diagonal of the
+          // current block acceptable:
+          // b is column below pivot, d is diagonal of block, p is pivot
+          // we want d_k - b_k^2 / p \ge thresh
+          // i.e.
+          // p \ge b_k^2 / (d_k - thresh)
+          //
+          double required_pivot = Ajj;
+          for (int k = j + 1; k < n; ++k) {
+            double bk = A[k + j * lda];
+            double dk = A[k + k * lda];
 
-          double temp = (dk - sign * thresh);
-          temp = (bk * bk) / temp;
+            // if pivot and dk have different sign, skip
+            if (sign * (double)pivot_sign[k] < 0) continue;
 
-          if (sign > 0)
-            required_pivot = max(required_pivot, temp);
-          else
-            required_pivot = min(required_pivot, temp);
+            double temp = (dk - sign * thresh);
+            temp = (bk * bk) / temp;
+
+            if (sign > 0)
+              required_pivot = max(required_pivot, temp);
+            else
+              required_pivot = min(required_pivot, temp);
+          }
+
+          if (required_pivot != Ajj) {
+            if (sign > 0)
+              Ajj = max(Ajj, required_pivot);
+            else
+              Ajj = min(Ajj, required_pivot);
+
+            printf("%d: pivot %e set to %e\n", j, old_pivot, Ajj);
+          }
         }
-
-        if (sign > 0)
-          Ajj = max(Ajj, required_pivot);
-        else
-          Ajj = min(Ajj, required_pivot);
-
-        // record regularization used
-        regul[j] += fabs(Ajj - old_pivot);
-
-        // printf("set to %e\n", Ajj);
       }
+
+      // record regularization used
+      regul[j] += fabs(Ajj - old_pivot);
 
       // save diagonal element
       A[j + lda * j] = Ajj;
@@ -285,7 +344,8 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
 
       // update diagonal element
       double Ajj =
-          A[j + lda * j] - ddot_(&N, &A[j * lda], &i_one, temp, &i_one);
+          pivot_compensated_sum(A[j + lda * j], N, &A[lda * j], 1, A, lda + 1);
+
       if (isnan(Ajj)) {
         A[j + lda * j] = Ajj;
         printf("\ndense_fact_fiuf: invalid pivot %e\n", Ajj);
@@ -298,49 +358,60 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
                &d_one, &A[j + (j + 1) * lda], &lda);
       }
 
-      // compute diagonal element
-      if (fabs(Ajj) <= thresh) {
-        double sign = (double)pivot_sign[j];
+      // sign of pivot
+      double sign = (double)pivot_sign[j];
+      double old_pivot = Ajj;
 
+      // lift pivots that are too small or have wrong sign
+      if (sign * Ajj <= thresh) {
         // if pivot is not acceptable, push it up to thresh
-        // printf("small pivot %e, with sign %d ", Ajj, pivot_sign[j]);
-        double old_pivot = Ajj;
-        Ajj = thresh * sign;
+        printf("%d: small pivot %e, with sign %d set to ", j, Ajj,
+               pivot_sign[j]);
 
-        // compute the minimum pivot required to keep the diagonal of the
-        // current block acceptable:
-        // b is column below pivot, d is diagonal of block, p is pivot
-        // we want d_k - b_k^2 / p \ge thresh
-        // i.e.
-        // p \ge b_k^2 / (d_k - thresh)
-        //
-        double required_pivot = 0.0;
-        for (int k = j + 1; k < n; ++k) {
-          double bk = A[j + k * lda];
-          double dk = A[k + lda * k];
+        if (sign * Ajj <= -thresh * 1e3) {
+          Ajj = sign * max(thresh * 1e100, 1e100);
+          printf("%e\n", Ajj);
+        } else {
+          Ajj = thresh * sign;
+          printf("%e\n", Ajj);
 
-          // if pivot and dk have different sign, skip
-          if (sign * (double)pivot_sign[k] < 0) continue;
+          // compute the minimum pivot required to keep the diagonal of the
+          // current block acceptable:
+          // b is column below pivot, d is diagonal of block, p is pivot
+          // we want d_k - b_k^2 / p \ge thresh
+          // i.e.
+          // p \ge b_k^2 / (d_k - thresh)
+          //
+          double required_pivot = Ajj;
+          for (int k = j + 1; k < n; ++k) {
+            double bk = A[j + k * lda];
+            double dk = A[k + lda * k];
 
-          double temp = (dk - sign * thresh);
-          temp = (bk * bk) / temp;
+            // if pivot and dk have different sign, skip
+            if (sign * (double)pivot_sign[k] < 0) continue;
 
-          if (sign > 0)
-            required_pivot = max(required_pivot, temp);
-          else
-            required_pivot = min(required_pivot, temp);
+            double temp = (dk - sign * thresh);
+            temp = (bk * bk) / temp;
+
+            if (sign > 0)
+              required_pivot = max(required_pivot, temp);
+            else
+              required_pivot = min(required_pivot, temp);
+          }
+
+          if (required_pivot != Ajj) {
+            if (sign > 0)
+              Ajj = max(Ajj, required_pivot);
+            else
+              Ajj = min(Ajj, required_pivot);
+
+            printf("%d: pivot %e set to %e\n", j, old_pivot, Ajj);
+          }
         }
-
-        if (sign > 0)
-          Ajj = max(Ajj, required_pivot);
-        else
-          Ajj = min(Ajj, required_pivot);
-
-        // record regularization used
-        regul[j] += fabs(Ajj - old_pivot);
-
-        // printf("set to %e\n", Ajj);
       }
+
+      // record regularization used
+      regul[j] += fabs(Ajj - old_pivot);
 
       // save diagonal element
       A[j + lda * j] = Ajj;

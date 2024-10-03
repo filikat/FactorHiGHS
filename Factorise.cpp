@@ -48,7 +48,7 @@ Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
   sn_columns_.resize(S_.sn());
 
   // scale the matrix
-  equilibrate();
+  // equilibrate();
 
   // compute largest diagonal entry in absolute value
   max_diag_ = 0.0;
@@ -258,9 +258,9 @@ int Factorise::processSupernode(int sn) {
 #endif
 
   // threshold for regularization
-  double reg_thresh = max_diag_ * 1e-16 * 1e-10;
+  double reg_thresh = max_diag_ * 1e-16 * 1e-6;
 
-  int status = FH_->denseFactorise(reg_thresh, S_.dynamicReg(), S_.times());
+  int status = FH_->denseFactorise(reg_thresh, dynamic_reg_, S_.times());
   if (status) return status;
 
 #ifdef FINE_TIMING
@@ -486,7 +486,7 @@ int Factorise::run(Numeric& num) {
 #endif
 
   clique_block_start_.resize(S_.sn());
-  S_.dynamicReg().assign(n_, 0.0);
+  dynamic_reg_.assign(n_, 0.0);
 
   // Handle multiple formats
   FullFormatHandler full_FH;
@@ -513,10 +513,18 @@ int Factorise::run(Numeric& num) {
 
   if (status) return status;
 
+  // un-scale regularization
+  if (colscale_.size() > 0) {
+    for (int i = 0; i < n_; ++i) {
+      dynamic_reg_[i] /= (colscale_[i] * colscale_[i]);
+    }
+  }
+
   // move factorisation to numerical object
   num.sn_columns_ = std::move(sn_columns_);
   num.S_ = &S_;
   num.colscale_ = std::move(colscale_);
+  num.dynamic_reg_ = std::move(dynamic_reg_);
 
 #ifdef COARSE_TIMING
   S_.times(kTimeFactorise) += clock.stop();

@@ -46,7 +46,7 @@ template <typename T>
 void print(std::ofstream& out_file, const std::vector<T>& v,
            const std::string s) {
   char name[80];
-  snprintf(name, 80, "matlab/%s.txt", s.c_str());
+  snprintf(name, 80, "../FactorHiGHS/matlab/%s.txt", s.c_str());
   out_file.open(name);
   for (T i : v) {
     out_file << i << '\n';

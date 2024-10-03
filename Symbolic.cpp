@@ -28,7 +28,6 @@ const std::vector<int>& Symbolic::pivotSign() const { return pivot_sign_; }
 void Symbolic::setFact(FactType i) const { fact_type_ = i; }
 void Symbolic::setFormat(FormatType i) const { format_type_ = i; }
 double& Symbolic::times(TimeItems i) const { return times_record_[i]; }
-std::vector<double>& Symbolic::dynamicReg() const { return dynamic_reg_; }
 std::vector<double>& Symbolic::times() const { return times_record_; }
 
 void Symbolic::print() const {

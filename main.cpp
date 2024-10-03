@@ -573,7 +573,7 @@ int main(int argc, char** argv) {
     print(out_file, ptrLower, "ptr");
     print(out_file, rowsLower, "rows");
     print(out_file, valLower, "vals");
-    print(out_file, S.perm(), "perm");
+    print(out_file, S.iperm(), "iperm");
     print(out_file, S.snStart(), "sn_start");
     print(out_file, S.snParent(), "sn_parent");
     print(out_file, S.ptr(), "ptrsn");

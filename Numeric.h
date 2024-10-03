@@ -10,13 +10,21 @@
 #include "timing.h"
 
 class Numeric {
+  // columns of factorization, stored by supernode
   std::vector<std::vector<double>> sn_columns_{};
+
+  // symbolic object
   const Symbolic* S_;
+
+  // scaling applied to the matrix
   std::vector<double> colscale_{};
 
   friend class Factorise;
 
  public:
+  // dynamic regularization applied to the matrix
+  std::vector<double> dynamic_reg_{};
+
   // Forward solve with single right hand side
   void forwardSolve(std::vector<double>& x) const;
 

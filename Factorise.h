@@ -48,6 +48,9 @@ class Factorise {
   // symmetric scaling to apply to the original matrix
   std::vector<double> colscale_{};
 
+  //dynamic regularization
+  std::vector<double> dynamic_reg_{};
+
  public:
   void permute(const std::vector<int>& iperm);
   int processSupernode(int sn);
