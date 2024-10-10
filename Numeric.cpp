@@ -305,6 +305,10 @@ void Numeric::solve(std::vector<double>& x) const {
     for (int i = 0; i < S_->size(); ++i) {
       x[i] *= colscale_[i];
     }
+  } else if (colexp_.size() > 0) {
+    for (int i = 0; i < S_->size(); ++i) {
+      x[i] = std::ldexp(x[i], colexp_[i]);
+    }
   }
 
   // solve
@@ -316,6 +320,10 @@ void Numeric::solve(std::vector<double>& x) const {
   if (colscale_.size() > 0) {
     for (int i = 0; i < S_->size(); ++i) {
       x[i] *= colscale_[i];
+    }
+  } else if (colexp_.size() > 0) {
+    for (int i = 0; i < S_->size(); ++i) {
+      x[i] = std::ldexp(x[i], colexp_[i]);
     }
   }
 

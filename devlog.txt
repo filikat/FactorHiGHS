@@ -1104,11 +1104,52 @@ I set a combination of regularization that seems reasonable. It still struggles 
 I think that Jacek in hopdm does something different than what I am doing here. I need to check better.
 ---
 
+*****
+07 Oct 2024
+I switched the scaling of the LP to Curtis-Reid, considering the matrix A and also b and c.
+It seems to work fine.
+I should now switch to CR scaling also for the linear system, to see if it makes a difference.
+---
 
+*****
+08 Oct 2024
+I switched the dynamic regularization of the pivot to be a separate function, so that both cases of upper and lower triangle can call the same.
+I think that I should change the static regularization, so that it is added only after the pivot is computed. 
+If a pivot is large and I add 1e-12, that will be completely lost, but it may still be relevant when things are subtracted later.
+---
+It seems like matrix equilibration works better than Curtis-Reid for the linear system.
+I changed equilibrate() so that it uses powers of 2.
+---
+
+*****
+09 Oct 2024
+I refactored Ipm quite a bit, to make it a bit better looking.
+Of course, it took two tries because I didn't check if it was working in the meantime enough times and I couldn't fine the issue, so I had to go back...
+---
+
+***
+10 Oct 2024
+I managed to produce an allocator for std::vector that does not initialize the elements. This would be good for clique. 
+However, I tried to use that, but the factorization gets slower.
+It's weird, because it's only the dense factorization that is affected, but that should only work with the underlying pointer. It should not care where it comes from.
+---
+I think I understand the problem.
+The issue is not the initialization. 
+The problem is that if the vector is initialized at the beginning, it is brought into the memory straight away.
+If instead I allocate memory and not initialize, the vector is only mapped, and it is actually copied into memory at the first time that something modifies it (i.e. the computation of the Schur complement inside denseFact).
+Indeed, the two approaches take similar time only that the time is spent in different point of the codes.
+I should then simply use a std::vector, without worrying.
+I may decide to implement a specialized allocation tool for the cliques, so that I don't have to allocate and deallocate vectors, which would reduce the problem.
+However, this represents a small fraction of the total time (apart form full format, which has big blocks to allocate).
+---
+I also changed the order of operations, so that assembly into frontal and into clique both happen before the partial factorization.
+This makes the code simpler and does not require complicated stuff to overwrite the Schur complement during the dense factorization.
+It does requires using axpy instead of copy when putting stuff into the Schur complement using HybridPacked format.
+---
 
 *****
 To do:
 - row growth factor (and store inverse of D?)
 - parallel stuff
-- any other scaling of the LP?
 - check iterative refinement
+- custom allocation of cliques

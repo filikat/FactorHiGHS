@@ -163,30 +163,6 @@ int dense_fact_fduf(char uplo, int n, double* restrict A, int lda,
   return kRetOk;
 }
 
-double pivot_compensated_sum_2(double base, int k, const double* row, int ldr,
-                               const double* piv, int ldp) {
-  // Use Kahan-Babushka compensated summation, Neumaier version, to compute the
-  // pivot. Compute base + \sum_0^k row[i*ldr]^2*piv[i*ldp]
-
-  double sum = base;
-  volatile double c = 0.0;
-
-  for (int i = 0; i < k; ++i) {
-    double value = -row[ldr * i] * piv[ldp * i] * row[ldr * i];
-    double t = sum + value;
-    if (fabs(sum) >= fabs(value)) {
-      volatile double temp = sum - t;
-      c += temp + value;
-    } else {
-      volatile double temp = value - t;
-      c += temp + sum;
-    }
-    sum = t;
-  }
-
-  return sum + c;
-}
-
 double pivot_compensated_sum(double base, int k, const double* row, int ldr,
                              const double* piv, int ldp) {
   // Use Kahan-Babushka compensated summation to compute the pivot.
@@ -207,6 +183,81 @@ double pivot_compensated_sum(double base, int k, const double* row, int ldr,
   }
 
   return sum;
+}
+
+double regularize_pivot(double pivot, double thresh, const int* sign,
+                        const double* A, int lda, int j, int n, char uplo) {
+  double s = (double)sign[j];
+  double old_pivot = pivot;
+
+  double spivot = s * pivot;
+  double K = 1e12;
+
+  if (spivot <= thresh && spivot >= -thresh) {
+    // small pivot, lift to thresh
+    pivot = s * thresh;
+    printf("%3d: small pivot %e, with sign %d, set to %e\n", j, old_pivot,
+           sign[j], pivot);
+  } else if (s * pivot < -thresh && spivot >= -thresh * K) {
+    // wrong sign, lift more
+    pivot = s * thresh * 10;
+    printf("%3d: wrong pivot %e, with sign %d, set to %e\n", j, old_pivot,
+           sign[j], pivot);
+  } else if (spivot < -thresh * K) {
+    // pivot is completely lost
+    pivot = s * 1e100;
+    printf("%3d: disaster pivot %e, with sign %d, set to %e\n", j, old_pivot,
+           sign[j], pivot);
+  }
+
+  // lift pivots that are too small or have wrong sign
+  /*if (s * pivot <= thresh) {
+    // if pivot is not acceptable, push it up to thresh
+    printf("%d: small pivot %e, with sign %d set to ", j, pivot, sign[j]);
+
+    if (s * pivot <= -thresh * 1e12) {
+      pivot = s * max(thresh * 1e10, 1e10);
+      printf("%e\n", pivot);
+    } else {
+      pivot = thresh * s;
+      printf("%e\n", pivot);
+
+      // compute the minimum pivot required to keep the diagonal of the
+      // current block acceptable:
+      // b is column below pivot, d is diagonal of block, p is pivot
+      // we want d_k - b_k^2 / p \ge thresh
+      // i.e.
+      // p \ge b_k^2 / (d_k - thresh)
+      //
+      double required_pivot = pivot;
+      for (int k = j + 1; k < n; ++k) {
+        double bk = uplo == 'L' ? A[k + j * lda] : A[j + k * lda];
+        double dk = A[k + k * lda];
+
+        // if pivot and dk have different sign, skip
+        if (s * (double)sign[k] < 0) continue;
+
+        double temp = (dk - s * thresh);
+        temp = (bk * bk) / temp;
+
+        if (s > 0)
+          required_pivot = max(required_pivot, temp);
+        else
+          required_pivot = min(required_pivot, temp);
+      }
+
+      if (required_pivot != pivot) {
+        if (sign > 0)
+          pivot = max(pivot, required_pivot);
+        else
+          pivot = min(pivot, required_pivot);
+
+        printf("%d: pivot %e set to %e\n", j, old_pivot, pivot);
+      }
+    }
+  }*/
+
+  return pivot;
 }
 
 int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
@@ -259,59 +310,9 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
                &A[j + 1 + j * lda], &i_one);
       }
 
-      // sign of pivot
-      double sign = (double)pivot_sign[j];
+      // add regularization
       double old_pivot = Ajj;
-
-      // lift pivots that are too small or have wrong sign
-      if (sign * Ajj <= thresh) {
-        // if pivot is not acceptable, push it up to thresh
-        printf("%d: small pivot %e, with sign %d set to ", j, Ajj,
-               pivot_sign[j]);
-
-        if (sign * Ajj <= -thresh * 1e3) {
-          Ajj = sign * max(thresh * 1e100, 1e100);
-          printf("%e\n", Ajj);
-        } else {
-          Ajj = thresh * sign;
-          printf("%e\n", Ajj);
-
-          // compute the minimum pivot required to keep the diagonal of the
-          // current block acceptable:
-          // b is column below pivot, d is diagonal of block, p is pivot
-          // we want d_k - b_k^2 / p \ge thresh
-          // i.e.
-          // p \ge b_k^2 / (d_k - thresh)
-          //
-          double required_pivot = Ajj;
-          for (int k = j + 1; k < n; ++k) {
-            double bk = A[k + j * lda];
-            double dk = A[k + k * lda];
-
-            // if pivot and dk have different sign, skip
-            if (sign * (double)pivot_sign[k] < 0) continue;
-
-            double temp = (dk - sign * thresh);
-            temp = (bk * bk) / temp;
-
-            if (sign > 0)
-              required_pivot = max(required_pivot, temp);
-            else
-              required_pivot = min(required_pivot, temp);
-          }
-
-          if (required_pivot != Ajj) {
-            if (sign > 0)
-              Ajj = max(Ajj, required_pivot);
-            else
-              Ajj = min(Ajj, required_pivot);
-
-            printf("%d: pivot %e set to %e\n", j, old_pivot, Ajj);
-          }
-        }
-      }
-
-      // record regularization used
+      Ajj = regularize_pivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo);
       regul[j] += fabs(Ajj - old_pivot);
 
       // save diagonal element
@@ -358,59 +359,9 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
                &d_one, &A[j + (j + 1) * lda], &lda);
       }
 
-      // sign of pivot
-      double sign = (double)pivot_sign[j];
+      // add regularization
       double old_pivot = Ajj;
-
-      // lift pivots that are too small or have wrong sign
-      if (sign * Ajj <= thresh) {
-        // if pivot is not acceptable, push it up to thresh
-        printf("%d: small pivot %e, with sign %d set to ", j, Ajj,
-               pivot_sign[j]);
-
-        if (sign * Ajj <= -thresh * 1e3) {
-          Ajj = sign * max(thresh * 1e100, 1e100);
-          printf("%e\n", Ajj);
-        } else {
-          Ajj = thresh * sign;
-          printf("%e\n", Ajj);
-
-          // compute the minimum pivot required to keep the diagonal of the
-          // current block acceptable:
-          // b is column below pivot, d is diagonal of block, p is pivot
-          // we want d_k - b_k^2 / p \ge thresh
-          // i.e.
-          // p \ge b_k^2 / (d_k - thresh)
-          //
-          double required_pivot = Ajj;
-          for (int k = j + 1; k < n; ++k) {
-            double bk = A[j + k * lda];
-            double dk = A[k + lda * k];
-
-            // if pivot and dk have different sign, skip
-            if (sign * (double)pivot_sign[k] < 0) continue;
-
-            double temp = (dk - sign * thresh);
-            temp = (bk * bk) / temp;
-
-            if (sign > 0)
-              required_pivot = max(required_pivot, temp);
-            else
-              required_pivot = min(required_pivot, temp);
-          }
-
-          if (required_pivot != Ajj) {
-            if (sign > 0)
-              Ajj = max(Ajj, required_pivot);
-            else
-              Ajj = min(Ajj, required_pivot);
-
-            printf("%d: pivot %e set to %e\n", j, old_pivot, Ajj);
-          }
-        }
-      }
-
-      // record regularization used
+      Ajj = regularize_pivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo);
       regul[j] += fabs(Ajj - old_pivot);
 
       // save diagonal element
@@ -533,7 +484,7 @@ int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
   // update Schur complement if partial factorization is required
   if (k < n) {
     const int N = n - k;
-    callAndTime_dsyrk('L', 'N', N, k, -1.0, &A[k], lda, 0.0, B, ldb, times);
+    callAndTime_dsyrk('L', 'N', N, k, -1.0, &A[k], lda, 1.0, B, ldb, times);
   }
 
   return kRetOk;
@@ -665,11 +616,9 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
     // Update schur complement by subtracting contribution of positive columns
     // and adding contribution of negative columns.
     // In this way, I can use dsyrk_ instead of dgemm_ and avoid updating the
-    // full square schur complement. First call uses beta = 0.0, to clear
-    // content of B. Second call uses beta = 1.0, to not clear the result of
-    // the first call.
+    // full square schur complement.
 
-    callAndTime_dsyrk('L', 'N', N, pos_pivot, -1.0, temp_pos, ldt, 0.0, B, ldb,
+    callAndTime_dsyrk('L', 'N', N, pos_pivot, -1.0, temp_pos, ldt, 1.0, B, ldb,
                       times);
     callAndTime_dsyrk('L', 'N', N, neg_pivot, 1.0, temp_neg, ldt, 1.0, B, ldb,
                       times);
@@ -862,12 +811,12 @@ int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
       }
 
       // schur_buf contains Schur complement in hybrid format (with full
-      // diagonal blocks). Put it in lower-packed format in B.
+      // diagonal blocks). Sum it in lower-packed format in B.
 
       for (int buf_row = 0; buf_row < nrow; ++buf_row) {
         const int N = ncol;
-        callAndTime_dcopy_schur(N, &schur_buf[buf_row * ncol], 1,
-                                &B[B_start + buf_row], nrow, times);
+        callAndTime_daxpy(N, 1.0, &schur_buf[buf_row * ncol], 1,
+                          &B[B_start + buf_row], nrow, times);
       }
       B_start += nrow * ncol;
     }
@@ -1108,11 +1057,11 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
       }
 
       // schur_buf contains Schur complement in hybrid format (with full
-      // diagonal blocks). Put it in lower-packed format in B.
+      // diagonal blocks). Sum it in lower-packed format in B.
       for (int buf_row = 0; buf_row < nrow; ++buf_row) {
         const int N = ncol;
-        callAndTime_dcopy_schur(N, &schur_buf[buf_row * ncol], 1,
-                                &B[B_start + buf_row], nrow, times);
+        callAndTime_daxpy(N, 1.0, &schur_buf[buf_row * ncol], 1,
+                          &B[B_start + buf_row], nrow, times);
       }
       B_start += nrow * ncol;
     }
@@ -1244,8 +1193,6 @@ int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double thresh,
     const int ncol_last = k % nb;
     const int last_full_size = ncol_last == 0 ? full_size : ncol_last * nb;
 
-    double beta = 0.0;
-
     // number of blocks in Schur complement
     const int s_blocks = (ns - 1) / nb + 1;
 
@@ -1264,8 +1211,6 @@ int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double thresh,
       // number of columns of the block
       const int ncol = min(nb, nrow);
 
-      beta = 0.0;
-
       // each block receives contributions from the blocks of the leading part
       // of A
       for (int j = 0; j < n_blocks; ++j) {
@@ -1281,20 +1226,16 @@ int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double thresh,
         diag_pos += sb * this_full_size;
 
         // update diagonal block
-        callAndTime_dsyrk('U', 'T', ncol, jb, -1.0, &A[diag_pos], jb, beta,
+        callAndTime_dsyrk('U', 'T', ncol, jb, -1.0, &A[diag_pos], jb, 1.0,
                           schur_buf, ncol, times);
 
         // update subdiagonal part
         const int M = nrow - nb;
         if (M > 0) {
           callAndTime_dgemm('T', 'N', nb, M, jb, -1.0, &A[diag_pos], jb,
-                            &A[diag_pos + this_full_size], jb, beta,
+                            &A[diag_pos + this_full_size], jb, 1.0,
                             &schur_buf[ncol * ncol], ncol, times);
         }
-
-        // beta is 0 for the first time (to avoid initializing schur_buf) and
-        // 1 for the next calls
-        beta = 1.0;
       }
 
       B_start += nrow * ncol;
@@ -1457,8 +1398,6 @@ int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
     const int ncol_last = k % nb;
     const int last_full_size = ncol_last == 0 ? full_size : ncol_last * nb;
 
-    double beta = 0.0;
-
     // number of blocks in Schur complement
     const int s_blocks = (ns - 1) / nb + 1;
 
@@ -1476,8 +1415,6 @@ int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
 
       // number of columns of the block
       const int ncol = min(nb, nrow);
-
-      beta = 0.0;
 
       // each block receives contributions from the blocks of the leading part
       // of A
@@ -1505,19 +1442,15 @@ int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
 
         // update diagonal block using dgemm_
         callAndTime_dgemm('T', 'N', ncol, ncol, jb, -1.0, T, jb, &A[diag_pos],
-                          jb, beta, schur_buf, ncol, times);
+                          jb, 1.0, schur_buf, ncol, times);
 
         // update subdiagonal part
         const int M = nrow - nb;
         if (M > 0) {
           callAndTime_dgemm('T', 'N', ncol, M, jb, -1.0, T, jb,
-                            &A[diag_pos + this_full_size], jb, beta,
+                            &A[diag_pos + this_full_size], jb, 1.0,
                             &schur_buf[ncol * ncol], ncol, times);
         }
-
-        // beta is 0 for the first time (to avoid initializing schur_buf) and
-        // 1 for the next calls
-        beta = 1.0;
       }
       B_start += nrow * ncol;
     }

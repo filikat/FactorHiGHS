@@ -44,11 +44,13 @@ Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
   childrenLinkedList(S_.snParent(), first_children_, next_children_);
 
   // allocate space for list of generated elements and columns of L
-  schur_contribution_.resize(S_.sn(), nullptr);
+  schur_contribution_.resize(S_.sn());
   sn_columns_.resize(S_.sn());
 
   // scale the matrix
-  // equilibrate();
+  equilibrate();
+
+  // scale();
 
   // compute largest diagonal entry in absolute value
   max_diag_ = 0.0;
@@ -153,8 +155,7 @@ int Factorise::processSupernode(int sn) {
   // (without the top part), that do not undergo Cholesky elimination.
 
   // attach to the format handler
-  FH_->attach(&sn_columns_[sn], &schur_contribution_[sn], &clique_block_start_,
-              &S_, sn);
+  FH_->attach(&sn_columns_[sn], &schur_contribution_[sn], sn);
 
   // initialize frontal
   FH_->initFrontal();
@@ -190,19 +191,12 @@ int Factorise::processSupernode(int sn) {
 #endif
 
   // ===================================================
-  // Assemble frontal matrices of children into frontal
+  // Assemble frontal matrices of children
   // ===================================================
-#ifdef FINE_TIMING
-  clock.start();
-#endif
   int child_sn = first_children_[sn];
   while (child_sn != -1) {
     // Schur contribution of the current child
-    double* child_clique = schur_contribution_[child_sn];
-    if (!child_clique) {
-      printf("Error with child supernode\n");
-      return kRetGeneric;
-    }
+    std::vector<double>& child_clique = schur_contribution_[child_sn];
 
     // determine size of clique of child
     const int child_begin = S_.snStart(child_sn);
@@ -214,6 +208,10 @@ int Factorise::processSupernode(int sn) {
     // size of clique of child sn
     const int nc = S_.ptr(child_sn + 1) - S_.ptr(child_sn) - child_size;
 
+// ASSEMBLE INTO FRONTAL
+#ifdef FINE_TIMING
+    clock.start();
+#endif
     // go through the columns of the contribution of the child
     for (int col = 0; col < nc; ++col) {
       // relative index of column in the frontal matrix
@@ -237,18 +235,28 @@ int Factorise::processSupernode(int sn) {
           row += consecutive;
         }
       }
-
-      // If j >= sn_size, we would assemble into clique.
-      // This is delayed until after the partial factorisation, to avoid
-      // having to initialize clique to zero.
     }
+#ifdef FINE_TIMING
+    S_.times(kTimeFactoriseAssembleChildrenF) += clock.stop();
+#endif
+
+// ASSEMBLE INTO CLIQUE
+#ifdef FINE_TIMING
+    clock.start();
+#endif
+    FH_->assembleClique(child_clique, nc, child_sn);
+#ifdef FINE_TIMING
+    S_.times(kTimeFactoriseAssembleChildrenC) += clock.stop();
+#endif
+
+    // Schur contribution of the child is no longer needed
+    // Swap with temporary empty vector to deallocate memory
+    std::vector<double> temp_empty;
+    schur_contribution_[child_sn].swap(temp_empty);
 
     // move on to the next child
     child_sn = next_children_[child_sn];
   }
-#ifdef FINE_TIMING
-  S_.times(kTimeFactoriseAssembleChildrenF) += clock.stop();
-#endif
 
   // ===================================================
   // Partial factorisation
@@ -258,7 +266,7 @@ int Factorise::processSupernode(int sn) {
 #endif
 
   // threshold for regularization
-  double reg_thresh = max_diag_ * 1e-16 * 1e-6;
+  double reg_thresh = max_diag_ * 1e-16;
 
   int status = FH_->denseFactorise(reg_thresh, dynamic_reg_, S_.times());
   if (status) return status;
@@ -274,45 +282,6 @@ int Factorise::processSupernode(int sn) {
   maxD_ = std::max(maxD_, maxD);
   minoffD_ = std::min(minoffD_, minoffD);
   maxoffD_ = std::max(maxoffD_, maxoffD);
-
-  // ===================================================
-  // Assemble frontal matrices of children into clique
-  // ===================================================
-#ifdef FINE_TIMING
-  clock.start();
-#endif
-
-  child_sn = first_children_[sn];
-  while (child_sn != -1) {
-    // Schur contribution of the current child
-    double* child_clique = schur_contribution_[child_sn];
-    if (!child_clique) {
-      printf("Error with child supernode\n");
-      return kRetGeneric;
-    }
-
-    // determine size of clique of child
-    const int child_begin = S_.snStart(child_sn);
-    const int child_end = S_.snStart(child_sn + 1);
-
-    // number of nodes in child sn
-    const int child_size = child_end - child_begin;
-
-    // size of clique of child sn
-    const int nc = S_.ptr(child_sn + 1) - S_.ptr(child_sn) - child_size;
-
-    FH_->assembleClique(child_clique, nc, child_sn);
-
-    // Schur contribution of the child is no longer needed
-    delete[] child_clique;
-
-    // move on to the next child
-    child_sn = next_children_[child_sn];
-  }
-
-#ifdef FINE_TIMING
-  S_.times(kTimeFactoriseAssembleChildrenC) += clock.stop();
-#endif
 
   // detach from the format handler
   FH_->detach();
@@ -453,7 +422,15 @@ void Factorise::equilibrate() {
 
     // compute scaling factors for columns
     for (int col = 0; col < n_; ++col) {
+      // compute scaling
       colmax[col] = 1.0 / sqrt(colmax[col]);
+
+      // round to power of 2
+      int exp;
+      std::frexp(colmax[col], &exp);
+      colmax[col] = std::ldexp(1.0, exp);
+
+      // update overall scaling
       colscale_[col] *= colmax[col];
     }
 
@@ -478,6 +455,28 @@ void Factorise::equilibrate() {
   */
 }
 
+void Factorise::scale() {
+  colexp_.resize(n_);
+  CurtisReidScalingSym(ptrA_, rowsA_, valA_, colexp_);
+
+  for (int col = 0; col < n_; ++col) {
+    for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
+      int row = rowsA_[el];
+      valA_[el] = std::ldexp(valA_[el], colexp_[col]);
+      valA_[el] = std::ldexp(valA_[el], colexp_[row]);
+    }
+  }
+
+  int maxexp = 0;
+  int minexp = INT_MAX;
+  for (int i = 0; i < n_; ++i) {
+    maxexp = std::max(maxexp, colexp_[i]);
+    minexp = std::min(minexp, colexp_[i]);
+  }
+  printf("Scaling: [%.2e,%.2e]\n", std::ldexp(1.0, minexp),
+         std::ldexp(1.0, maxexp));
+}
+
 int Factorise::run(Numeric& num) {
   Clock clock;
 
@@ -485,7 +484,6 @@ int Factorise::run(Numeric& num) {
   clock.start();
 #endif
 
-  clique_block_start_.resize(S_.sn());
   dynamic_reg_.assign(n_, 0.0);
 
   // Handle multiple formats
@@ -505,6 +503,9 @@ int Factorise::run(Numeric& num) {
       break;
   }
 
+  // initialize format handler
+  FH_->init(&S_);
+
   int status{};
   for (int sn = 0; sn < S_.sn(); ++sn) {
     status = processSupernode(sn);
@@ -518,12 +519,17 @@ int Factorise::run(Numeric& num) {
     for (int i = 0; i < n_; ++i) {
       dynamic_reg_[i] /= (colscale_[i] * colscale_[i]);
     }
+  } else if (colexp_.size() > 0) {
+    for (int i = 0; i < n_; ++i) {
+      dynamic_reg_[i] = std::ldexp(dynamic_reg_[i], -2 * colexp_[i]);
+    }
   }
 
   // move factorisation to numerical object
   num.sn_columns_ = std::move(sn_columns_);
   num.S_ = &S_;
   num.colscale_ = std::move(colscale_);
+  num.colexp_ = std::move(colexp_);
   num.dynamic_reg_ = std::move(dynamic_reg_);
 
 #ifdef COARSE_TIMING

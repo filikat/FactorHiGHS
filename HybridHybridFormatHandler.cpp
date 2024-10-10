@@ -7,34 +7,30 @@ void HybridHybridFormatHandler::initFrontal() {
 }
 
 void HybridHybridFormatHandler::initClique() {
-  // clique is not initialized to zero.
-  // it works provided that assembly is done in the right order
-
   const int n_blocks = (ldc_ - 1) / nb_ + 1;
-  (*clique_block_start_)[sn_].resize(n_blocks + 1);
+  clique_block_start_[sn_].resize(n_blocks + 1);
   int schur_size{};
   for (int j = 0; j < n_blocks; ++j) {
-    (*clique_block_start_)[sn_][j] = schur_size;
+    clique_block_start_[sn_][j] = schur_size;
     const int jb = std::min(nb_, ldc_ - j * nb_);
     schur_size += (ldc_ - j * nb_) * jb;
   }
-  (*clique_block_start_)[sn_].back() = schur_size;
-  *clique_ = new double[schur_size];
+  clique_block_start_[sn_].back() = schur_size;
+  clique_->resize(schur_size);
 }
 
 void HybridHybridFormatHandler::assembleFrontal(int i, int j, double val) {
   (*frontal_)[i + j * ldf_ - j * (j + 1) / 2] = val;
 }
 
-void HybridHybridFormatHandler::assembleFrontalMultiple(int num, double* child,
-                                                        int nc, int child_sn,
-                                                        int row, int col, int i,
-                                                        int j) {
+void HybridHybridFormatHandler::assembleFrontalMultiple(
+    int num, const std::vector<double>& child, int nc, int child_sn, int row,
+    int col, int i, int j) {
   const int jblock = col / nb_;
   const int jb = std::min(nb_, nc - nb_ * jblock);
   const int row_ = row - jblock * nb_;
   const int col_ = col - jblock * nb_;
-  const int start_block = (*clique_block_start_)[child_sn][jblock];
+  const int start_block = clique_block_start_[child_sn][jblock];
   daxpy_(&num, &d_one, &child[start_block + col_ + jb * row_], &jb,
          &(*frontal_)[i + ldf_ * j - j * (j + 1) / 2], &i_one);
 }
@@ -52,24 +48,24 @@ int HybridHybridFormatHandler::denseFactorise(
     int sn_start = S_->snStart(sn_);
     double* regul = &regularization[sn_start];
 
-    status = dense_fact_pdbs(ldf_, sn_size_, nb_, frontal_->data(), *clique_,
-                             reg_thresh, regul, times.data());
+    status = dense_fact_pdbs(ldf_, sn_size_, nb_, frontal_->data(),
+                             clique_->data(), reg_thresh, regul, times.data());
   } else {
     // find the position within pivot_sign corresponding to this supernode
     int sn_start = S_->snStart(sn_);
     const int* pivot_sign = &S_->pivotSign().data()[sn_start];
     double* regul = &regularization[sn_start];
 
-    status =
-        dense_fact_pibs(ldf_, sn_size_, S_->blockSize(), frontal_->data(),
-                        *clique_, pivot_sign, reg_thresh, regul, times.data());
+    status = dense_fact_pibs(ldf_, sn_size_, S_->blockSize(), frontal_->data(),
+                             clique_->data(), pivot_sign, reg_thresh, regul,
+                             times.data());
   }
 
   return status;
 }
 
-void HybridHybridFormatHandler::assembleClique(double* child, int nc,
-                                               int child_sn) {
+void HybridHybridFormatHandler::assembleClique(
+    const std::vector<double>& child, int nc, int child_sn) {
   // assemble the child clique into the current clique by blocks of columns.
   // within a block, assemble by rows.
 
@@ -79,7 +75,7 @@ void HybridHybridFormatHandler::assembleClique(double* child, int nc,
 
   // go through the blocks of columns of the child sn
   for (int b = 0; b < n_blocks; ++b) {
-    const int b_start = (*clique_block_start_)[child_sn][b];
+    const int b_start = clique_block_start_[child_sn][b];
 
     const int col_start = row_start;
     const int col_end = std::min(col_start + nb_, nc);
@@ -129,7 +125,7 @@ void HybridHybridFormatHandler::assembleClique(double* child, int nc,
         const int jb = std::min(nb_, ldc_ - nb_ * jblock);
         const int i_ = i - jblock * nb_;
         const int j_ = j - jblock * nb_;
-        const int start_block = (*clique_block_start_)[sn_][jblock];
+        const int start_block = clique_block_start_[sn_][jblock];
 
         const double d_one = 1.0;
         const int i_one = 1;

@@ -53,14 +53,14 @@ void callAndTime_dcopy(int n, const double* dx, int incx, double* dy, int incy,
 #endif
 }
 
-void callAndTime_dcopy_schur(int n, const double* dx, int incx, double* dy,
-                             int incy, double* times) {
+void callAndTime_daxpy(int n, double da, const double* dx, int incx,
+                        double* dy, int incy, double* times) {
 #ifdef FINEST_TIMING
   double t0 = GetTime();
 #endif
-  dcopy_(&n, dx, &incx, dy, &incy);
+  daxpy_(&n, &da, dx, &incx, dy, &incy);
 #ifdef FINEST_TIMING
-  times[kTimeDenseFact_copyschur] += GetTime() - t0;
+  times[kTimeDenseFact_axpy] += GetTime() - t0;
 #endif
 }
 

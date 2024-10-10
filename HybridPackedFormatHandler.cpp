@@ -7,33 +7,29 @@ void HybridPackedFormatHandler::initFrontal() {
 }
 
 void HybridPackedFormatHandler::initClique() {
-  // clique is not initialized to zero.
-  // it works provided that assembly is done in the right order
-
   const int n_blocks = (ldc_ - 1) / nb_ + 1;
-  (*clique_block_start_)[sn_].resize(n_blocks + 1);
+  clique_block_start_[sn_].resize(n_blocks + 1);
   int schur_size{};
   for (int j = 0; j < n_blocks; ++j) {
-    (*clique_block_start_)[sn_][j] = schur_size;
+    clique_block_start_[sn_][j] = schur_size;
     const int jb = std::min(nb_, ldc_ - j * nb_);
     schur_size += (ldc_ - j * nb_) * jb;
   }
-  (*clique_block_start_)[sn_].back() = schur_size;
-  *clique_ = new double[schur_size];
+  clique_block_start_[sn_].back() = schur_size;
+  clique_->resize(schur_size);
 }
 
 void HybridPackedFormatHandler::assembleFrontal(int i, int j, double val) {
   (*frontal_)[i + j * ldf_ - j * (j + 1) / 2] = val;
 }
 
-void HybridPackedFormatHandler::assembleFrontalMultiple(int num, double* child,
-                                                        int nc, int child_sn,
-                                                        int row, int col, int i,
-                                                        int j) {
+void HybridPackedFormatHandler::assembleFrontalMultiple(
+    int num, const std::vector<double>& child, int nc, int child_sn, int row,
+    int col, int i, int j) {
   const int jblock = col / nb_;
   const int row_ = row - jblock * nb_;
   const int col_ = col - jblock * nb_;
-  const int start_block = (*clique_block_start_)[child_sn][jblock];
+  const int start_block = clique_block_start_[child_sn][jblock];
   const int ld = nc - nb_ * jblock;
   daxpy_(&num, &d_one, &child[start_block + row_ + ld * col_], &i_one,
          &(*frontal_)[i + ldf_ * j - j * (j + 1) / 2], &i_one);
@@ -52,23 +48,24 @@ int HybridPackedFormatHandler::denseFactorise(
     int sn_start = S_->snStart(sn_);
     double* regul = &regularization[sn_start];
 
-    status = dense_fact_pdbh(ldf_, sn_size_, nb_, frontal_->data(), *clique_,
-                             reg_thresh, regul, times.data());
+    status = dense_fact_pdbh(ldf_, sn_size_, nb_, frontal_->data(),
+                             clique_->data(), reg_thresh, regul, times.data());
   } else {
     // find the position within pivot_sign corresponding to this supernode
     int sn_start = S_->snStart(sn_);
     const int* pivot_sign = &S_->pivotSign().data()[sn_start];
     double* regul = &regularization[sn_start];
 
-    status = dense_fact_pibh(ldf_, sn_size_, nb_, frontal_->data(), *clique_,
-                             pivot_sign, reg_thresh, regul, times.data());
+    status =
+        dense_fact_pibh(ldf_, sn_size_, nb_, frontal_->data(), clique_->data(),
+                        pivot_sign, reg_thresh, regul, times.data());
   }
 
   return status;
 }
 
-void HybridPackedFormatHandler::assembleClique(double* child, int nc,
-                                               int child_sn) {
+void HybridPackedFormatHandler::assembleClique(
+    const std::vector<double>& child, int nc, int child_sn) {
   //   go through the columns of the contribution of the child
   for (int col = 0; col < nc; ++col) {
     // relative index of column in the frontal matrix
@@ -95,14 +92,14 @@ void HybridPackedFormatHandler::assembleClique(double* child, int nc,
         const int jb_c = std::min(nb_, nc - nb_ * jblock_c);
         const int row_ = row - jblock_c * nb_;
         const int col_ = col - jblock_c * nb_;
-        const int start_block_c = (*clique_block_start_)[child_sn][jblock_c];
+        const int start_block_c = clique_block_start_[child_sn][jblock_c];
         const int ld_c = nc - nb_ * jblock_c;
 
         const int jblock = j / nb_;
         const int jb = std::min(nb_, ldc_ - nb_ * jblock);
         const int i_ = i - jblock * nb_;
         const int j_ = j - jblock * nb_;
-        const int start_block = (*clique_block_start_)[sn_][jblock];
+        const int start_block = clique_block_start_[sn_][jblock];
         const int ld = ldc_ - nb_ * jblock;
 
         daxpy_(&consecutive, &d_one, &child[start_block_c + row_ + ld_c * col_],
@@ -111,10 +108,6 @@ void HybridPackedFormatHandler::assembleClique(double* child, int nc,
         row += consecutive;
       }
     }
-
-    // j < sn_size was already done before, because it was needed before the
-    // partial factorisation. Assembling into the clique instead can be done
-    // after.
   }
 }
 

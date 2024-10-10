@@ -35,8 +35,8 @@ void Symbolic::print() const {
   printf(" - type                 %s\n",
          fact_type_ == FactType::Chol ? "Cholesky" : "LDLt");
   printf(" - size                 %d\n", n_);
-  printf(" - nonzero entries      %.2e\n", (double)nz_);
-  printf(" - density              %.2f\n", ((double)nz_ / n_) / n_);
+  printf(" - nonzero entries      %.2e\n", nz_);
+  printf(" - density              %.2f\n", (nz_ / n_) / n_);
   printf(" - fill in              %.2f\n", fillin_);
   printf(" - supernodes           %d\n", sn_);
   printf(" - largest supernode    %d\n", largest_sn_);
@@ -60,6 +60,15 @@ void Symbolic::print() const {
       printf("%.2f GB\n", max_storage_ / 1024 / 1024 / 1024);
     }
   }
+}
+
+void Symbolic::printShort() const {
+  printf("\nStatistic of Factor L\n");
+  printf("size            : %.2e\n", (double)n_);
+  printf("nnz             : %.2e\n", nz_);
+  printf("fill-in         : %.2f\n", fillin_);
+  printf("operations      : %.2e\n", dense_ops_);
+  printf("\n");
 }
 
 void Symbolic::printTimes() const {
@@ -144,9 +153,9 @@ void Symbolic::printTimes() const {
          times_record_[kTimeDenseFact_copy],
          times_record_[kTimeDenseFact_copy] /
              times_record_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\tcopy sch:       %8.4f (%4.1f%%)\n",
-         times_record_[kTimeDenseFact_copyschur],
-         times_record_[kTimeDenseFact_copyschur] /
+  printf("\t\taxpy:           %8.4f (%4.1f%%)\n",
+         times_record_[kTimeDenseFact_axpy],
+         times_record_[kTimeDenseFact_axpy] /
              times_record_[kTimeFactoriseDenseFact] * 100);
   printf("\t\tscal:           %8.4f (%4.1f%%)\n",
          times_record_[kTimeDenseFact_scal],

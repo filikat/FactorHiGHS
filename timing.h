@@ -42,14 +42,14 @@ enum TimeItems {
   kTimeFactoriseAssembleChildrenC,  // TIMING_2
   kTimeFactoriseDenseFact,          // TIMING_2
   // DenseFact items
-  kTimeDenseFact_trsm,       // TIMING_3
-  kTimeDenseFact_syrk,       // TIMING_3
-  kTimeDenseFact_gemm,       // TIMING_3
-  kTimeDenseFact_fact,       // TIMING_3
-  kTimeDenseFact_copy,       // TIMING_3
-  kTimeDenseFact_copyschur,  // TIMING_3
-  kTimeDenseFact_scal,       // TIMING_3
-  kTimeDenseFact_convert,    // TIMING_3
+  kTimeDenseFact_trsm,     // TIMING_3
+  kTimeDenseFact_syrk,     // TIMING_3
+  kTimeDenseFact_gemm,     // TIMING_3
+  kTimeDenseFact_fact,     // TIMING_3
+  kTimeDenseFact_copy,     // TIMING_3
+  kTimeDenseFact_axpy,     // TIMING_3
+  kTimeDenseFact_scal,     // TIMING_3
+  kTimeDenseFact_convert,  // TIMING_3
   // Solve times
   kTimeSolve,  // TIMING_1
   // enum size

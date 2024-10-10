@@ -5,6 +5,7 @@
 
 #include "Auxiliary.h"
 #include "Blas_declaration.h"
+#include "CurtisReidScalingSym.h"
 #include "DenseFact_declaration.h"
 #include "FormatHandler.h"
 #include "Numeric.h"
@@ -31,15 +32,10 @@ class Factorise {
   std::vector<int> next_children_{};
 
   // generated elements, aka Schur complements.
-  // NB: they cannot be stored as std::vector, since they need to be
-  // instantiated without being initialized to zero.
-  std::vector<double*> schur_contribution_{};
+  std::vector<std::vector<double>> schur_contribution_{};
 
   // columns of L, stored as dense supernodes
   std::vector<std::vector<double>> sn_columns_{};
-
-  // starting point of the diagonal blocks for hybrid format
-  std::vector<std::vector<int>> clique_block_start_{};
 
   // largest diagonal element in the original matrix
   double max_diag_{};
@@ -47,8 +43,9 @@ class Factorise {
 
   // symmetric scaling to apply to the original matrix
   std::vector<double> colscale_{};
+  std::vector<int> colexp_{};
 
-  //dynamic regularization
+  // dynamic regularization
   std::vector<double> dynamic_reg_{};
 
  public:
@@ -56,6 +53,7 @@ class Factorise {
   int processSupernode(int sn);
   bool check() const;
   void equilibrate();
+  void scale();
 
   // extreme values of the factorisation
   double maxD_ = 0.0;

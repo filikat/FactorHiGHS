@@ -13,8 +13,8 @@ void callAndTime_dtrsm(char side, char uplo, char trans, char diag, int m,
 
 void callAndTime_dcopy(int n, const double* dx, int incx, double* dy, int incy,
                        double* times);
-void callAndTime_dcopy_schur(int n, const double* dx, int incx, double* dy,
-                             int incy, double* times);
+void callAndTime_daxpy(int n, double da, const double* dx, int incx, double* dy,
+                       int incy, double* times);
 void callAndTime_dscal(int n, const double da, double* dx, int incx,
                        double* times);
 

@@ -3,6 +3,7 @@
 
 #include <vector>
 
+#include "Auxiliary.h"
 #include "Blas_declaration.h"
 #include "DenseFact_declaration.h"
 #include "Symbolic.h"
@@ -30,11 +31,13 @@ const double d_one = 1.0;
 
 class FormatHandler {
  protected:
-  // pointers to data to access
-  std::vector<double>* frontal_{};
-  double** clique_{};
-  std::vector<std::vector<int>>* clique_block_start_{};
+  // data shared by all supernodes
+  std::vector<std::vector<int>> clique_block_start_{};
   const Symbolic* S_;
+
+  // data of a given supernode
+  std::vector<double>* frontal_{};
+  std::vector<double>* clique_{};
 
   // which supernode is being processed
   int sn_{};
@@ -52,10 +55,12 @@ class FormatHandler {
   int sn_size_{};
 
  public:
-  // initialize the FormatHandler with the data of a specific supernode
-  void attach(std::vector<double>* frontal, double** clique,
-              std::vector<std::vector<int>>* clique_block_start,
-              const Symbolic* S, int sn);
+  // initialize the whole object
+  void init(const Symbolic* S);
+
+  // initialize the data of a specific supernode
+  void attach(std::vector<double>* frontal, std::vector<double>* clique,
+              int sn);
 
   // reset the FormatHandler
   void detach();
@@ -67,13 +72,15 @@ class FormatHandler {
   virtual void initFrontal() = 0;
   virtual void initClique() = 0;
   virtual void assembleFrontal(int i, int j, double val) = 0;
-  virtual void assembleFrontalMultiple(int num, double* child, int nc,
-                                       int child_sn, int row, int col, int i,
-                                       int j) = 0;
+  virtual void assembleFrontalMultiple(int num,
+                                       const std::vector<double>& child,
+                                       int nc, int child_sn, int row, int col,
+                                       int i, int j) = 0;
   virtual int denseFactorise(double reg_thresh,
                              std::vector<double>& regularization,
                              std::vector<double>& times) = 0;
-  virtual void assembleClique(double* child, int nc, int child_sn) = 0;
+  virtual void assembleClique(const std::vector<double>& child, int nc,
+                              int child_sn) = 0;
   // =================================================================
 
   // =================================================================

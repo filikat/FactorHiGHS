@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <fstream>
+#include <iomanip>
 #include <string>
 #include <vector>
 
@@ -49,7 +50,7 @@ void print(std::ofstream& out_file, const std::vector<T>& v,
   snprintf(name, 80, "../FactorHiGHS/matlab/%s.txt", s.c_str());
   out_file.open(name);
   for (T i : v) {
-    out_file << i << '\n';
+    out_file << std::setprecision(16) << i << '\n';
   }
   out_file.close();
 }

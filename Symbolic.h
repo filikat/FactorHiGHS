@@ -116,6 +116,7 @@ class Symbolic {
  public:
   // print information to screen
   void print() const;
+  void printShort() const;
   void printTimes() const;
 
   // provide const access to symbolic factorization

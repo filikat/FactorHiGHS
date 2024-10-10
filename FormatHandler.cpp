@@ -1,12 +1,14 @@
 #include "FormatHandler.h"
 
-void FormatHandler::attach(std::vector<double>* frontal, double** clique,
-                           std::vector<std::vector<int>>* clique_block_start,
-                           const Symbolic* S, int sn) {
+void FormatHandler::init(const Symbolic* S) {
+  S_ = S;
+  clique_block_start_.resize(S_->sn());
+}
+
+void FormatHandler::attach(std::vector<double>* frontal,
+                           std::vector<double>* clique, int sn) {
   frontal_ = frontal;
   clique_ = clique;
-  clique_block_start_ = clique_block_start;
-  S_ = S;
 
   sn_ = sn;
   const int sn_begin = S_->snStart(sn_);
@@ -20,6 +22,4 @@ void FormatHandler::attach(std::vector<double>* frontal, double** clique,
 void FormatHandler::detach() {
   frontal_ = nullptr;
   clique_ = nullptr;
-  clique_block_start_ = nullptr;
-  S_ = nullptr;
 }
