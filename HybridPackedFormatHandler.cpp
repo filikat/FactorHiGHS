@@ -36,7 +36,7 @@ void HybridPackedFormatHandler::assembleFrontalMultiple(
 }
 
 int HybridPackedFormatHandler::denseFactorise(
-    double reg_thresh, std::vector<double>& regularization,
+    double reg_thresh, std::vector<double>& regularization, int& n_reg_piv,
     std::vector<double>& times) {
   int status;
 
@@ -56,16 +56,16 @@ int HybridPackedFormatHandler::denseFactorise(
     const int* pivot_sign = &S_->pivotSign().data()[sn_start];
     double* regul = &regularization[sn_start];
 
-    status =
-        dense_fact_pibh(ldf_, sn_size_, nb_, frontal_->data(), clique_->data(),
-                        pivot_sign, reg_thresh, regul, times.data());
+    status = dense_fact_pibh(ldf_, sn_size_, nb_, frontal_->data(),
+                             clique_->data(), pivot_sign, reg_thresh, regul,
+                             &n_reg_piv, times.data());
   }
 
   return status;
 }
 
-void HybridPackedFormatHandler::assembleClique(
-    const std::vector<double>& child, int nc, int child_sn) {
+void HybridPackedFormatHandler::assembleClique(const std::vector<double>& child,
+                                               int nc, int child_sn) {
   //   go through the columns of the contribution of the child
   for (int col = 0; col < nc; ++col) {
     // relative index of column in the frontal matrix

@@ -1162,7 +1162,7 @@ void Analyse::computeStorage(int fr, int sz, double& fr_entries,
 
     case FormatType::HybridPacked:
     case FormatType::HybridHybrid:
-      // frontal is stored as a triangle
+      // frontal is stored as a trapezoid
       fr_entries = (double)fr * sz - sz * (sz - 1) / 2;
 
       // clique is stored as a collection of rectangles

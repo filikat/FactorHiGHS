@@ -1158,6 +1158,15 @@ A custom allocator for cliques seem the only possible way of avoiding the consta
 ---
 
 *****
+11 Oct 2024
+I changed the computation of memory requirement in Analyse, so that it is done considering the format used.
+This required changing the way the format is set in the Symbolic object.
+This will help compute the maximum stack size for cliques, when I code the allocator.
+---
+The static regularization is now added after the pivot is computed. This should avoid some of the issues.
+---
+
+*****
 To do:
 - row growth factor (and store inverse of D?)
 - parallel stuff

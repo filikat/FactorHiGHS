@@ -5,9 +5,7 @@ void FullFormatHandler::initFrontal() {
   frontal_->resize(ldf_ * sn_size_);
 }
 
-void FullFormatHandler::initClique() {
-  clique_->resize(ldc_ * ldc_);
-}
+void FullFormatHandler::initClique() { clique_->resize(ldc_ * ldc_); }
 
 void FullFormatHandler::assembleFrontal(int i, int j, double val) {
   (*frontal_)[i + j * ldf_] = val;
@@ -22,6 +20,7 @@ void FullFormatHandler::assembleFrontalMultiple(
 
 int FullFormatHandler::denseFactorise(double reg_thresh,
                                       std::vector<double>& regularization,
+                                      int& n_reg_piv,
                                       std::vector<double>& times) {
   int status;
   if (S_->factType() == FactType::Chol) {
@@ -39,15 +38,15 @@ int FullFormatHandler::denseFactorise(double reg_thresh,
     double* regul = &regularization[sn_start];
 
     double* clique_ptr = clique_->data();
-    status =
-        dense_fact_pibf(ldf_, sn_size_, nb_, frontal_->data(), ldf_, clique_ptr,
-                        ldc_, pivot_sign, reg_thresh, regul, times.data());
+    status = dense_fact_pibf(ldf_, sn_size_, nb_, frontal_->data(), ldf_,
+                             clique_ptr, ldc_, pivot_sign, reg_thresh, regul,
+                             &n_reg_piv, times.data());
   }
   return status;
 }
 
-void FullFormatHandler::assembleClique(const std::vector<double>& child,
-                                       int nc, int child_sn) {
+void FullFormatHandler::assembleClique(const std::vector<double>& child, int nc,
+                                       int child_sn) {
   //   go through the columns of the contribution of the child
   for (int col = 0; col < nc; ++col) {
     // relative index of column in the frontal matrix

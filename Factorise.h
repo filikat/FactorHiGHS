@@ -45,8 +45,11 @@ class Factorise {
   std::vector<double> colscale_{};
   std::vector<int> colexp_{};
 
-  // dynamic regularization
-  std::vector<double> dynamic_reg_{};
+  // regularization
+  std::vector<double> total_reg_{};
+
+  // number of pivots that received dynamic regularization
+  int n_reg_piv_{};
 
  public:
   void permute(const std::vector<int>& iperm);

@@ -22,6 +22,6 @@ int callAndTime_fduf(char uplo, int n, double* A, int lda, double thresh,
                      double* regul, double* times);
 int callAndTime_fiuf(char uplo, int n, double* A, int lda,
                      const int* pivot_sign, double thresh, double* regul,
-                     double* times);
+                     int* n_reg_piv, double* times);
 
 #endif

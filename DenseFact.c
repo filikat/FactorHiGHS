@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "../ProtoIPM/Regularization.h"
 #include "CallAndTimeBlas.h"
 #include "DenseFact_declaration.h"
 #include "ReturnValues.h"
@@ -186,7 +187,14 @@ double pivot_compensated_sum(double base, int k, const double* row, int ldr,
 }
 
 double regularize_pivot(double pivot, double thresh, const int* sign,
-                        const double* A, int lda, int j, int n, char uplo) {
+                        const double* A, int lda, int j, int n, char uplo,
+                        int* n_reg_piv) {
+  // add static regularization
+  if (sign[j] == 1)
+    pivot += kDualStaticRegularization;
+  else
+    pivot -= kPrimalStaticRegularization;
+
   double s = (double)sign[j];
   double old_pivot = pivot;
 
@@ -196,16 +204,19 @@ double regularize_pivot(double pivot, double thresh, const int* sign,
   if (spivot <= thresh && spivot >= -thresh) {
     // small pivot, lift to thresh
     pivot = s * thresh;
+    *n_reg_piv += 1;
     printf("%3d: small pivot %e, with sign %d, set to %e\n", j, old_pivot,
            sign[j], pivot);
-  } else if (s * pivot < -thresh && spivot >= -thresh * K) {
+  } else if (spivot < -thresh && spivot >= -thresh * K) {
     // wrong sign, lift more
     pivot = s * thresh * 10;
+    *n_reg_piv += 1;
     printf("%3d: wrong pivot %e, with sign %d, set to %e\n", j, old_pivot,
            sign[j], pivot);
   } else if (spivot < -thresh * K) {
     // pivot is completely lost
     pivot = s * 1e100;
+    *n_reg_piv += 1;
     printf("%3d: disaster pivot %e, with sign %d, set to %e\n", j, old_pivot,
            sign[j], pivot);
   }
@@ -261,7 +272,8 @@ double regularize_pivot(double pivot, double thresh, const int* sign,
 }
 
 int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
-                    const int* pivot_sign, double thresh, double* regul) {
+                    const int* pivot_sign, double thresh, double* regul,
+                    int* n_reg_piv) {
   // ===========================================================================
   // Infedinite factorization without blocks.
   // BLAS calls: dgemv_, dscal_.
@@ -312,8 +324,9 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
 
       // add regularization
       double old_pivot = Ajj;
-      Ajj = regularize_pivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo);
-      regul[j] += fabs(Ajj - old_pivot);
+      Ajj = regularize_pivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo,
+                             n_reg_piv);
+      regul[j] = fabs(Ajj - old_pivot);
 
       // save diagonal element
       A[j + lda * j] = Ajj;
@@ -361,8 +374,9 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
 
       // add regularization
       double old_pivot = Ajj;
-      Ajj = regularize_pivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo);
-      regul[j] += fabs(Ajj - old_pivot);
+      Ajj = regularize_pivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo,
+                             n_reg_piv);
+      regul[j] = fabs(Ajj - old_pivot);
 
       // save diagonal element
       A[j + lda * j] = Ajj;
@@ -492,7 +506,8 @@ int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
 
 int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
                     double* restrict B, int ldb, const int* pivot_sign,
-                    double thresh, double* regul, double* times) {
+                    double thresh, double* regul, int* n_reg_piv,
+                    double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks.
   // BLAS calls: dcopy_, dscal_, dgemm_, dtrsm_, dsyrk_
@@ -543,7 +558,7 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
     const int* pivot_sign_current = &pivot_sign[j];
     double* regul_current = &regul[j];
     int info = callAndTime_fiuf('L', N, D, lda, pivot_sign_current, thresh,
-                                regul_current, times);
+                                regul_current, n_reg_piv, times);
     if (info != 0) return info;
 
     if (j + jb < n) {
@@ -831,7 +846,7 @@ int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
 
 int dense_fact_pibh(int n, int k, int nb, double* restrict A,
                     double* restrict B, const int* pivot_sign, double thresh,
-                    double* regul, double* times) {
+                    double* regul, int* n_reg_piv, double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks in lower-blocked-hybrid format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
@@ -945,7 +960,7 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
     double* regul_current = &regul[j * nb];
     const int* pivot_sign_current = &pivot_sign[j * nb];
     int info = callAndTime_fiuf('U', jb, D, jb, pivot_sign_current, thresh,
-                                regul_current, times);
+                                regul_current, n_reg_piv, times);
     if (info != 0) return info;
 
     if (M > 0) {
@@ -1249,7 +1264,7 @@ int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double thresh,
 
 int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
                     const int* pivot_sign, double thresh, double* regul,
-                    double* times) {
+                    int* n_reg_piv, double* times) {
   // ===========================================================================
   // Indefinite factorization with blocks in lower-blocked-hybrid format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
@@ -1362,7 +1377,7 @@ int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
     const int* pivot_sign_current = &pivot_sign[j * nb];
     double* regul_current = &regul[j * nb];
     int info = callAndTime_fiuf('U', jb, D, jb, pivot_sign_current, thresh,
-                                regul_current, times);
+                                regul_current, n_reg_piv, times);
     if (info != 0) return info;
 
     if (M > 0) {

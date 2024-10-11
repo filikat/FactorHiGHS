@@ -24,7 +24,10 @@ class Numeric {
 
  public:
   // dynamic regularization applied to the matrix
-  std::vector<double> dynamic_reg_{};
+  std::vector<double> total_reg_{};
+
+  // number of pivots that received dynamic regularization
+  int n_reg_piv_{};
 
   // Forward solve with single right hand side
   void forwardSolve(std::vector<double>& x) const;

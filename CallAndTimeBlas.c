@@ -53,8 +53,8 @@ void callAndTime_dcopy(int n, const double* dx, int incx, double* dy, int incy,
 #endif
 }
 
-void callAndTime_daxpy(int n, double da, const double* dx, int incx,
-                        double* dy, int incy, double* times) {
+void callAndTime_daxpy(int n, double da, const double* dx, int incx, double* dy,
+                       int incy, double* times) {
 #ifdef FINEST_TIMING
   double t0 = GetTime();
 #endif
@@ -90,11 +90,12 @@ int callAndTime_fduf(char uplo, int n, double* A, int lda, double thresh,
 
 int callAndTime_fiuf(char uplo, int n, double* A, int lda,
                      const int* pivot_sign, double thresh, double* regul,
-                     double* times) {
+                     int* n_reg_piv, double* times) {
 #ifdef FINEST_TIMING
   double t0 = GetTime();
 #endif
-  int info = dense_fact_fiuf(uplo, n, A, lda, pivot_sign, thresh, regul);
+  int info =
+      dense_fact_fiuf(uplo, n, A, lda, pivot_sign, thresh, regul, n_reg_piv);
 #ifdef FINEST_TIMING
   times[kTimeDenseFact_fact] += GetTime() - t0;
 #endif

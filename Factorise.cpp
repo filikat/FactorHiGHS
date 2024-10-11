@@ -266,9 +266,10 @@ int Factorise::processSupernode(int sn) {
 #endif
 
   // threshold for regularization
-  double reg_thresh = max_diag_ * 1e-16;
+  double reg_thresh = max_diag_ * 1e-16 * 1e-10;
 
-  int status = FH_->denseFactorise(reg_thresh, dynamic_reg_, S_.times());
+  int status =
+      FH_->denseFactorise(reg_thresh, total_reg_, n_reg_piv_, S_.times());
   if (status) return status;
 
 #ifdef FINE_TIMING
@@ -484,7 +485,7 @@ int Factorise::run(Numeric& num) {
   clock.start();
 #endif
 
-  dynamic_reg_.assign(n_, 0.0);
+  total_reg_.assign(n_, 0.0);
 
   // Handle multiple formats
   FullFormatHandler full_FH;
@@ -517,11 +518,11 @@ int Factorise::run(Numeric& num) {
   // un-scale regularization
   if (colscale_.size() > 0) {
     for (int i = 0; i < n_; ++i) {
-      dynamic_reg_[i] /= (colscale_[i] * colscale_[i]);
+      total_reg_[i] /= (colscale_[i] * colscale_[i]);
     }
   } else if (colexp_.size() > 0) {
     for (int i = 0; i < n_; ++i) {
-      dynamic_reg_[i] = std::ldexp(dynamic_reg_[i], -2 * colexp_[i]);
+      total_reg_[i] = std::ldexp(total_reg_[i], -2 * colexp_[i]);
     }
   }
 
@@ -530,7 +531,8 @@ int Factorise::run(Numeric& num) {
   num.S_ = &S_;
   num.colscale_ = std::move(colscale_);
   num.colexp_ = std::move(colexp_);
-  num.dynamic_reg_ = std::move(dynamic_reg_);
+  num.total_reg_ = std::move(total_reg_);
+  num.n_reg_piv_ = n_reg_piv_;
 
 #ifdef COARSE_TIMING
   S_.times(kTimeFactorise) += clock.stop();

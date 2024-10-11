@@ -36,7 +36,7 @@ void HybridHybridFormatHandler::assembleFrontalMultiple(
 }
 
 int HybridHybridFormatHandler::denseFactorise(
-    double reg_thresh, std::vector<double>& regularization,
+    double reg_thresh, std::vector<double>& regularization, int& n_reg_piv,
     std::vector<double>& times) {
   int status;
 
@@ -57,15 +57,15 @@ int HybridHybridFormatHandler::denseFactorise(
     double* regul = &regularization[sn_start];
 
     status = dense_fact_pibs(ldf_, sn_size_, S_->blockSize(), frontal_->data(),
-                             clique_->data(), pivot_sign, reg_thresh, regul,
+                             clique_->data(), pivot_sign, reg_thresh, regul,&n_reg_piv,
                              times.data());
   }
 
   return status;
 }
 
-void HybridHybridFormatHandler::assembleClique(
-    const std::vector<double>& child, int nc, int child_sn) {
+void HybridHybridFormatHandler::assembleClique(const std::vector<double>& child,
+                                               int nc, int child_sn) {
   // assemble the child clique into the current clique by blocks of columns.
   // within a block, assemble by rows.
 
