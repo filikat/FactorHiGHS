@@ -2,6 +2,9 @@
 
 #include <iostream>
 
+Symbolic::Symbolic(FactType fact_type, FormatType format_type)
+    : fact_type_{fact_type}, format_type_{format_type} {}
+
 FactType Symbolic::factType() const { return fact_type_; }
 FormatType Symbolic::formatType() const { return format_type_; }
 int Symbolic::blockSize() const { return block_size_; }
@@ -25,10 +28,19 @@ const std::vector<int>& Symbolic::snParent() const { return sn_parent_; }
 const std::vector<int>& Symbolic::snStart() const { return sn_start_; }
 const std::vector<int>& Symbolic::pivotSign() const { return pivot_sign_; }
 
-void Symbolic::setFact(FactType i) const { fact_type_ = i; }
-void Symbolic::setFormat(FormatType i) const { format_type_ = i; }
 double& Symbolic::times(TimeItems i) const { return times_record_[i]; }
 std::vector<double>& Symbolic::times() const { return times_record_; }
+
+void printMemory(double mem) {
+  if (mem < 1024)
+    printf("%.2f B\n", mem);
+  else if (mem < 1024 * 1024)
+    printf("%.2f KB\n", mem / 1024);
+  else if (mem < 1024 * 1024 * 1024)
+    printf("%.2f MB\n", mem / 1024 / 1024);
+  else
+    printf("%.2f GB\n", mem / 1024 / 1024 / 1024);
+}
 
 void Symbolic::print() const {
   printf("Symbolic factorisation:\n");
@@ -47,19 +59,8 @@ void Symbolic::print() const {
          (double)artificial_nz_ / nz_ * 100);
   printf(" - artificial ops       %.2e (%4.1f%%)\n", artificial_ops_,
          artificial_ops_ / dense_ops_ * 100);
-
-  if (max_storage_ > 0) {
-    printf(" - est. max memory      ");
-    if (max_storage_ < 1024) {
-      printf("%.2f Bytes\n", max_storage_);
-    } else if (max_storage_ < 1024 * 1024) {
-      printf("%.2f KB\n", max_storage_ / 1024);
-    } else if (max_storage_ < 1024 * 1024 * 1024) {
-      printf("%.2f MB\n", max_storage_ / 1024 / 1024);
-    } else {
-      printf("%.2f GB\n", max_storage_ / 1024 / 1024 / 1024);
-    }
-  }
+  printf(" - est. max memory      ");
+  printMemory(max_storage_);
 }
 
 void Symbolic::printShort() const {
@@ -68,6 +69,8 @@ void Symbolic::printShort() const {
   printf("nnz             : %.2e\n", nz_);
   printf("fill-in         : %.2f\n", fillin_);
   printf("operations      : %.2e\n", dense_ops_);
+  printf("max memory      : ");
+  printMemory(max_storage_);
   printf("\n");
 }
 

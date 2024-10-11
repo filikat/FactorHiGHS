@@ -20,10 +20,10 @@ enum class FormatType { Full, HybridPacked, HybridHybrid };
 // Symbolic factorization object
 class Symbolic {
   // Type of factorization
-  mutable FactType fact_type_ = FactType::LDLt;
+  const FactType fact_type_ = FactType::LDLt;
 
   // Format
-  mutable FormatType format_type_ = FormatType::HybridPacked;
+  const FormatType format_type_ = FormatType::HybridPacked;
 
   // Size of blocks for dense factorization
   const int block_size_ = 128;
@@ -114,6 +114,8 @@ class Symbolic {
   friend class Analyse;
 
  public:
+  Symbolic(FactType fact_type, FormatType format_type);
+
   // print information to screen
   void print() const;
   void printShort() const;
@@ -140,8 +142,6 @@ class Symbolic {
   const std::vector<int>& snStart() const;
   const std::vector<int>& pivotSign() const;
 
-  void setFact(FactType i) const;
-  void setFormat(FormatType i) const;
   double& times(TimeItems i) const;
   std::vector<double>& times() const;
 };

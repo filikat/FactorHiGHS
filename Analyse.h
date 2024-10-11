@@ -6,9 +6,9 @@
 
 #include "Auxiliary.h"
 #include "GKlib.h"
+#include "ReturnValues.h"
 #include "Symbolic.h"
 #include "metis.h"
-#include "ReturnValues.h"
 
 // parameters for supernode amalgamation
 const int kStartThreshRelax = 256;
@@ -77,6 +77,10 @@ class Analyse {
   // estimate of maximum storage
   double max_storage_{};
 
+  // symbolic object where to store result
+  Symbolic& S_;
+
+  // Functions to perform analyse phase
   int getPermutation();
   void permute(const std::vector<int>& iperm);
   void eTree();
@@ -92,14 +96,17 @@ class Analyse {
   bool check() const;
   void generateLayer0(int n_threads, double imbalance_ratio);
   void reorderChildren();
+  void computeStorage(int fr, int sz, double& fr_entries,
+                      double& cl_entries) const;
 
  public:
   // Constructor: matrix must be in lower triangular format
   Analyse(const std::vector<int>& rows, const std::vector<int>& ptr,
-          const std::vector<int>& order = {}, int negative_pivots = 0);
+          Symbolic& S, const std::vector<int>& order = {},
+          int negative_pivots = 0);
 
-  // Run analyse phase and save the result in Symbolic object S
-  int run(Symbolic& S);
+  // Run analyse phase and save the result in Symbolic object S_
+  int run();
 
   // save metis iperm to be used by hsl codes for comparison
   std::vector<int> metis_order_{};

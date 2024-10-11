@@ -6,7 +6,9 @@
 #include <stack>
 
 Analyse::Analyse(const std::vector<int>& rows, const std::vector<int>& ptr,
-                 const std::vector<int>& order, int negative_pivots) {
+                 Symbolic& S, const std::vector<int>& order,
+                 int negative_pivots)
+    : S_{S} {
   // Input the symmetric matrix to be analysed in CSC format.
   // row_ind contains the row indices.
   // col_ptr contains the starting points of each column.
@@ -1146,6 +1148,36 @@ void Analyse::generateLayer0(int n_threads, double imbalance_ratio) {
   // printf("Speedup: %.2f\n\n", total_ops / (ops_left + max_load));
 }
 
+void Analyse::computeStorage(int fr, int sz, double& fr_entries,
+                             double& cl_entries) const {
+  // compute storage required by frontal and clique, based on the format used
+
+  const int cl = fr - sz;
+  switch (S_.formatType()) {
+    case FormatType::Full:
+      // full format stores a rectangle for each
+      fr_entries = (double)fr * sz;
+      cl_entries = (double)cl * cl;
+      break;
+
+    case FormatType::HybridPacked:
+    case FormatType::HybridHybrid:
+      // frontal is stored as a triangle
+      fr_entries = (double)fr * sz - sz * (sz - 1) / 2;
+
+      // clique is stored as a collection of rectangles
+      const int nb = S_.blockSize();
+      const int n_blocks = (cl - 1) / nb + 1;
+      int schur_size{};
+      for (int j = 0; j < n_blocks; ++j) {
+        const int jb = std::min(nb, cl - j * nb);
+        schur_size += (cl - j * nb) * jb;
+      }
+      cl_entries = (double)schur_size;
+      break;
+  }
+}
+
 void Analyse::reorderChildren() {
   std::vector<double> clique_entries(sn_count_);
   std::vector<double> frontal_entries(sn_count_);
@@ -1160,15 +1192,11 @@ void Analyse::reorderChildren() {
     // frontal size
     const int fr = col_count_[sn_start_[sn]];
 
-    // clique size
-    const int cl = fr - sz;
-
-    // entries in frontal matrix and schur complement
-    frontal_entries[sn] = (double)fr * (fr + 1) / 2;
-    clique_entries[sn] = (double)cl * (cl + 1) / 2;
+    // compute storage based on format used
+    computeStorage(fr, sz, frontal_entries[sn], clique_entries[sn]);
 
     // compute number of entries in factors within the subtree
-    storage_factors[sn] += frontal_entries[sn] - clique_entries[sn];
+    storage_factors[sn] += frontal_entries[sn];
     if (sn_parent_[sn] != -1)
       storage_factors[sn_parent_[sn]] += storage_factors[sn];
   }
@@ -1181,7 +1209,7 @@ void Analyse::reorderChildren() {
   for (int sn = 0; sn < sn_count_; ++sn) {
     // leaf node
     if (head[sn] == -1) {
-      storage[sn] = frontal_entries[sn];
+      storage[sn] = frontal_entries[sn] + clique_entries[sn];
       continue;
     }
 
@@ -1209,10 +1237,10 @@ void Analyse::reorderChildren() {
     // storage is found as max(storage_1,storage_2), where
     // storage_1 = max_j storage[j] + \sum_{k up to j-1} clique_entries[k] +
     //                                                   storage_factors[k]
-    // storage_2 = frontal_entries + clique_total_entries +
+    // storage_2 = frontal_entries + clique_entries + clique_total_entries +
     //             factors_total_entries
-    const double storage_2 =
-        frontal_entries[sn] + clique_total_entries + factors_total_entries;
+    const double storage_2 = frontal_entries[sn] + clique_entries[sn] +
+                             clique_total_entries + factors_total_entries;
 
     double clique_partial_entries{};
     double factors_partial_entries{};
@@ -1341,13 +1369,13 @@ void Analyse::reorderChildren() {
   inversePerm(perm_, iperm_);
 }
 
-int Analyse::run(Symbolic& S) {
+int Analyse::run() {
   // Perform analyse phase and store the result into the symbolic object S.
   // After Run returns, the Analyse object is not valid.
 
   if (!ready_) return kRetGeneric;
 
-  S.times().resize(kTimeSize);
+  S_.times().resize(kTimeSize);
 
   Clock clock_total{};
   Clock clock_items{};
@@ -1362,7 +1390,7 @@ int Analyse::run(Symbolic& S) {
   int metis_status = getPermutation();
   if (metis_status) return kRetMetisError;
 #ifdef FINE_TIMING
-  S.times(kTimeAnalyseMetis) += clock_items.stop();
+  S_.times(kTimeAnalyseMetis) += clock_items.stop();
 #endif
 
 #ifdef FINE_TIMING
@@ -1372,7 +1400,7 @@ int Analyse::run(Symbolic& S) {
   eTree();
   postorder();
 #ifdef FINE_TIMING
-  S.times(kTimeAnalyseTree) += clock_items.stop();
+  S_.times(kTimeAnalyseTree) += clock_items.stop();
 #endif
 
 #ifdef FINE_TIMING
@@ -1380,7 +1408,7 @@ int Analyse::run(Symbolic& S) {
 #endif
   colCount();
 #ifdef FINE_TIMING
-  S.times(kTimeAnalyseCount) += clock_items.stop();
+  S_.times(kTimeAnalyseCount) += clock_items.stop();
 #endif
 
 #ifdef FINE_TIMING
@@ -1390,7 +1418,7 @@ int Analyse::run(Symbolic& S) {
   relaxSupernodes();
   afterRelaxSn();
 #ifdef FINE_TIMING
-  S.times(kTimeAnalyseSn) += clock_items.stop();
+  S_.times(kTimeAnalyseSn) += clock_items.stop();
 #endif
 
 #ifdef FINE_TIMING
@@ -1398,7 +1426,7 @@ int Analyse::run(Symbolic& S) {
 #endif
   reorderChildren();
 #ifdef FINE_TIMING
-  S.times(kTimeAnalyseReorder) += clock_items.stop();
+  S_.times(kTimeAnalyseReorder) += clock_items.stop();
 #endif
 
 #ifdef FINE_TIMING
@@ -1406,7 +1434,7 @@ int Analyse::run(Symbolic& S) {
 #endif
   snPattern();
 #ifdef FINE_TIMING
-  S.times(kTimeAnalysePattern) += clock_items.stop();
+  S_.times(kTimeAnalysePattern) += clock_items.stop();
 #endif
 
 #ifdef FINE_TIMING
@@ -1415,7 +1443,7 @@ int Analyse::run(Symbolic& S) {
   relativeIndCols();
   relativeIndClique();
 #ifdef FINE_TIMING
-  S.times(kTimeAnalyseRelInd) += clock_items.stop();
+  S_.times(kTimeAnalyseRelInd) += clock_items.stop();
 #endif
 
 #ifdef FINE_TIMING
@@ -1423,42 +1451,42 @@ int Analyse::run(Symbolic& S) {
 #endif
   generateLayer0(4, 0.7);
 #ifdef FINE_TIMING
-  S.times(kTimeAnalyseLayer0) += clock_items.stop();
+  S_.times(kTimeAnalyseLayer0) += clock_items.stop();
 #endif
 
   // move relevant stuff into S
-  S.n_ = n_;
-  S.nz_ = nz_factor_;
-  S.fillin_ = (double)nz_factor_ / nz_;
-  S.sn_ = sn_count_;
-  S.artificial_nz_ = artificial_nz_;
-  S.artificial_ops_ = (double)operations_ - operations_no_relax_;
-  S.assembly_ops_ = operations_assembly_;
-  S.largest_front_ = *std::max_element(sn_indices_.begin(), sn_indices_.end());
-  S.max_storage_ = max_storage_;
+  S_.n_ = n_;
+  S_.nz_ = nz_factor_;
+  S_.fillin_ = (double)nz_factor_ / nz_;
+  S_.sn_ = sn_count_;
+  S_.artificial_nz_ = artificial_nz_;
+  S_.artificial_ops_ = (double)operations_ - operations_no_relax_;
+  S_.assembly_ops_ = operations_assembly_;
+  S_.largest_front_ = *std::max_element(sn_indices_.begin(), sn_indices_.end());
+  S_.max_storage_ = max_storage_;
 
   // compute largest supernode
   std::vector<int> temp(sn_start_);
   for (int i = sn_count_; i > 0; --i) temp[i] -= temp[i - 1];
-  S.largest_sn_ = *std::max_element(temp.begin(), temp.end());
+  S_.largest_sn_ = *std::max_element(temp.begin(), temp.end());
 
   // initialize sign of pivots and permute them
-  S.pivot_sign_.insert(S.pivot_sign_.end(), negative_pivots_, -1);
-  S.pivot_sign_.insert(S.pivot_sign_.end(), n_ - negative_pivots_, 1);
-  permuteVector(S.pivot_sign_, perm_);
+  S_.pivot_sign_.insert(S_.pivot_sign_.end(), negative_pivots_, -1);
+  S_.pivot_sign_.insert(S_.pivot_sign_.end(), n_ - negative_pivots_, 1);
+  permuteVector(S_.pivot_sign_, perm_);
 
-  S.dense_ops_ = operations_;
-  S.iperm_ = std::move(iperm_);
-  S.rows_ = std::move(rows_sn_);
-  S.ptr_ = std::move(ptr_sn_);
-  S.sn_parent_ = std::move(sn_parent_);
-  S.sn_start_ = std::move(sn_start_);
-  S.relind_cols_ = std::move(relind_cols_);
-  S.relind_clique_ = std::move(relind_clique_);
-  S.consecutive_sums_ = std::move(consecutive_sums_);
+  S_.dense_ops_ = operations_;
+  S_.iperm_ = std::move(iperm_);
+  S_.rows_ = std::move(rows_sn_);
+  S_.ptr_ = std::move(ptr_sn_);
+  S_.sn_parent_ = std::move(sn_parent_);
+  S_.sn_start_ = std::move(sn_start_);
+  S_.relind_cols_ = std::move(relind_cols_);
+  S_.relind_clique_ = std::move(relind_clique_);
+  S_.consecutive_sums_ = std::move(consecutive_sums_);
 
 #ifdef COARSE_TIMING
-  S.times(kTimeAnalyse) += clock_total.stop();
+  S_.times(kTimeAnalyse) += clock_total.stop();
 #endif
 
   return kRetOk;

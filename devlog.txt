@@ -1146,6 +1146,16 @@ I also changed the order of operations, so that assembly into frontal and into c
 This makes the code simpler and does not require complicated stuff to overwrite the Schur complement during the dense factorization.
 It does requires using axpy instead of copy when putting stuff into the Schur complement using HybridPacked format.
 ---
+This also makes me think that doing the copy of the Schur complement with HybridPacked format is not that big of a deal. The time was actually spent bringing the data into memory.
+And some of the advantage that I was observing for BLAS using the hybrid format, was actually given by the fact that instead of spending time to bring data into memory during syrk, I was spending it during copy.
+I need to do some tests to see what the real advantages are.
+---
+It seems now obvious that if I allocate large amount of memory, for the clique for example, this is almost surely mmapped by the OS, rather than being given by malloc.
+And the larger the chunk of memory, the more likely it becomes. And supernodes tend to become larger and larger.
+Of course, if I receive a brand new page of memory, it has to be initialized, or I would read data from another process.
+What I missed is that the initialization happens even if I don't do it explicitly. It's done the first time I actually try to write to the chunk of memory.
+A custom allocator for cliques seem the only possible way of avoiding the constant zeroing of the newly allocated memory.
+---
 
 *****
 To do:

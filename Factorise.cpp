@@ -48,7 +48,7 @@ Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
   sn_columns_.resize(S_.sn());
 
   // scale the matrix
-  equilibrate();
+  // equilibrate();
 
   // scale();
 
