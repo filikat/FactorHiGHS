@@ -76,6 +76,12 @@ class Analyse {
 
   // estimate of maximum storage
   double max_storage_{};
+  double max_stack_entries_{};
+
+  // data for parallelization
+  std::vector<std::vector<int>> subtrees_per_thread_{};
+  std::vector<double> ops_per_thread_{};
+  int sn_above_layer0_{};
 
   // symbolic object where to store result
   Symbolic& S_;
@@ -94,7 +100,7 @@ class Analyse {
   void relativeIndCols();
   void relativeIndClique();
   bool check() const;
-  void generateLayer0(int n_threads, double imbalance_ratio);
+  void generateLayer0(double imbalance_ratio);
   void reorderChildren();
   void computeStorage(int fr, int sz, double& fr_entries,
                       double& cl_entries) const;

@@ -1165,6 +1165,10 @@ This will help compute the maximum stack size for cliques, when I code the alloc
 ---
 The static regularization is now added after the pivot is computed. This should avoid some of the issues.
 ---
+I added the calculation of the maximum stack size. This is quite similar to the reordering of children to minimize total storage.
+---
+I changed the way the informatin about layer0 for parallelization is stored and printed.
+---
 
 *****
 To do:

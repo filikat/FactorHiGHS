@@ -34,7 +34,9 @@ class Symbolic {
   // Number of nonzeros in L
   double nz_{};
   double fillin_{};
+
   double max_storage_{};
+  double max_stack_entries_{};
 
   // Number of dense operations and assembly operations
   double dense_ops_{};
@@ -50,6 +52,12 @@ class Symbolic {
   // size of the largest frontal matrix and largest sn
   int largest_front_{};
   int largest_sn_{};
+
+  // data for parallelization
+  int n_threads_{};
+  std::vector<std::vector<int>> subtrees_per_thread_{};
+  std::vector<double> ops_per_thread_{};
+  int sn_above_layer0_{};
 
   // Inverse permutation
   std::vector<int> iperm_{};
@@ -114,7 +122,7 @@ class Symbolic {
   friend class Analyse;
 
  public:
-  Symbolic(FactType fact_type, FormatType format_type);
+  Symbolic(FactType fact_type, FormatType format_type, int n_threads);
 
   // print information to screen
   void print() const;
