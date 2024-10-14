@@ -35,8 +35,9 @@ class Symbolic {
   double nz_{};
   double fillin_{};
 
-  double max_storage_{};
-  double max_stack_entries_{};
+  int max_storage_{};
+  int max_stack_entries_{};
+  int max_clique_entries_{};
 
   // Number of dense operations and assembly operations
   double dense_ops_{};
@@ -144,6 +145,8 @@ class Symbolic {
   int relindCols(int i) const;
   int relindClique(int i, int j) const;
   int consecutiveSums(int i, int j) const;
+  int stackSize() const;
+  int maxCliqueSize() const;
   const std::vector<int>& ptr() const;
   const std::vector<int>& iperm() const;
   const std::vector<int>& snParent() const;

@@ -21,6 +21,8 @@ int Symbolic::relindClique(int i, int j) const { return relind_clique_[i][j]; }
 int Symbolic::consecutiveSums(int i, int j) const {
   return consecutive_sums_[i][j];
 }
+int Symbolic::stackSize() const { return max_stack_entries_; }
+int Symbolic::maxCliqueSize() const { return max_clique_entries_; }
 
 const std::vector<int>& Symbolic::ptr() const { return ptr_; }
 const std::vector<int>& Symbolic::iperm() const { return iperm_; }
@@ -33,13 +35,13 @@ std::vector<double>& Symbolic::times() const { return times_record_; }
 
 void printMemory(double mem) {
   if (mem < 1024)
-    printf("%.2f B\n", mem);
+    printf("%.1f B\n", mem);
   else if (mem < 1024 * 1024)
-    printf("%.2f KB\n", mem / 1024);
+    printf("%.1f KB\n", mem / 1024);
   else if (mem < 1024 * 1024 * 1024)
-    printf("%.2f MB\n", mem / 1024 / 1024);
+    printf("%.1f MB\n", mem / 1024 / 1024);
   else
-    printf("%.2f GB\n", mem / 1024 / 1024 / 1024);
+    printf("%.1f GB\n", mem / 1024 / 1024 / 1024);
 }
 
 void Symbolic::print() const {
@@ -69,9 +71,9 @@ void Symbolic::printShort() const {
   printf("nnz             : %.2e\n", nz_);
   printf("fill-in         : %.2f\n", fillin_);
   printf("operations      : %.2e\n", dense_ops_);
-  printf("max memory      : ");
+  printf("est. memory     : ");
   printMemory(max_storage_);
-  printf("max stack size  : %.2e\n", max_stack_entries_);
+  printf("max stack size  : %.2e\n", (double)max_stack_entries_);
   printf("\nRunning on %d thread%s\n", n_threads_, n_threads_ > 1 ? "s" : "");
   if (n_threads_ > 1) {
     printf("\nTree parallelization:\n");

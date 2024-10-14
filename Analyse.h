@@ -75,8 +75,9 @@ class Analyse {
   std::vector<std::vector<int>> consecutive_sums_{};
 
   // estimate of maximum storage
-  double max_storage_{};
-  double max_stack_entries_{};
+  int max_storage_{};
+  int max_stack_entries_{};
+  int max_clique_entries_{};
 
   // data for parallelization
   std::vector<std::vector<int>> subtrees_per_thread_{};
@@ -102,8 +103,8 @@ class Analyse {
   bool check() const;
   void generateLayer0(double imbalance_ratio);
   void reorderChildren();
-  void computeStorage(int fr, int sz, double& fr_entries,
-                      double& cl_entries) const;
+  void computeStorage();
+  void computeStorage(int fr, int sz, int& fr_entries, int& cl_entries) const;
 
  public:
   // Constructor: matrix must be in lower triangular format

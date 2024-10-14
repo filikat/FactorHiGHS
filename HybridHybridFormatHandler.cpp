@@ -6,7 +6,7 @@ void HybridHybridFormatHandler::initFrontal() {
   // NB: the plus 10 is not needed, but it avoids weird problems later on.
 }
 
-void HybridHybridFormatHandler::initClique() {
+int HybridHybridFormatHandler::sizeClique() {
   const int n_blocks = (ldc_ - 1) / nb_ + 1;
   clique_block_start_[sn_].resize(n_blocks + 1);
   int schur_size{};
@@ -16,16 +16,18 @@ void HybridHybridFormatHandler::initClique() {
     schur_size += (ldc_ - j * nb_) * jb;
   }
   clique_block_start_[sn_].back() = schur_size;
-  clique_->resize(schur_size);
+  return schur_size;
 }
 
 void HybridHybridFormatHandler::assembleFrontal(int i, int j, double val) {
   (*frontal_)[i + j * ldf_ - j * (j + 1) / 2] = val;
 }
 
-void HybridHybridFormatHandler::assembleFrontalMultiple(
-    int num, const std::vector<double>& child, int nc, int child_sn, int row,
-    int col, int i, int j) {
+void HybridHybridFormatHandler::assembleFrontalMultiple(int num,
+                                                        const double* child,
+                                                        int nc, int child_sn,
+                                                        int row, int col, int i,
+                                                        int j) {
   const int jblock = col / nb_;
   const int jb = std::min(nb_, nc - nb_ * jblock);
   const int row_ = row - jblock * nb_;
@@ -48,8 +50,8 @@ int HybridHybridFormatHandler::denseFactorise(
     int sn_start = S_->snStart(sn_);
     double* regul = &regularization[sn_start];
 
-    status = dense_fact_pdbs(ldf_, sn_size_, nb_, frontal_->data(),
-                             clique_->data(), reg_thresh, regul, times.data());
+    status = dense_fact_pdbs(ldf_, sn_size_, nb_, frontal_->data(), clique_,
+                             reg_thresh, regul, times.data());
   } else {
     // find the position within pivot_sign corresponding to this supernode
     int sn_start = S_->snStart(sn_);
@@ -57,15 +59,15 @@ int HybridHybridFormatHandler::denseFactorise(
     double* regul = &regularization[sn_start];
 
     status = dense_fact_pibs(ldf_, sn_size_, S_->blockSize(), frontal_->data(),
-                             clique_->data(), pivot_sign, reg_thresh, regul,&n_reg_piv,
+                             clique_, pivot_sign, reg_thresh, regul, &n_reg_piv,
                              times.data());
   }
 
   return status;
 }
 
-void HybridHybridFormatHandler::assembleClique(const std::vector<double>& child,
-                                               int nc, int child_sn) {
+void HybridHybridFormatHandler::assembleClique(const double* child, int nc,
+                                               int child_sn) {
   // assemble the child clique into the current clique by blocks of columns.
   // within a block, assemble by rows.
 
@@ -130,7 +132,7 @@ void HybridHybridFormatHandler::assembleClique(const std::vector<double>& child,
         const double d_one = 1.0;
         const int i_one = 1;
         daxpy_(&consecutive, &d_one, &child[start_block_c + col_ + jb_c * row_],
-               &i_one, &(*clique_)[start_block + j_ + jb * i_], &i_one);
+               &i_one, &clique_[start_block + j_ + jb * i_], &i_one);
 
         col += consecutive;
       }

@@ -1136,37 +1136,24 @@ void Analyse::generateLayer0(double imbalance_ratio) {
       child = next[child];
     }
   }
-
-  const double max_load =
-      *std::max_element(ops_per_thread_.begin(), ops_per_thread_.end());
-  double ops_left = total_ops;
-  // printf("\nProcessors loads: ");
-  for (int i = 0; i < ops_per_thread_.size(); ++i) {
-    // printf("%.2f ", processors[i] / max_load);
-    ops_left -= ops_per_thread_[i];
-  }
-  // printf("\n");
-
-  // printf("Left / total %%: %.2f\n", ops_left / total_ops * 100);
-  // printf("Speedup: %.2f\n\n", total_ops / (ops_left + max_load));
 }
 
-void Analyse::computeStorage(int fr, int sz, double& fr_entries,
-                             double& cl_entries) const {
+void Analyse::computeStorage(int fr, int sz, int& fr_entries,
+                             int& cl_entries) const {
   // compute storage required by frontal and clique, based on the format used
 
   const int cl = fr - sz;
   switch (S_.formatType()) {
     case FormatType::Full:
       // full format stores a rectangle for each
-      fr_entries = (double)fr * sz;
-      cl_entries = (double)cl * cl;
+      fr_entries = fr * sz;
+      cl_entries = cl * cl;
       break;
 
     case FormatType::HybridPacked:
     case FormatType::HybridHybrid:
       // frontal is stored as a trapezoid
-      fr_entries = (double)fr * sz - sz * (sz - 1) / 2;
+      fr_entries = fr * sz - sz * (sz - 1) / 2;
 
       // clique is stored as a collection of rectangles
       const int nb = S_.blockSize();
@@ -1176,17 +1163,105 @@ void Analyse::computeStorage(int fr, int sz, double& fr_entries,
         const int jb = std::min(nb, cl - j * nb);
         schur_size += (cl - j * nb) * jb;
       }
-      cl_entries = (double)schur_size;
+      cl_entries = schur_size;
       break;
   }
 }
 
+void Analyse::computeStorage() {
+  std::vector<int> clique_entries(sn_count_);
+  std::vector<int> frontal_entries(sn_count_);
+  std::vector<int> storage(sn_count_);
+  std::vector<int> storage_factors(sn_count_);
+  std::vector<int> stack_size(sn_count_);
+
+  // initialize data of supernodes
+  for (int sn = 0; sn < sn_count_; ++sn) {
+    // supernode size
+    const int sz = sn_start_[sn + 1] - sn_start_[sn];
+
+    // frontal size
+    const int fr = ptr_sn_[sn + 1] - ptr_sn_[sn];
+
+    // compute storage based on format used
+    computeStorage(fr, sz, frontal_entries[sn], clique_entries[sn]);
+
+    max_clique_entries_ = std::max(max_clique_entries_, clique_entries[sn]);
+
+    // compute number of entries in factors within the subtree
+    storage_factors[sn] += frontal_entries[sn];
+    if (sn_parent_[sn] != -1)
+      storage_factors[sn_parent_[sn]] += storage_factors[sn];
+  }
+
+  // linked lists of children
+  std::vector<int> head, next;
+  childrenLinkedList(sn_parent_, head, next);
+
+  // go through the supernodes
+  for (int sn = 0; sn < sn_count_; ++sn) {
+    // leaf node
+    if (head[sn] == -1) {
+      storage[sn] = frontal_entries[sn] + clique_entries[sn];
+      // stack_size[sn] = clique_entries[sn];
+      stack_size[sn] = 0;
+      continue;
+    }
+
+    int clique_total_entries{};
+    int factors_total_entries{};
+    int child = head[sn];
+    while (child != -1) {
+      int value =
+          storage[child] - clique_entries[child] - storage_factors[child];
+      clique_total_entries += clique_entries[child];
+      factors_total_entries += storage_factors[child];
+      child = next[child];
+    }
+
+    // Compute storage, based on order just found.
+    // storage is found as max(storage_1,storage_2), where
+    // storage_1 = max_j storage[j] + \sum_{k up to j-1} clique_entries[k] +
+    //                                                   storage_factors[k]
+    // storage_2 = frontal_entries + clique_entries + clique_total_entries +
+    //             factors_total_entries
+    const int storage_2 = frontal_entries[sn] + clique_entries[sn] +
+                          clique_total_entries + factors_total_entries;
+    const int storage_2_stack = clique_total_entries;
+
+    int clique_partial_entries{};
+    int factors_partial_entries{};
+    int storage_1{};
+    int storage_1_stack{};
+
+    child = head[sn];
+    while (child != -1) {
+      int current =
+          storage[child] + clique_partial_entries + factors_partial_entries;
+
+      storage_1_stack =
+          std::max(storage_1_stack, stack_size[child] + clique_partial_entries);
+
+      clique_partial_entries += clique_entries[child];
+      factors_partial_entries += storage_factors[child];
+      storage_1 = std::max(storage_1, current);
+
+      child = next[child];
+    }
+    storage[sn] = std::max(storage_1, storage_2);
+    stack_size[sn] = std::max(storage_1_stack, storage_2_stack);
+
+    // save max storage needed, multiply by 8 because double needs 8 bytes
+    max_storage_ = std::max(max_storage_, 8 * storage[sn]);
+    max_stack_entries_ = std::max(max_stack_entries_, stack_size[sn]);
+  }
+}
+
 void Analyse::reorderChildren() {
-  std::vector<double> clique_entries(sn_count_);
-  std::vector<double> frontal_entries(sn_count_);
-  std::vector<double> storage(sn_count_);
-  std::vector<double> storage_factors(sn_count_);
-  std::vector<double> stack_size(sn_count_);
+  std::vector<int> clique_entries(sn_count_);
+  std::vector<int> frontal_entries(sn_count_);
+  std::vector<int> storage(sn_count_);
+  std::vector<int> storage_factors(sn_count_);
 
   // initialize data of supernodes
   for (int sn = 0; sn < sn_count_; ++sn) {
@@ -1214,62 +1289,24 @@ void Analyse::reorderChildren() {
     // leaf node
     if (head[sn] == -1) {
       storage[sn] = frontal_entries[sn] + clique_entries[sn];
-      stack_size[sn] = clique_entries[sn];
       continue;
     }
 
     // save children and values to sort
-    std::vector<std::pair<int, double>> children{};
-    double clique_total_entries{};
-    double factors_total_entries{};
+    std::vector<std::pair<int, int>> children{};
     int child = head[sn];
     while (child != -1) {
-      double value =
+      int value =
           storage[child] - clique_entries[child] - storage_factors[child];
       children.push_back({child, value});
-      clique_total_entries += clique_entries[child];
-      factors_total_entries += storage_factors[child];
       child = next[child];
     }
 
     // sort children in decreasing order of the values
     std::sort(children.begin(), children.end(),
-              [&](std::pair<int, double>& a, std::pair<int, double>& b) {
+              [&](std::pair<int, int>& a, std::pair<int, int>& b) {
                 return a.second > b.second;
               });
-
-    // Compute storage, based on order just found.
-    // storage is found as max(storage_1,storage_2), where
-    // storage_1 = max_j storage[j] + \sum_{k up to j-1} clique_entries[k] +
-    //                                                   storage_factors[k]
-    // storage_2 = frontal_entries + clique_entries + clique_total_entries +
-    //             factors_total_entries
-    const double storage_2 = frontal_entries[sn] + clique_entries[sn] +
-                             clique_total_entries + factors_total_entries;
-    const double storage_2_stack = clique_total_entries + clique_entries[sn];
-
-    double clique_partial_entries{};
-    double factors_partial_entries{};
-    double storage_1{};
-    double storage_1_stack{};
-    for (int i = 0; i < children.size(); ++i) {
-      int child = children[i].first;
-      double current =
-          storage[child] + clique_partial_entries + factors_partial_entries;
-
-      storage_1_stack =
-          std::max(storage_1_stack, stack_size[child] + clique_partial_entries);
-
-      clique_partial_entries += clique_entries[child];
-      factors_partial_entries += storage_factors[child];
-      storage_1 = std::max(storage_1, current);
-    }
-    storage[sn] = std::max(storage_1, storage_2);
-    stack_size[sn] = std::max(storage_1_stack, storage_2_stack);
-
-    // save max storage needed, multiply by 8 because double needs 8 bytes
-    max_storage_ = std::max(max_storage_, 8 * storage[sn]);
-    max_stack_entries_ = std::max(max_stack_entries_, stack_size[sn]);
 
     // modify linked lists with new order of children
     head[sn] = children.front().first;
@@ -1455,6 +1492,7 @@ int Analyse::run() {
 #endif
   relativeIndCols();
   relativeIndClique();
+  computeStorage();
 #ifdef FINE_TIMING
   S_.times(kTimeAnalyseRelInd) += clock_items.stop();
 #endif
@@ -1478,6 +1516,7 @@ int Analyse::run() {
   S_.largest_front_ = *std::max_element(sn_indices_.begin(), sn_indices_.end());
   S_.max_storage_ = max_storage_;
   S_.max_stack_entries_ = max_stack_entries_;
+  S_.max_clique_entries_ = max_clique_entries_;
   S_.sn_above_layer0_ = sn_above_layer0_;
 
   // compute largest supernode

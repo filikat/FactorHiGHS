@@ -6,10 +6,11 @@
 #include "HybridHybridFormatHandler.h"
 #include "HybridPackedFormatHandler.h"
 
-Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
+Factorise::Factorise(const Symbolic& S, CliqueStack& stack,
+                     const std::vector<int>& rowsA,
                      const std::vector<int>& ptrA,
                      const std::vector<double>& valA)
-    : S_{S} {
+    : S_{S}, clique_stack_{stack} {
   // Input the symmetric matrix to be factorised in CSC format and the symbolic
   // factorisation coming from Analyze.
   // Only the lower triangular part of the matrix is used.
@@ -42,10 +43,6 @@ Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
 
   // create linked lists of children in supernodal elimination tree
   childrenLinkedList(S_.snParent(), first_children_, next_children_);
-
-  // allocate space for list of generated elements and columns of L
-  schur_contribution_.resize(S_.sn());
-  sn_columns_.resize(S_.sn());
 
   // scale the matrix
   // equilibrate();
@@ -155,13 +152,15 @@ int Factorise::processSupernode(int sn) {
   // (without the top part), that do not undergo Cholesky elimination.
 
   // attach to the format handler
-  FH_->attach(&sn_columns_[sn], &schur_contribution_[sn], sn);
+  FH_->attach(&sn_columns_[sn], sn);
 
   // initialize frontal
   FH_->initFrontal();
 
   // initialize clique
-  FH_->initClique();
+  int clique_size = FH_->sizeClique();
+  double* clique = clique_stack_.setup(clique_size);
+  FH_->attachClique(clique);
 
 #ifdef FINE_TIMING
   S_.times(kTimeFactorisePrepare) += clock.stop();
@@ -193,10 +192,15 @@ int Factorise::processSupernode(int sn) {
   // ===================================================
   // Assemble frontal matrices of children
   // ===================================================
-  int child_sn = first_children_[sn];
-  while (child_sn != -1) {
+  // child are assembled in reverse order (because they are stored in a stack).
+  // we still use the linked list to iterate through them, to get the right
+  // number of children, but the child id needs to be read from the stack.
+
+  int child = first_children_[sn];
+  while (child != -1) {
     // Schur contribution of the current child
-    std::vector<double>& child_clique = schur_contribution_[child_sn];
+    int child_sn{};
+    const double* child_clique = clique_stack_.getChild(child_sn);
 
     // determine size of clique of child
     const int child_begin = S_.snStart(child_sn);
@@ -249,13 +253,11 @@ int Factorise::processSupernode(int sn) {
     S_.times(kTimeFactoriseAssembleChildrenC) += clock.stop();
 #endif
 
-    // Schur contribution of the child is no longer needed
-    // Swap with temporary empty vector to deallocate memory
-    std::vector<double> temp_empty;
-    schur_contribution_[child_sn].swap(temp_empty);
+    // child is no longer needed, remove it from stack
+    clique_stack_.popChild();
 
     // move on to the next child
-    child_sn = next_children_[child_sn];
+    child = next_children_[child];
   }
 
   // ===================================================
@@ -266,7 +268,7 @@ int Factorise::processSupernode(int sn) {
 #endif
 
   // threshold for regularization
-  double reg_thresh = max_diag_ * 1e-16 * 1e-10;
+  const double reg_thresh = max_diag_ * 1e-16 * 1e-10;
 
   int status =
       FH_->denseFactorise(reg_thresh, total_reg_, n_reg_piv_, S_.times());
@@ -286,6 +288,8 @@ int Factorise::processSupernode(int sn) {
 
   // detach from the format handler
   FH_->detach();
+
+  clique_stack_.pushWork(sn);
 
   return kRetOk;
 }
@@ -506,6 +510,12 @@ int Factorise::run(Numeric& num) {
 
   // initialize format handler
   FH_->init(&S_);
+
+  // allocate space for columns of L
+  sn_columns_.resize(S_.sn());
+
+  // initialize stack of cliques
+  clique_stack_.init(S_.stackSize(), S_.maxCliqueSize());
 
   int status{};
   for (int sn = 0; sn < S_.sn(); ++sn) {

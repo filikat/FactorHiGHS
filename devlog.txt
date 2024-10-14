@@ -1171,8 +1171,13 @@ I changed the way the informatin about layer0 for parallelization is stored and 
 ---
 
 *****
+14 Oct 2024
+I implemented the stack of cliques. I made a separate object CliqueStack, that is persistent throughout the calls to Factorise, so that the memory does not get reallocated each time and does not need to be paged in multiple times.
+The code is slightly faster now, but not that much. There is a little gain in the prepare time. At least, the times for the BLAS calls are not "corrupted" by the paging in of the required memory.
+---
+
+*****
 To do:
 - row growth factor (and store inverse of D?)
 - parallel stuff
 - check iterative refinement
-- custom allocation of cliques
