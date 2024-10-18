@@ -14,8 +14,7 @@ class FullFormatHandler : public FormatHandler {
                      int& n_reg_piv, std::vector<double>& times) override;
   void assembleClique(const std::vector<double>& child, int nc,
                       int child_sn) override;
-  void extremeEntries(double& minD, double& maxD, double& minoffD,
-                      double& maxoffD) override;
+  void extremeEntries(DataCollector& DC) override;
 };
 
 #endif

@@ -5,10 +5,9 @@
 #include <random>
 #include <stack>
 
-Analyse::Analyse(const std::vector<int>& rows, const std::vector<int>& ptr,
-                 Symbolic& S,
-                 int negative_pivots)
-    : S_{S} {
+Analyse::Analyse(Symbolic& S, DataCollector& DC, const std::vector<int>& rows,
+                 const std::vector<int>& ptr, int negative_pivots)
+    : S_{S}, DC_{DC} {
   // Input the symmetric matrix to be analysed in CSC format.
   // row_ind contains the row indices.
   // col_ptr contains the starting points of each column.
@@ -1324,7 +1323,7 @@ int Analyse::run() {
 
   if (!ready_) return kRetGeneric;
 
-  S_.times().resize(kTimeSize);
+  DC_.times().resize(kTimeSize);
 
   Clock clock_total{};
   Clock clock_items{};
@@ -1339,7 +1338,7 @@ int Analyse::run() {
   int metis_status = getPermutation();
   if (metis_status) return kRetMetisError;
 #ifdef FINE_TIMING
-  S_.times(kTimeAnalyseMetis) += clock_items.stop();
+  DC_.times(kTimeAnalyseMetis) += clock_items.stop();
 #endif
 
 #ifdef FINE_TIMING
@@ -1349,7 +1348,7 @@ int Analyse::run() {
   eTree();
   postorder();
 #ifdef FINE_TIMING
-  S_.times(kTimeAnalyseTree) += clock_items.stop();
+  DC_.times(kTimeAnalyseTree) += clock_items.stop();
 #endif
 
 #ifdef FINE_TIMING
@@ -1357,7 +1356,7 @@ int Analyse::run() {
 #endif
   colCount();
 #ifdef FINE_TIMING
-  S_.times(kTimeAnalyseCount) += clock_items.stop();
+  DC_.times(kTimeAnalyseCount) += clock_items.stop();
 #endif
 
 #ifdef FINE_TIMING
@@ -1367,7 +1366,7 @@ int Analyse::run() {
   relaxSupernodes();
   afterRelaxSn();
 #ifdef FINE_TIMING
-  S_.times(kTimeAnalyseSn) += clock_items.stop();
+  DC_.times(kTimeAnalyseSn) += clock_items.stop();
 #endif
 
 #ifdef FINE_TIMING
@@ -1375,7 +1374,7 @@ int Analyse::run() {
 #endif
   reorderChildren();
 #ifdef FINE_TIMING
-  S_.times(kTimeAnalyseReorder) += clock_items.stop();
+  DC_.times(kTimeAnalyseReorder) += clock_items.stop();
 #endif
 
 #ifdef FINE_TIMING
@@ -1383,7 +1382,7 @@ int Analyse::run() {
 #endif
   snPattern();
 #ifdef FINE_TIMING
-  S_.times(kTimeAnalysePattern) += clock_items.stop();
+  DC_.times(kTimeAnalysePattern) += clock_items.stop();
 #endif
 
 #ifdef FINE_TIMING
@@ -1393,7 +1392,7 @@ int Analyse::run() {
   relativeIndClique();
   computeStorage();
 #ifdef FINE_TIMING
-  S_.times(kTimeAnalyseRelInd) += clock_items.stop();
+  DC_.times(kTimeAnalyseRelInd) += clock_items.stop();
 #endif
 
   // move relevant stuff into S
@@ -1430,7 +1429,7 @@ int Analyse::run() {
   S_.consecutive_sums_ = std::move(consecutive_sums_);
 
 #ifdef COARSE_TIMING
-  S_.times(kTimeAnalyse) += clock_total.stop();
+  DC_.times(kTimeAnalyse) += clock_total.stop();
 #endif
 
   return kRetOk;

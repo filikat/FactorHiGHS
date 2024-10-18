@@ -1177,6 +1177,28 @@ The code is slightly faster now, but not that much. There is a little gain in th
 ---
 
 *****
+18 Oct 2024
+I spent the last few days trying to understand how to use the parallel scheduler in HiGHS. While doing that, I realized that it may be better to spawn separate tasks for each supernode, rather than to split the tree in subtrees. The scheduler of HiGHS allows this easily, and it would also easily incorporate the node parallelism later on.
+Essentially, I would spawn the task of the root nodes. Then, each node would spawn its children. It would perform any preliminary work and then sync with one children at a time (in a fixed order) and assemble the frontal matrix. Then peform the dense factorization.
+The use of work stealing and other complicated scheduler stuff should make this more efficient, in particular in keeping a good balance between processor. 
+Each node writes to a different memory location, so it does not require locks. 
+There is the issue of false sharing. I am thinking to align each chunk of columns and each Schur complement to the cache lines. 
+Alternatively, I can have a thread local copy of them, write to the local copy, and only at the end std::move the result in its final position. No one should access that until the child has finished anyway.
+This approach does not allow to use a stack for the schur complements, so I have to revert back to the previous technique of using a separate std::vector for each Schur complement. Not a big deal.
+I also don't need the layer 0 anymore.
+I need to be careful to spawn the children in reverse order, because spawn tasks are put in a stack, so the first to sync is the last to have spawned. I wrote a function to invert the linked lists of children for this.
+---
+I changed FormatHandler so that it holds a local copy of frontal and clique. It performs all operations on the local copy and std::moves them in their final position when detach() is called.
+This actually simplifies the whole thing. I should have thought about it before.
+---
+Another issue is that times should not be measures within Symbolic. 
+I should create a separate object to collect times and other data.
+Then, each thread could have its own object, and the times can be added together at the end.
+---
+
+
+
+*****
 To do:
 - row growth factor (and store inverse of D?)
 - parallel stuff

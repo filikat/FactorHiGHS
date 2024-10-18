@@ -2,20 +2,20 @@
 
 void FullFormatHandler::initFrontal() {
   // frontal is initialized to zero
-  frontal_->resize(ldf_ * sn_size_);
+  frontal_.resize(ldf_ * sn_size_);
 }
 
-void FullFormatHandler::initClique() { return clique_->resize(ldc_ * ldc_); }
+void FullFormatHandler::initClique() { return clique_.resize(ldc_ * ldc_); }
 
 void FullFormatHandler::assembleFrontal(int i, int j, double val) {
-  (*frontal_)[i + j * ldf_] = val;
+  frontal_[i + j * ldf_] = val;
 }
 
 void FullFormatHandler::assembleFrontalMultiple(
     int num, const std::vector<double>& child, int nc, int child_sn, int row,
     int col, int i, int j) {
-  daxpy_(&num, &d_one, &child[row + nc * col], &i_one,
-         &(*frontal_)[i + ldf_ * j], &i_one);
+  daxpy_(&num, &d_one, &child[row + nc * col], &i_one, &frontal_[i + ldf_ * j],
+         &i_one);
 }
 
 int FullFormatHandler::denseFactorise(double reg_thresh,
@@ -29,16 +29,16 @@ int FullFormatHandler::denseFactorise(double reg_thresh,
     double* regul = &regularization[sn_start];
 
     status =
-        dense_fact_pdbf(ldf_, sn_size_, nb_, frontal_->data(), ldf_,
-                        clique_->data(), ldc_, reg_thresh, regul, times.data());
+        dense_fact_pdbf(ldf_, sn_size_, nb_, frontal_.data(), ldf_,
+                        clique_.data(), ldc_, reg_thresh, regul, times.data());
   } else {
     // find the position within pivot_sign corresponding to this supernode
     int sn_start = S_->snStart(sn_);
     const int* pivot_sign = &S_->pivotSign().data()[sn_start];
     double* regul = &regularization[sn_start];
 
-    status = dense_fact_pibf(ldf_, sn_size_, nb_, frontal_->data(), ldf_,
-                             clique_->data(), ldc_, pivot_sign, reg_thresh,
+    status = dense_fact_pibf(ldf_, sn_size_, nb_, frontal_.data(), ldf_,
+                             clique_.data(), ldc_, pivot_sign, reg_thresh,
                              regul, &n_reg_piv, times.data());
   }
   return status;
@@ -68,7 +68,7 @@ void FullFormatHandler::assembleClique(const std::vector<double>& child, int nc,
 
         // use daxpy_ for summing consecutive entries
         daxpy_(&consecutive, &d_one, &child[row + nc * col], &i_one,
-               &(*clique_)[i + ldc_ * j], &i_one);
+               &clique_[i + ldc_ * j], &i_one);
 
         row += consecutive;
       }
@@ -76,24 +76,25 @@ void FullFormatHandler::assembleClique(const std::vector<double>& child, int nc,
   }
 }
 
-void FullFormatHandler::extremeEntries(double& minD, double& maxD,
-                                       double& minoffD, double& maxoffD) {
-  minD = 1e100;
-  maxD = 0.0;
-  minoffD = 1e100;
-  maxoffD = 0.0;
+void FullFormatHandler::extremeEntries(DataCollector& DC) {
+  double minD = 1e100;
+  double maxD = 0.0;
+  double minoffD = 1e100;
+  double maxoffD = 0.0;
 
   for (int col = 0; col < sn_size_; ++col) {
     // diagonal entry
-    minD = std::min(minD, std::abs((*frontal_)[col + ldf_ * col]));
-    maxD = std::max(maxD, std::abs((*frontal_)[col + ldf_ * col]));
+    minD = std::min(minD, std::abs(frontal_[col + ldf_ * col]));
+    maxD = std::max(maxD, std::abs(frontal_[col + ldf_ * col]));
 
     // off diagonal entries
     for (int row = col + 1; row < ldf_; ++row) {
-      if ((*frontal_)[row + ldf_ * col] != 0.0) {
-        minoffD = std::min(minoffD, std::abs((*frontal_)[row + ldf_ * col]));
-        maxoffD = std::max(maxoffD, std::abs((*frontal_)[row + ldf_ * col]));
+      if (frontal_[row + ldf_ * col] != 0.0) {
+        minoffD = std::min(minoffD, std::abs(frontal_[row + ldf_ * col]));
+        maxoffD = std::max(maxoffD, std::abs(frontal_[row + ldf_ * col]));
       }
     }
   }
+
+  DC.extremeEntries(minD, maxD, minoffD, maxoffD);
 }

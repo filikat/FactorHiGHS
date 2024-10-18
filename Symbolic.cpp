@@ -30,9 +30,6 @@ const std::vector<int>& Symbolic::snParent() const { return sn_parent_; }
 const std::vector<int>& Symbolic::snStart() const { return sn_start_; }
 const std::vector<int>& Symbolic::pivotSign() const { return pivot_sign_; }
 
-double& Symbolic::times(TimeItems i) const { return times_record_[i]; }
-std::vector<double>& Symbolic::times() const { return times_record_; }
-
 void printMemory(double mem) {
   if (mem < 1024)
     printf("%.1f B\n", mem);
@@ -74,103 +71,4 @@ void Symbolic::printShort() const {
   printf("serial memory   : ");
   printMemory(max_storage_);
   printf("\n");
-}
-
-void Symbolic::printTimes() const {
-#ifdef COARSE_TIMING
-  printf("----------------------------------------------------\n");
-  printf("Analyse time            \t%8.4f\n", times_record_[kTimeAnalyse]);
-
-#ifdef FINE_TIMING
-  printf("\tMetis:                  %8.4f (%4.1f%%)\n",
-         times_record_[kTimeAnalyseMetis],
-         times_record_[kTimeAnalyseMetis] / times_record_[kTimeAnalyse] * 100);
-  printf("\tTree:                   %8.4f (%4.1f%%)\n",
-         times_record_[kTimeAnalyseTree],
-         times_record_[kTimeAnalyseTree] / times_record_[kTimeAnalyse] * 100);
-  printf("\tCounts:                 %8.4f (%4.1f%%)\n",
-         times_record_[kTimeAnalyseCount],
-         times_record_[kTimeAnalyseCount] / times_record_[kTimeAnalyse] * 100);
-  printf("\tSupernodes:             %8.4f (%4.1f%%)\n",
-         times_record_[kTimeAnalyseSn],
-         times_record_[kTimeAnalyseSn] / times_record_[kTimeAnalyse] * 100);
-  printf(
-      "\tReorder:                %8.4f (%4.1f%%)\n",
-      times_record_[kTimeAnalyseReorder],
-      times_record_[kTimeAnalyseReorder] / times_record_[kTimeAnalyse] * 100);
-  printf(
-      "\tSn sparsity pattern:    %8.4f (%4.1f%%)\n",
-      times_record_[kTimeAnalysePattern],
-      times_record_[kTimeAnalysePattern] / times_record_[kTimeAnalyse] * 100);
-  printf("\tRelative indices:       %8.4f (%4.1f%%)\n",
-         times_record_[kTimeAnalyseRelInd],
-         times_record_[kTimeAnalyseRelInd] / times_record_[kTimeAnalyse] * 100);
-#endif
-
-  printf("----------------------------------------------------\n");
-  printf("Factorise time          \t%8.4f\n", times_record_[kTimeFactorise]);
-
-#ifdef FINE_TIMING
-  printf("\tPrepare:                %8.4f (%4.1f%%)\n",
-         times_record_[kTimeFactorisePrepare],
-         times_record_[kTimeFactorisePrepare] / times_record_[kTimeFactorise] *
-             100);
-  printf("\tAssembly original:      %8.4f (%4.1f%%)\n",
-         times_record_[kTimeFactoriseAssembleOriginal],
-         times_record_[kTimeFactoriseAssembleOriginal] /
-             times_record_[kTimeFactorise] * 100);
-  printf("\tAssembly into frontal:  %8.4f (%4.1f%%)\n",
-         times_record_[kTimeFactoriseAssembleChildrenF],
-         times_record_[kTimeFactoriseAssembleChildrenF] /
-             times_record_[kTimeFactorise] * 100);
-  printf("\tAssembly into clique:   %8.4f (%4.1f%%)\n",
-         times_record_[kTimeFactoriseAssembleChildrenC],
-         times_record_[kTimeFactoriseAssembleChildrenC] /
-             times_record_[kTimeFactorise] * 100);
-  printf("\tDense factorisation:    %8.4f (%4.1f%%)\n",
-         times_record_[kTimeFactoriseDenseFact],
-         times_record_[kTimeFactoriseDenseFact] /
-             times_record_[kTimeFactorise] * 100);
-#endif
-
-#ifdef FINEST_TIMING
-  printf("\n");
-  printf("\t\ttrsm:           %8.4f (%4.1f%%)\n",
-         times_record_[kTimeDenseFact_trsm],
-         times_record_[kTimeDenseFact_trsm] /
-             times_record_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\tsyrk:           %8.4f (%4.1f%%)\n",
-         times_record_[kTimeDenseFact_syrk],
-         times_record_[kTimeDenseFact_syrk] /
-             times_record_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\tgemm:           %8.4f (%4.1f%%)\n",
-         times_record_[kTimeDenseFact_gemm],
-         times_record_[kTimeDenseFact_gemm] /
-             times_record_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\tfact:           %8.4f (%4.1f%%)\n",
-         times_record_[kTimeDenseFact_fact],
-         times_record_[kTimeDenseFact_fact] /
-             times_record_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\tcopy:           %8.4f (%4.1f%%)\n",
-         times_record_[kTimeDenseFact_copy],
-         times_record_[kTimeDenseFact_copy] /
-             times_record_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\taxpy:           %8.4f (%4.1f%%)\n",
-         times_record_[kTimeDenseFact_axpy],
-         times_record_[kTimeDenseFact_axpy] /
-             times_record_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\tscal:           %8.4f (%4.1f%%)\n",
-         times_record_[kTimeDenseFact_scal],
-         times_record_[kTimeDenseFact_scal] /
-             times_record_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\tconvert:        %8.4f (%4.1f%%)\n",
-         times_record_[kTimeDenseFact_convert],
-         times_record_[kTimeDenseFact_convert] /
-             times_record_[kTimeFactoriseDenseFact] * 100);
-#endif
-  printf("----------------------------------------------------\n");
-  printf("Solve time              \t%8.4f\n", times_record_[kTimeSolve]);
-  printf("----------------------------------------------------\n");
-
-#endif
 }

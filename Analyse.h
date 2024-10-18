@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "Auxiliary.h"
+#include "DataCollector.h"
 #include "GKlib.h"
 #include "ReturnValues.h"
 #include "Symbolic.h"
@@ -82,6 +83,9 @@ class Analyse {
   // symbolic object where to store result
   Symbolic& S_;
 
+  // object to handle times and statistics
+  DataCollector& DC_;
+
   // Functions to perform analyse phase
   int getPermutation();
   void permute(const std::vector<int>& iperm);
@@ -102,8 +106,8 @@ class Analyse {
 
  public:
   // Constructor: matrix must be in lower triangular format
-  Analyse(const std::vector<int>& rows, const std::vector<int>& ptr,
-          Symbolic& S, int negative_pivots = 0);
+  Analyse(Symbolic& S, DataCollector& DC, const std::vector<int>& rows,
+          const std::vector<int>& ptr, int negative_pivots = 0);
 
   // Run analyse phase and save the result in Symbolic object S_
   int run();

@@ -6,6 +6,7 @@
 #include "Auxiliary.h"
 #include "Blas_declaration.h"
 #include "CurtisReidScalingSym.h"
+#include "DataCollector.h"
 #include "DenseFact_declaration.h"
 #include "FormatHandler.h"
 #include "Numeric.h"
@@ -23,6 +24,9 @@ class Factorise {
 
   // symbolic factorisation
   const Symbolic& S_;
+
+  // object to handle times and statistics
+  DataCollector& DC_;
 
   // interface to specific format used for dense matrices
   FormatHandler* FH_;
@@ -48,24 +52,14 @@ class Factorise {
   // regularization
   std::vector<double> total_reg_{};
 
-  // number of pivots that received dynamic regularization
-  int n_reg_piv_{};
-
  public:
   void permute(const std::vector<int>& iperm);
   int processSupernode(int sn);
-  bool check() const;
   void equilibrate();
   void scale();
 
-  // extreme values of the factorisation
-  double maxD_ = 0.0;
-  double minD_ = std::numeric_limits<double>::max();
-  double maxoffD_ = 0.0;
-  double minoffD_ = std::numeric_limits<double>::max();
-
  public:
-  Factorise(const Symbolic& S, const std::vector<int>& rowsA,
+  Factorise(const Symbolic& S, DataCollector& DC, const std::vector<int>& rowsA,
             const std::vector<int>& ptrA, const std::vector<double>& valA);
 
   int run(Numeric& num);

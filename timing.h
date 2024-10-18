@@ -35,11 +35,12 @@ enum TimeItems {
   // Factorise timer
   kTimeFactorise,  // TIMING_1
   // Factorise items
-  kTimeFactorisePrepare,            // TIMING_2
-  kTimeFactoriseAssembleOriginal,   // TIMING_2
-  kTimeFactoriseAssembleChildrenF,  // TIMING_2
-  kTimeFactoriseAssembleChildrenC,  // TIMING_2
-  kTimeFactoriseDenseFact,          // TIMING_2
+  kTimeFactorisePrepare,                  // TIMING_2
+  kTimeFactoriseAssembleOriginal,         // TIMING_2
+  kTimeFactoriseAssembleChildren,         // TIMING_2
+  kTimeFactoriseAssembleChildrenFrontal,  // TIMING_3
+  kTimeFactoriseAssembleChildrenClique,   // TIMING_3
+  kTimeFactoriseDenseFact,                // TIMING_2
   // DenseFact items
   kTimeDenseFact_trsm,     // TIMING_3
   kTimeDenseFact_syrk,     // TIMING_3

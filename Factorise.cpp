@@ -6,10 +6,11 @@
 #include "HybridHybridFormatHandler.h"
 #include "HybridPackedFormatHandler.h"
 
-Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
+Factorise::Factorise(const Symbolic& S, DataCollector& DC,
+                     const std::vector<int>& rowsA,
                      const std::vector<int>& ptrA,
                      const std::vector<double>& valA)
-    : S_{S} {
+    : S_{S}, DC_{DC} {
   // Input the symmetric matrix to be factorised in CSC format and the symbolic
   // factorisation coming from Analyze.
   // Only the lower triangular part of the matrix is used.
@@ -42,10 +43,6 @@ Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
 
   // create linked lists of children in supernodal elimination tree
   childrenLinkedList(S_.snParent(), first_children_, next_children_);
-
-  // allocate space for list of generated elements and columns of L
-  schur_contribution_.resize(S_.sn());
-  sn_columns_.resize(S_.sn());
 
   // scale the matrix
   // equilibrate();
@@ -145,25 +142,12 @@ int Factorise::processSupernode(int sn) {
   const int sn_end = S_.snStart(sn + 1);
   const int sn_size = sn_end - sn_begin;
 
-  // Allocate space for frontal matrix:
-  // The front size is ldf and the supernode size is sn_size.
-  // The frontal matrix is stored as two dense matrices:
-  // frontal is ldf x sn_size and stores the first sn_size columns that will
-  // undergo Cholesky elimination.
-  // clique is ldc x ldc and stores the remaining (ldf - sn_size) columns
-  // (without the top part), that do not undergo Cholesky elimination.
-
   // attach to the format handler
-  FH_->attach(&sn_columns_[sn], &schur_contribution_[sn], sn);
-
-  // initialize frontal
-  FH_->initFrontal();
-
-  // initialize clique
-  FH_->initClique();
+  // this also allocates space for the frontal matrix and schur complement
+  FH_->attach(sn);
 
 #ifdef FINE_TIMING
-  S_.times(kTimeFactorisePrepare) += clock.stop();
+  DC_.times(kTimeFactorisePrepare) += clock.stop();
 #endif
 
 #ifdef FINE_TIMING
@@ -186,12 +170,15 @@ int Factorise::processSupernode(int sn) {
     }
   }
 #ifdef FINE_TIMING
-  S_.times(kTimeFactoriseAssembleOriginal) += clock.stop();
+  DC_.times(kTimeFactoriseAssembleOriginal) += clock.stop();
 #endif
 
-  // ===================================================
-  // Assemble frontal matrices of children
-  // ===================================================
+// ===================================================
+// Assemble frontal matrices of children
+// ===================================================
+#ifdef FINE_TIMING
+  clock.start();
+#endif
   int child_sn = first_children_[sn];
   while (child_sn != -1) {
     // Schur contribution of the current child
@@ -208,8 +195,9 @@ int Factorise::processSupernode(int sn) {
     const int nc = S_.ptr(child_sn + 1) - S_.ptr(child_sn) - child_size;
 
 // ASSEMBLE INTO FRONTAL
-#ifdef FINE_TIMING
-    clock.start();
+#ifdef FINEST_TIMING
+    Clock clock2;
+    clock2.start();
 #endif
     // go through the columns of the contribution of the child
     for (int col = 0; col < nc; ++col) {
@@ -235,17 +223,17 @@ int Factorise::processSupernode(int sn) {
         }
       }
     }
-#ifdef FINE_TIMING
-    S_.times(kTimeFactoriseAssembleChildrenF) += clock.stop();
+#ifdef FINEST_TIMING
+    DC_.times(kTimeFactoriseAssembleChildrenFrontal) += clock2.stop();
 #endif
 
 // ASSEMBLE INTO CLIQUE
-#ifdef FINE_TIMING
-    clock.start();
+#ifdef FINEST_TIMING
+    clock2.start();
 #endif
     FH_->assembleClique(child_clique, nc, child_sn);
-#ifdef FINE_TIMING
-    S_.times(kTimeFactoriseAssembleChildrenC) += clock.stop();
+#ifdef FINEST_TIMING
+    DC_.times(kTimeFactoriseAssembleChildrenClique) += clock2.stop();
 #endif
 
     // Schur contribution of the child is no longer needed
@@ -256,6 +244,9 @@ int Factorise::processSupernode(int sn) {
     // move on to the next child
     child_sn = next_children_[child_sn];
   }
+#ifdef FINE_TIMING
+  DC_.times(kTimeFactoriseAssembleChildren) += clock.stop();
+#endif
 
   // ===================================================
   // Partial factorisation
@@ -268,118 +259,20 @@ int Factorise::processSupernode(int sn) {
   const double reg_thresh = max_diag_ * 1e-16 * 1e-10;
 
   int status =
-      FH_->denseFactorise(reg_thresh, total_reg_, n_reg_piv_, S_.times());
+      FH_->denseFactorise(reg_thresh, total_reg_, DC_.n_reg_piv_, DC_.times());
   if (status) return status;
 
 #ifdef FINE_TIMING
-  S_.times(kTimeFactoriseDenseFact) += clock.stop();
+  DC_.times(kTimeFactoriseDenseFact) += clock.stop();
 #endif
 
   // compute largest elements in factorization
-  double minD{}, maxD{}, minoffD{}, maxoffD{};
-  FH_->extremeEntries(minD, maxD, minoffD, maxoffD);
-  minD_ = std::min(minD_, minD);
-  maxD_ = std::max(maxD_, maxD);
-  minoffD_ = std::min(minoffD_, minoffD);
-  maxoffD_ = std::max(maxoffD_, maxoffD);
+  FH_->extremeEntries(DC_);
 
   // detach from the format handler
-  FH_->detach();
+  FH_->detach(sn_columns_[sn], schur_contribution_[sn]);
 
   return kRetOk;
-}
-
-bool Factorise::check() const {
-  // Check that the numerical factorisation is correct, by using dense linear
-  // algebra operations.
-  // Return true if check is successful, or if matrix is too large.
-  // To be used for debug.
-
-  if (S_.factType() == FactType::LDLt ||
-      S_.formatType() == FormatType::HybridPacked) {
-    printf("\n==> Dense check not available\n");
-    return true;
-  }
-
-  if (n_ > 5000) {
-    printf("\n==> Matrix is too large for dense check\n\n");
-    return true;
-  }
-
-  // assemble sparse matrix into dense matrix
-  std::vector<double> M(n_ * n_);
-  for (int col = 0; col < n_; ++col) {
-    for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
-      int row = rowsA_[el];
-
-      // insert element in position (row,col)
-      M[row + col * n_] = valA_[el];
-    }
-  }
-
-  // use Lapack to factorise the dense matrix
-  char uplo = 'L';
-  int N = n_;
-  int info;
-  dpotrf_(&uplo, &N, M.data(), &N, &info);
-  if (info != 0) {
-    printf("\n==> dpotrf failed\n\n");
-    return false;
-  }
-
-  // assemble sparse factor into dense factor
-  std::vector<double> L(n_ * n_);
-  for (int sn = 0; sn < S_.sn(); ++sn) {
-    for (int col = S_.snStart(sn); col < S_.snStart(sn + 1); ++col) {
-      // indices to access corresponding entry in the supernode
-      int col_sn = col - S_.snStart(sn);
-      int ldsn = S_.ptr(sn + 1) - S_.ptr(sn);
-
-      for (int el = S_.ptr(sn); el < S_.ptr(sn + 1); ++el) {
-        int row = S_.rows(el);
-
-        // indices to access corresponding entry in the supernode
-        int row_sn = el - S_.ptr(sn);
-
-        // skip upper triangle of supernodes
-        if (row < col) continue;
-
-        L[row + col * n_] = sn_columns_[sn][row_sn + col_sn * ldsn];
-      }
-    }
-  }
-
-  // Check that sparse factorisation agrees with dense one.
-  // This is done by computing the Frobenius norm of the difference between
-  // the dense and sparse factors, divided by the Frobenius norm of the dense
-  // factor.
-
-  double frobenius_dense{};
-  double frobenius_diff{};
-
-  for (int col = 0; col < n_; ++col) {
-    for (int row = 0; row < n_; ++row) {
-      double val_sparse = L[row + n_ * col];
-      double val_dense = M[row + col * n_];
-      double diff = val_sparse - val_dense;
-
-      frobenius_dense += val_dense * val_dense;
-      frobenius_diff += diff * diff;
-    }
-  }
-
-  frobenius_dense = sqrt(frobenius_dense);
-  frobenius_diff = sqrt(frobenius_diff);
-  double check_error = frobenius_diff / frobenius_dense;
-
-  printf("\nFactorise Frobenius error %e\n", check_error);
-  if (check_error < 1e-12) {
-    printf("\n==> Factorise check successful\n\n");
-    return true;
-  } else {
-    printf("\n==> Factorise check failed\n\n");
-    return false;
-  }
 }
 
 void Factorise::equilibrate() {
@@ -505,6 +398,12 @@ int Factorise::run(Numeric& num) {
   // initialize format handler
   FH_->init(&S_);
 
+  // allocate space for list of generated elements and columns of L
+  schur_contribution_.resize(S_.sn());
+  sn_columns_.resize(S_.sn());
+
+  DC_.resetExtremeEntries();
+
   int status{};
   for (int sn = 0; sn < S_.sn(); ++sn) {
     status = processSupernode(sn);
@@ -526,14 +425,12 @@ int Factorise::run(Numeric& num) {
 
   // move factorisation to numerical object
   num.sn_columns_ = std::move(sn_columns_);
-  num.S_ = &S_;
   num.colscale_ = std::move(colscale_);
   num.colexp_ = std::move(colexp_);
   num.total_reg_ = std::move(total_reg_);
-  num.n_reg_piv_ = n_reg_piv_;
 
 #ifdef COARSE_TIMING
-  S_.times(kTimeFactorise) += clock.stop();
+  DC_.times(kTimeFactorise) += clock.stop();
 #endif
 
   return kRetOk;

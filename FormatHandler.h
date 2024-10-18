@@ -5,6 +5,7 @@
 
 #include "Auxiliary.h"
 #include "Blas_declaration.h"
+#include "DataCollector.h"
 #include "DenseFact_declaration.h"
 #include "Symbolic.h"
 
@@ -36,8 +37,9 @@ class FormatHandler {
   const Symbolic* S_;
 
   // data of a given supernode
-  std::vector<double>* frontal_{};
-  std::vector<double>* clique_{};
+  std::vector<double> frontal_{};
+  std::vector<double> clique_{};
+  std::vector<int> clique_block_start_sn_{};
 
   // which supernode is being processed
   int sn_{};
@@ -59,11 +61,10 @@ class FormatHandler {
   void init(const Symbolic* S);
 
   // initialize the data of a specific supernode
-  void attach(std::vector<double>* frontal, std::vector<double>* clique_,
-              int sn);
+  void attach(int sn);
 
   // reset the FormatHandler
-  void detach();
+  void detach(std::vector<double>& frontal, std::vector<double>& clique);
 
   // =================================================================
   // Pure virtual functions.
@@ -87,8 +88,7 @@ class FormatHandler {
   // Virtual functions.
   // These may be overridden by derived classes, if needed.
   // =================================================================
-  virtual void extremeEntries(double& minD, double& maxD, double& minoffD,
-                              double& maxoffD) {}
+  virtual void extremeEntries(DataCollector& DC) {}
   // =================================================================
 };
 

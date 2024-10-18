@@ -3,8 +3,6 @@
 
 #include <vector>
 
-#include "timing.h"
-
 // Type of factorization:
 // - Cholesky
 // - LDLt
@@ -111,9 +109,6 @@ class Symbolic {
   // should have.
   std::vector<int> pivot_sign_{};
 
-  // Keep record of times
-  mutable std::vector<double> times_record_{};
-
   friend class Analyse;
 
  public:
@@ -122,7 +117,6 @@ class Symbolic {
   // print information to screen
   void print() const;
   void printShort() const;
-  void printTimes() const;
 
   // provide const access to symbolic factorization
   FactType factType() const;
@@ -146,9 +140,6 @@ class Symbolic {
   const std::vector<int>& snParent() const;
   const std::vector<int>& snStart() const;
   const std::vector<int>& pivotSign() const;
-
-  double& times(TimeItems i) const;
-  std::vector<double>& times() const;
 };
 
 // Explanation of relative indices:
