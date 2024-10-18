@@ -37,7 +37,7 @@ class FormatHandler {
 
   // data of a given supernode
   std::vector<double>* frontal_{};
-  double* clique_{};
+  std::vector<double>* clique_{};
 
   // which supernode is being processed
   int sn_{};
@@ -59,9 +59,8 @@ class FormatHandler {
   void init(const Symbolic* S);
 
   // initialize the data of a specific supernode
-  void attach(std::vector<double>* frontal, int sn);
-
-  void attachClique(double* clique);
+  void attach(std::vector<double>* frontal, std::vector<double>* clique_,
+              int sn);
 
   // reset the FormatHandler
   void detach();
@@ -71,15 +70,17 @@ class FormatHandler {
   // These need to be defined by any derived class.
   // =================================================================
   virtual void initFrontal() = 0;
-  virtual int sizeClique() = 0;
+  virtual void initClique() = 0;
   virtual void assembleFrontal(int i, int j, double val) = 0;
-  virtual void assembleFrontalMultiple(int num, const double* child, int nc,
+  virtual void assembleFrontalMultiple(int num,
+                                       const std::vector<double>& child, int nc,
                                        int child_sn, int row, int col, int i,
                                        int j) = 0;
   virtual int denseFactorise(double reg_thresh,
                              std::vector<double>& regularization,
                              int& n_reg_piv, std::vector<double>& times) = 0;
-  virtual void assembleClique(const double* child, int nc, int child_sn) = 0;
+  virtual void assembleClique(const std::vector<double>& child, int nc,
+                              int child_sn) = 0;
   // =================================================================
 
   // =================================================================

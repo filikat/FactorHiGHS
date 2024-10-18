@@ -114,8 +114,31 @@ void childrenLinkedList(const std::vector<int>& parent, std::vector<int>& head,
   }
 }
 
+void reverseLinkedList(std::vector<int>& head, std::vector<int>& next) {
+  // Reverse the linked list of children of each node.
+  // If a node has children (a -> b -> c -> -1), the reverse list contains
+  // children (c -> b -> a -> -1).
+
+  const int n = head.size();
+
+  for (int node = 0; node < n; ++node) {
+    int prev_node = -1;
+    int curr_node = head[node];
+    int next_node = -1;
+
+    while (curr_node != -1) {
+      next_node = next[curr_node];
+      next[curr_node] = prev_node;
+      prev_node = curr_node;
+      curr_node = next_node;
+    }
+
+    head[node] = prev_node;
+  }
+}
+
 void dfsPostorder(int node, int& start, std::vector<int>& head,
-              const std::vector<int>& next, std::vector<int>& order) {
+                  const std::vector<int>& next, std::vector<int>& order) {
   // Perform depth first search starting from root node and order the nodes
   // starting from the value start. head and next contain the linked list of
   // children.

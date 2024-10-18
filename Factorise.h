@@ -5,7 +5,6 @@
 
 #include "Auxiliary.h"
 #include "Blas_declaration.h"
-#include "CliqueStack.h"
 #include "CurtisReidScalingSym.h"
 #include "DenseFact_declaration.h"
 #include "FormatHandler.h"
@@ -32,8 +31,8 @@ class Factorise {
   std::vector<int> first_children_{};
   std::vector<int> next_children_{};
 
-  // stack of Schur complements
-  CliqueStack& clique_stack_;
+  // generated elements, aka Schur complements.
+  std::vector<std::vector<double>> schur_contribution_{};
 
   // columns of L, stored as dense supernodes
   std::vector<std::vector<double>> sn_columns_{};
@@ -66,9 +65,8 @@ class Factorise {
   double minoffD_ = std::numeric_limits<double>::max();
 
  public:
-  Factorise(const Symbolic& S, CliqueStack& stack,
-            const std::vector<int>& rowsA, const std::vector<int>& ptrA,
-            const std::vector<double>& valA);
+  Factorise(const Symbolic& S, const std::vector<int>& rowsA,
+            const std::vector<int>& ptrA, const std::vector<double>& valA);
 
   int run(Numeric& num);
 };

@@ -71,7 +71,7 @@ void Symbolic::printShort() const {
   printf("nnz             : %.2e\n", nz_);
   printf("fill-in         : %.2f\n", fillin_);
   printf("operations      : %.2e\n", dense_ops_);
-  printf("est. memory     : ");
+  printf("serial memory   : ");
   printMemory(max_storage_);
   printf("max stack size  : %.2e\n", (double)max_stack_entries_);
   printf("\nRunning on %d thread%s\n", n_threads_, n_threads_ > 1 ? "s" : "");

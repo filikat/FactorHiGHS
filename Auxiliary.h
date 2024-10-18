@@ -17,6 +17,7 @@ void transpose(const std::vector<int>& ptr, const std::vector<int>& rows,
                std::vector<int>& rowsT, std::vector<double>& valT);
 void childrenLinkedList(const std::vector<int>& parent, std::vector<int>& head,
                         std::vector<int>& next);
+void reverseLinkedList(std::vector<int>& head, std::vector<int>& next);
 void dfsPostorder(int node, int& start, std::vector<int>& head,
                   const std::vector<int>& next, std::vector<int>& order);
 void processEdge(int j, int i, const std::vector<int>& first,

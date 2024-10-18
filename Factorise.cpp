@@ -6,11 +6,10 @@
 #include "HybridHybridFormatHandler.h"
 #include "HybridPackedFormatHandler.h"
 
-Factorise::Factorise(const Symbolic& S, CliqueStack& stack,
-                     const std::vector<int>& rowsA,
+Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
                      const std::vector<int>& ptrA,
                      const std::vector<double>& valA)
-    : S_{S}, clique_stack_{stack} {
+    : S_{S} {
   // Input the symmetric matrix to be factorised in CSC format and the symbolic
   // factorisation coming from Analyze.
   // Only the lower triangular part of the matrix is used.
@@ -44,9 +43,12 @@ Factorise::Factorise(const Symbolic& S, CliqueStack& stack,
   // create linked lists of children in supernodal elimination tree
   childrenLinkedList(S_.snParent(), first_children_, next_children_);
 
+  // allocate space for list of generated elements and columns of L
+  schur_contribution_.resize(S_.sn());
+  sn_columns_.resize(S_.sn());
+
   // scale the matrix
   // equilibrate();
-
   // scale();
 
   // compute largest diagonal entry in absolute value
@@ -152,15 +154,13 @@ int Factorise::processSupernode(int sn) {
   // (without the top part), that do not undergo Cholesky elimination.
 
   // attach to the format handler
-  FH_->attach(&sn_columns_[sn], sn);
+  FH_->attach(&sn_columns_[sn], &schur_contribution_[sn], sn);
 
   // initialize frontal
   FH_->initFrontal();
 
   // initialize clique
-  int clique_size = FH_->sizeClique();
-  double* clique = clique_stack_.setup(clique_size);
-  FH_->attachClique(clique);
+  FH_->initClique();
 
 #ifdef FINE_TIMING
   S_.times(kTimeFactorisePrepare) += clock.stop();
@@ -192,15 +192,10 @@ int Factorise::processSupernode(int sn) {
   // ===================================================
   // Assemble frontal matrices of children
   // ===================================================
-  // child are assembled in reverse order (because they are stored in a stack).
-  // we still use the linked list to iterate through them, to get the right
-  // number of children, but the child id needs to be read from the stack.
-
-  int child = first_children_[sn];
-  while (child != -1) {
+  int child_sn = first_children_[sn];
+  while (child_sn != -1) {
     // Schur contribution of the current child
-    int child_sn{};
-    const double* child_clique = clique_stack_.getChild(child_sn);
+    std::vector<double>& child_clique = schur_contribution_[child_sn];
 
     // determine size of clique of child
     const int child_begin = S_.snStart(child_sn);
@@ -253,11 +248,13 @@ int Factorise::processSupernode(int sn) {
     S_.times(kTimeFactoriseAssembleChildrenC) += clock.stop();
 #endif
 
-    // child is no longer needed, remove it from stack
-    clique_stack_.popChild();
+    // Schur contribution of the child is no longer needed
+    // Swap with temporary empty vector to deallocate memory
+    std::vector<double> temp_empty;
+    schur_contribution_[child_sn].swap(temp_empty);
 
     // move on to the next child
-    child = next_children_[child];
+    child_sn = next_children_[child_sn];
   }
 
   // ===================================================
@@ -288,8 +285,6 @@ int Factorise::processSupernode(int sn) {
 
   // detach from the format handler
   FH_->detach();
-
-  clique_stack_.pushWork(sn);
 
   return kRetOk;
 }
@@ -389,10 +384,9 @@ bool Factorise::check() const {
 
 void Factorise::equilibrate() {
   // Scale the matrix, according to:
-  // D. Ruiz, "A Scaling Algorithm to Equilibrate Both Rows and Columns Norms in
-  // Matrices", RAL-TR-2001-034.
-  // It attempts to obtain a matrix with /infty-norm of the rows and columns
-  // equal to one.
+  // D. Ruiz, "A Scaling Algorithm to Equilibrate Both Rows and Columns Norms
+  // in Matrices", RAL-TR-2001-034. It attempts to obtain a matrix with
+  // /infty-norm of the rows and columns equal to one.
 
   const int maxiter = 10;
 
@@ -410,8 +404,8 @@ void Factorise::equilibrate() {
       for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
         int row = rowsA_[el];
         double val = std::abs(valA_[el]);
-        // Matrix is stored as lower triangle, so this element contributes both
-        // to columns col and row.
+        // Matrix is stored as lower triangle, so this element contributes
+        // both to columns col and row.
         colmax[col] = std::max(colmax[col], val);
         if (col != row) colmax[row] = std::max(colmax[row], val);
       }
@@ -510,12 +504,6 @@ int Factorise::run(Numeric& num) {
 
   // initialize format handler
   FH_->init(&S_);
-
-  // allocate space for columns of L
-  sn_columns_.resize(S_.sn());
-
-  // initialize stack of cliques
-  clique_stack_.init(S_.stackSize(), S_.maxCliqueSize());
 
   int status{};
   for (int sn = 0; sn < S_.sn(); ++sn) {

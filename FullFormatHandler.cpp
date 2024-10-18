@@ -5,14 +5,14 @@ void FullFormatHandler::initFrontal() {
   frontal_->resize(ldf_ * sn_size_);
 }
 
-int FullFormatHandler::sizeClique() { return ldc_ * ldc_; }
+void FullFormatHandler::initClique() { return clique_->resize(ldc_ * ldc_); }
 
 void FullFormatHandler::assembleFrontal(int i, int j, double val) {
   (*frontal_)[i + j * ldf_] = val;
 }
 
 void FullFormatHandler::assembleFrontalMultiple(
-    int num, const double* child, int nc, int child_sn, int row,
+    int num, const std::vector<double>& child, int nc, int child_sn, int row,
     int col, int i, int j) {
   daxpy_(&num, &d_one, &child[row + nc * col], &i_one,
          &(*frontal_)[i + ldf_ * j], &i_one);
@@ -28,8 +28,9 @@ int FullFormatHandler::denseFactorise(double reg_thresh,
     int sn_start = S_->snStart(sn_);
     double* regul = &regularization[sn_start];
 
-    status = dense_fact_pdbf(ldf_, sn_size_, nb_, frontal_->data(), ldf_,
-                             clique_, ldc_, reg_thresh, regul, times.data());
+    status =
+        dense_fact_pdbf(ldf_, sn_size_, nb_, frontal_->data(), ldf_,
+                        clique_->data(), ldc_, reg_thresh, regul, times.data());
   } else {
     // find the position within pivot_sign corresponding to this supernode
     int sn_start = S_->snStart(sn_);
@@ -37,13 +38,13 @@ int FullFormatHandler::denseFactorise(double reg_thresh,
     double* regul = &regularization[sn_start];
 
     status = dense_fact_pibf(ldf_, sn_size_, nb_, frontal_->data(), ldf_,
-                             clique_, ldc_, pivot_sign, reg_thresh, regul,
-                             &n_reg_piv, times.data());
+                             clique_->data(), ldc_, pivot_sign, reg_thresh,
+                             regul, &n_reg_piv, times.data());
   }
   return status;
 }
 
-void FullFormatHandler::assembleClique(const double* child, int nc,
+void FullFormatHandler::assembleClique(const std::vector<double>& child, int nc,
                                        int child_sn) {
   //   go through the columns of the contribution of the child
   for (int col = 0; col < nc; ++col) {
@@ -67,7 +68,7 @@ void FullFormatHandler::assembleClique(const double* child, int nc,
 
         // use daxpy_ for summing consecutive entries
         daxpy_(&consecutive, &d_one, &child[row + nc * col], &i_one,
-               &clique_[i + ldc_ * j], &i_one);
+               &(*clique_)[i + ldc_ * j], &i_one);
 
         row += consecutive;
       }
