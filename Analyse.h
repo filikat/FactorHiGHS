@@ -79,11 +79,6 @@ class Analyse {
   int max_stack_entries_{};
   int max_clique_entries_{};
 
-  // data for parallelization
-  std::vector<std::vector<int>> subtrees_per_thread_{};
-  std::vector<double> ops_per_thread_{};
-  int sn_above_layer0_{};
-
   // symbolic object where to store result
   Symbolic& S_;
 
@@ -101,7 +96,6 @@ class Analyse {
   void relativeIndCols();
   void relativeIndClique();
   bool check() const;
-  void generateLayer0(double imbalance_ratio);
   void reorderChildren();
   void computeStorage();
   void computeStorage(int fr, int sz, int& fr_entries, int& cl_entries) const;
@@ -109,14 +103,10 @@ class Analyse {
  public:
   // Constructor: matrix must be in lower triangular format
   Analyse(const std::vector<int>& rows, const std::vector<int>& ptr,
-          Symbolic& S, const std::vector<int>& order = {},
-          int negative_pivots = 0);
+          Symbolic& S, int negative_pivots = 0);
 
   // Run analyse phase and save the result in Symbolic object S_
   int run();
-
-  // save metis iperm to be used by hsl codes for comparison
-  std::vector<int> metis_order_{};
 };
 
 #endif

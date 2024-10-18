@@ -6,7 +6,7 @@
 #include <stack>
 
 Analyse::Analyse(const std::vector<int>& rows, const std::vector<int>& ptr,
-                 Symbolic& S, const std::vector<int>& order,
+                 Symbolic& S,
                  int negative_pivots)
     : S_{S} {
   // Input the symmetric matrix to be analysed in CSC format.
@@ -42,13 +42,6 @@ Analyse::Analyse(const std::vector<int>& rows, const std::vector<int>& ptr,
   rows_lower_.resize(nz_);
   transpose(ptr_upper_, rows_upper_, ptr_lower_, rows_lower_);
   transpose(ptr_lower_, rows_lower_, ptr_upper_, rows_upper_);
-
-  if (!order.empty()) {
-    // inverse permutation provided by user
-    iperm_ = order;
-    perm_.resize(n_);
-    inversePerm(iperm_, perm_);
-  }
 
   ready_ = true;
 }
@@ -119,7 +112,6 @@ int Analyse::getPermutation() {
     return kRetMetisError;
   }
 
-  metis_order_ = iperm_;
   return kRetOk;
 }
 
@@ -1045,99 +1037,6 @@ bool Analyse::check() const {
   }
 }
 
-void Analyse::generateLayer0(double imbalance_ratio) {
-  if (S_.n_threads_ <= 1) return;
-
-  // linked lists of children
-  std::vector<int> head, next;
-  childrenLinkedList(sn_parent_, head, next);
-
-  double total_ops = operations_;
-
-  // compute number of operations for each supernode
-  std::vector<double> sn_ops(sn_count_);
-  for (int sn = 0; sn < sn_count_; ++sn) {
-    // supernode size
-    const int sz = sn_start_[sn + 1] - sn_start_[sn];
-
-    // frontal size
-    const int fr = ptr_sn_[sn + 1] - ptr_sn_[sn];
-
-    // number of operations for this supernode
-    for (int i = 0; i < sz; ++i) {
-      sn_ops[sn] += (double)(fr - i - 1) * (fr - i - 1);
-    }
-
-    // add assembly operations times 100 to the parent
-    if (sn_parent_[sn] != -1) {
-      const int ldc = fr - sz;
-      sn_ops[sn_parent_[sn]] += ldc * (ldc + 1) / 2 * 100;
-      total_ops += ldc * (ldc + 1) / 2 * 100;
-    }
-  }
-
-  // keep track of nodes in layer0
-  std::vector<int> layer0{};
-
-  // compute number of operations to process each subtree
-  std::vector<double> subtree_ops(sn_count_, 0.0);
-  for (int sn = 0; sn < sn_count_; ++sn) {
-    subtree_ops[sn] += sn_ops[sn];
-    if (sn_parent_[sn] != -1) {
-      subtree_ops[sn_parent_[sn]] += subtree_ops[sn];
-    } else {
-      // add roots in layer0
-      layer0.push_back(sn);
-    }
-  }
-
-  for (int iter = 0; iter < 10; ++iter) {
-    ops_per_thread_.assign(S_.n_threads_, 0.0);
-    subtrees_per_thread_.assign(S_.n_threads_, {});
-
-    // sort nodes in layer0 according to cost in subtree_ops.
-    // expensive nodes are ordered last
-    std::sort(layer0.begin(), layer0.end(),
-              [&](int a, int b) { return subtree_ops[a] < subtree_ops[b]; });
-
-    // allocate nodes in layer0 to processors:
-    // least loaded processor receives the next most expensive node
-    for (int i = layer0.size() - 1; i >= 0; --i) {
-      // find processor with lowest load
-      const int proc_least_load = std::distance(
-          ops_per_thread_.begin(),
-          std::min_element(ops_per_thread_.begin(), ops_per_thread_.end()));
-
-      ops_per_thread_[proc_least_load] += subtree_ops[layer0[i]];
-      subtrees_per_thread_[proc_least_load].push_back(layer0[i]);
-    }
-
-    // compute imbalance ratio
-    const double imbalance =
-        *std::min_element(ops_per_thread_.begin(), ops_per_thread_.end()) /
-        *std::max_element(ops_per_thread_.begin(), ops_per_thread_.end());
-
-    if (imbalance > imbalance_ratio) break;
-
-    // most expensive node in layer0 is the last one, because layer0 is sorted
-    const int node_most_exp = layer0.back();
-
-    // if node to be removed does not have children, stop
-    if (head[node_most_exp] == -1) break;
-
-    // remove it from layer0
-    layer0.pop_back();
-    ++sn_above_layer0_;
-
-    // and add its children
-    int child = head[node_most_exp];
-    while (child != -1) {
-      layer0.push_back(child);
-      child = next[child];
-    }
-  }
-}
-
 void Analyse::computeStorage(int fr, int sz, int& fr_entries,
                              int& cl_entries) const {
   // compute storage required by frontal and clique, based on the format used
@@ -1497,14 +1396,6 @@ int Analyse::run() {
   S_.times(kTimeAnalyseRelInd) += clock_items.stop();
 #endif
 
-#ifdef FINE_TIMING
-  clock_items.start();
-#endif
-  generateLayer0(0.7);
-#ifdef FINE_TIMING
-  S_.times(kTimeAnalyseLayer0) += clock_items.stop();
-#endif
-
   // move relevant stuff into S
   S_.n_ = n_;
   S_.nz_ = nz_factor_;
@@ -1517,7 +1408,6 @@ int Analyse::run() {
   S_.max_storage_ = max_storage_;
   S_.max_stack_entries_ = max_stack_entries_;
   S_.max_clique_entries_ = max_clique_entries_;
-  S_.sn_above_layer0_ = sn_above_layer0_;
 
   // compute largest supernode
   std::vector<int> temp(sn_start_);
@@ -1538,8 +1428,6 @@ int Analyse::run() {
   S_.relind_cols_ = std::move(relind_cols_);
   S_.relind_clique_ = std::move(relind_clique_);
   S_.consecutive_sums_ = std::move(consecutive_sums_);
-  S_.subtrees_per_thread_ = std::move(subtrees_per_thread_);
-  S_.ops_per_thread_ = std::move(ops_per_thread_);
 
 #ifdef COARSE_TIMING
   S_.times(kTimeAnalyse) += clock_total.stop();

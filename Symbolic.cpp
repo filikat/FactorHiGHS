@@ -2,8 +2,8 @@
 
 #include <iostream>
 
-Symbolic::Symbolic(FactType fact_type, FormatType format_type, int n_threads)
-    : fact_type_{fact_type}, format_type_{format_type}, n_threads_{n_threads} {}
+Symbolic::Symbolic(FactType fact_type, FormatType format_type)
+    : fact_type_{fact_type}, format_type_{format_type} {}
 
 FactType Symbolic::factType() const { return fact_type_; }
 FormatType Symbolic::formatType() const { return format_type_; }
@@ -73,27 +73,6 @@ void Symbolic::printShort() const {
   printf("operations      : %.2e\n", dense_ops_);
   printf("serial memory   : ");
   printMemory(max_storage_);
-  printf("max stack size  : %.2e\n", (double)max_stack_entries_);
-  printf("\nRunning on %d thread%s\n", n_threads_, n_threads_ > 1 ? "s" : "");
-  if (n_threads_ > 1) {
-    printf("\nTree parallelization:\n");
-    printf("thr  subtrees  total ops  ratio\n");
-
-    const double max_load =
-        *std::max_element(ops_per_thread_.begin(), ops_per_thread_.end());
-    double total_ops = assembly_ops_ * 100 + dense_ops_;
-    double ops_left = total_ops;
-
-    for (int i = 0; i < n_threads_; ++i) {
-      printf("%2d %7d %12.1e %7.2f\n", i, (int)subtrees_per_thread_[i].size(),
-             ops_per_thread_[i], ops_per_thread_[i] / max_load);
-      ops_left -= ops_per_thread_[i];
-    }
-
-    printf("Supernodes left  : %d\n", sn_above_layer0_);
-    printf("Total ops left   : %.1e\n", ops_left);
-    printf("Expected speedup : %.2f\n\n", total_ops / (ops_left + max_load));
-  }
   printf("\n");
 }
 
@@ -126,9 +105,6 @@ void Symbolic::printTimes() const {
   printf("\tRelative indices:       %8.4f (%4.1f%%)\n",
          times_record_[kTimeAnalyseRelInd],
          times_record_[kTimeAnalyseRelInd] / times_record_[kTimeAnalyse] * 100);
-  printf("\tLayer 0:                %8.4f (%4.1f%%)\n",
-         times_record_[kTimeAnalyseLayer0],
-         times_record_[kTimeAnalyseLayer0] / times_record_[kTimeAnalyse] * 100);
 #endif
 
   printf("----------------------------------------------------\n");

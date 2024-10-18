@@ -32,7 +32,6 @@ enum TimeItems {
   kTimeAnalyseSn,       // TIMING_2
   kTimeAnalyseReorder,  // TIMING_2
   kTimeAnalyseRelInd,   // TIMING_2
-  kTimeAnalyseLayer0,   // TIMING_2
   // Factorise timer
   kTimeFactorise,  // TIMING_1
   // Factorise items

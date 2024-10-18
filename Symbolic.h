@@ -50,15 +50,9 @@ class Symbolic {
   int artificial_nz_{};
   double artificial_ops_{};
 
-  // size of the largest frontal matrix and largest sn
+  // Size of the largest frontal matrix and largest sn
   int largest_front_{};
   int largest_sn_{};
-
-  // data for parallelization
-  int n_threads_{};
-  std::vector<std::vector<int>> subtrees_per_thread_{};
-  std::vector<double> ops_per_thread_{};
-  int sn_above_layer0_{};
 
   // Inverse permutation
   std::vector<int> iperm_{};
@@ -123,7 +117,7 @@ class Symbolic {
   friend class Analyse;
 
  public:
-  Symbolic(FactType fact_type, FormatType format_type, int n_threads);
+  Symbolic(FactType fact_type, FormatType format_type);
 
   // print information to screen
   void print() const;
