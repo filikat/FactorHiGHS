@@ -2,7 +2,6 @@
 
 void FormatHandler::init(const Symbolic* S) {
   S_ = S;
-  clique_block_start_.resize(S_->sn());
 }
 
 void FormatHandler::attach(int sn) {
@@ -24,6 +23,5 @@ void FormatHandler::detach(std::vector<double>& frontal,
   // move local copies of data into their final position
   frontal = std::move(frontal_);
   clique = std::move(clique_);
-  clique_block_start_[sn_] = std::move(clique_block_start_sn_);
   sn_ = -1;
 }

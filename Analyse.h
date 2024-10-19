@@ -27,12 +27,14 @@ class Analyse {
   std::vector<int> ptr_upper_{};
   std::vector<int> rows_lower_{};
   std::vector<int> ptr_lower_{};
+
+  // info about matrix and factor
   int n_{};
   int nz_{};
   double nz_factor_{};
-  double operations_{};
-  double operations_no_relax_{};
-  double operations_assembly_{};
+  double dense_ops_{};
+  double dense_ops_norelax_{};
+  double sparse_ops_{};
   int negative_pivots_{};
 
   // Permutation and inverse permutation from Metis
@@ -76,9 +78,9 @@ class Analyse {
   std::vector<std::vector<int>> consecutive_sums_{};
 
   // estimate of maximum storage
-  int max_storage_{};
-  int max_stack_entries_{};
-  int max_clique_entries_{};
+  int serial_storage_{};
+
+  std::vector<std::vector<int>> clique_block_start_{};
 
   // symbolic object where to store result
   Symbolic& S_;
@@ -103,6 +105,7 @@ class Analyse {
   void reorderChildren();
   void computeStorage();
   void computeStorage(int fr, int sz, int& fr_entries, int& cl_entries) const;
+  void computeBlockStart();
 
  public:
   // Constructor: matrix must be in lower triangular format

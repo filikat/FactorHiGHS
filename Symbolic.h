@@ -25,13 +25,11 @@ class Symbolic {
   double nz_{};
   double fillin_{};
 
-  int max_storage_{};
-  int max_stack_entries_{};
-  int max_clique_entries_{};
+  int serial_storage_{};
 
   // Number of dense operations and assembly operations
   double dense_ops_{};
-  double assembly_ops_{};
+  double sparse_ops_{};
 
   // Number of supernodes
   int sn_{};
@@ -101,6 +99,8 @@ class Symbolic {
   // should have.
   std::vector<int> pivot_sign_{};
 
+  std::vector<std::vector<int>> clique_block_start_{};
+
   friend class Analyse;
 
  public:
@@ -124,8 +124,8 @@ class Symbolic {
   int relindCols(int i) const;
   int relindClique(int i, int j) const;
   int consecutiveSums(int i, int j) const;
-  int stackSize() const;
-  int maxCliqueSize() const;
+  int cliqueBlockStart(int sn, int bl) const;
+  int cliqueSize(int sn) const;
   const std::vector<int>& ptr() const;
   const std::vector<int>& iperm() const;
   const std::vector<int>& snParent() const;

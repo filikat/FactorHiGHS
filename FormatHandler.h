@@ -33,13 +33,11 @@ const double d_one = 1.0;
 class FormatHandler {
  protected:
   // data shared by all supernodes
-  std::vector<std::vector<int>> clique_block_start_{};
   const Symbolic* S_;
 
   // data of a given supernode
   std::vector<double> frontal_{};
   std::vector<double> clique_{};
-  std::vector<int> clique_block_start_sn_{};
 
   // which supernode is being processed
   int sn_{};

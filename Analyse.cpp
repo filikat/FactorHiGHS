@@ -299,11 +299,11 @@ void Analyse::colCount() {
   }
 
   // compute nonzeros of L
-  operations_no_relax_ = 0.0;
+  dense_ops_norelax_ = 0.0;
   nz_factor_ = 0;
   for (int j = 0; j < n_; ++j) {
     nz_factor_ += (double)col_count_[j];
-    operations_no_relax_ += (double)(col_count_[j] - 1) * (col_count_[j] - 1);
+    dense_ops_norelax_ += (double)(col_count_[j] - 1) * (col_count_[j] - 1);
   }
 }
 
@@ -492,12 +492,12 @@ void Analyse::relaxSupernodes() {
                         nn * (nn + 1) * (2 * nn + 1) / 6;
       }
     }
-    temp_art_ops -= operations_no_relax_;
+    temp_art_ops -= dense_ops_norelax_;
 
     // if enough fake nz or ops have been added, stop.
     // double ratio_fake = temp_art_nz / (nzL + temp_art_nz);
     const double ratio_fake =
-        temp_art_ops / (temp_art_ops + operations_no_relax_);
+        temp_art_ops / (temp_art_ops + dense_ops_norelax_);
 
     // try to find ratio in interval [0.01,0.02] using bisection
     if (ratio_fake < kLowerRatioRelax) {
@@ -703,11 +703,11 @@ void Analyse::afterRelaxSn() {
   nz_factor_ += (double)artificial_nz_;
 
   // compute number of flops needed for the factorization
-  operations_ = 0.0;
+  dense_ops_ = 0.0;
   for (int sn = 0; sn < new_snCount; ++sn) {
     const double colcount_sn = (double)sn_indices_[sn];
     for (int i = 0; i < new_snStart[sn + 1] - new_snStart[sn]; ++i) {
-      operations_ += (colcount_sn - i - 1) * (colcount_sn - i - 1);
+      dense_ops_ += (colcount_sn - i - 1) * (colcount_sn - i - 1);
     }
   }
 
@@ -894,7 +894,7 @@ void Analyse::relativeIndClique() {
     const int sn_clique_size = sn_column_size - sn_size;
 
     // count number of assembly operations during factorize
-    operations_assembly_ += sn_clique_size * (sn_clique_size + 1) / 2;
+    sparse_ops_ += sn_clique_size * (sn_clique_size + 1) / 2;
 
     relind_clique_[sn].resize(sn_clique_size);
 
@@ -1071,7 +1071,6 @@ void Analyse::computeStorage() {
   std::vector<int> frontal_entries(sn_count_);
   std::vector<int> storage(sn_count_);
   std::vector<int> storage_factors(sn_count_);
-  std::vector<int> stack_size(sn_count_);
 
   // initialize data of supernodes
   for (int sn = 0; sn < sn_count_; ++sn) {
@@ -1083,8 +1082,6 @@ void Analyse::computeStorage() {
 
     // compute storage based on format used
     computeStorage(fr, sz, frontal_entries[sn], clique_entries[sn]);
-
-    max_clique_entries_ = std::max(max_clique_entries_, clique_entries[sn]);
 
     // compute number of entries in factors within the subtree
     storage_factors[sn] += frontal_entries[sn];
@@ -1101,8 +1098,6 @@ void Analyse::computeStorage() {
     // leaf node
     if (head[sn] == -1) {
       storage[sn] = frontal_entries[sn] + clique_entries[sn];
-      // stack_size[sn] = clique_entries[sn];
-      stack_size[sn] = 0;
       continue;
     }
 
@@ -1117,7 +1112,7 @@ void Analyse::computeStorage() {
       child = next[child];
     }
 
-    // Compute storage, based on order just found.
+    // Compute storage
     // storage is found as max(storage_1,storage_2), where
     // storage_1 = max_j storage[j] + \sum_{k up to j-1} clique_entries[k] +
     //                                                   storage_factors[k]
@@ -1125,20 +1120,15 @@ void Analyse::computeStorage() {
     //             factors_total_entries
     const int storage_2 = frontal_entries[sn] + clique_entries[sn] +
                           clique_total_entries + factors_total_entries;
-    const int storage_2_stack = clique_total_entries;
 
     int clique_partial_entries{};
     int factors_partial_entries{};
     int storage_1{};
-    int storage_1_stack{};
 
     child = head[sn];
     while (child != -1) {
       int current =
           storage[child] + clique_partial_entries + factors_partial_entries;
-
-      storage_1_stack =
-          std::max(storage_1_stack, stack_size[child] + clique_partial_entries);
 
       clique_partial_entries += clique_entries[child];
       factors_partial_entries += storage_factors[child];
@@ -1147,11 +1137,9 @@ void Analyse::computeStorage() {
       child = next[child];
     }
     storage[sn] = std::max(storage_1, storage_2);
-    stack_size[sn] = std::max(storage_1_stack, storage_2_stack);
 
     // save max storage needed, multiply by 8 because double needs 8 bytes
-    max_storage_ = std::max(max_storage_, 8 * storage[sn]);
-    max_stack_entries_ = std::max(max_stack_entries_, stack_size[sn]);
+    serial_storage_ = std::max(serial_storage_, 8 * storage[sn]);
   }
 }
 
@@ -1317,6 +1305,35 @@ void Analyse::reorderChildren() {
   inversePerm(perm_, iperm_);
 }
 
+void Analyse::computeBlockStart() {
+  switch (S_.formatType()) {
+    case FormatType::Full:
+      // clique_block_start_ not needed for full format
+      return;
+    case FormatType::HybridPacked:
+    case FormatType::HybridHybrid:
+      clique_block_start_.resize(sn_count_);
+      // compute starting position of each block of columns in the clique, for
+      // each supernode
+      for (int sn = 0; sn < sn_count_; ++sn) {
+        const int sn_size = sn_start_[sn + 1] - sn_start_[sn];
+        const int ldf = ptr_sn_[sn + 1] - ptr_sn_[sn];
+        const int ldc = ldf - sn_size;
+        const int nb = S_.blockSize();
+        const int n_blocks = (ldc - 1) / nb + 1;
+        clique_block_start_[sn].resize(n_blocks + 1);
+        int schur_size{};
+        for (int j = 0; j < n_blocks; ++j) {
+          clique_block_start_[sn][j] = schur_size;
+          const int jb = std::min(nb, ldc - j * nb);
+          schur_size += (ldc - j * nb) * jb;
+        }
+        clique_block_start_[sn].back() = schur_size;
+      }
+      break;
+  }
+}
+
 int Analyse::run() {
   // Perform analyse phase and store the result into the symbolic object S.
   // After Run returns, the Analyse object is not valid.
@@ -1390,10 +1407,12 @@ int Analyse::run() {
 #endif
   relativeIndCols();
   relativeIndClique();
-  computeStorage();
 #ifdef FINE_TIMING
   DC_.times(kTimeAnalyseRelInd) += clock_items.stop();
 #endif
+
+  computeStorage();
+  computeBlockStart();
 
   // move relevant stuff into S
   S_.n_ = n_;
@@ -1401,12 +1420,10 @@ int Analyse::run() {
   S_.fillin_ = (double)nz_factor_ / nz_;
   S_.sn_ = sn_count_;
   S_.artificial_nz_ = artificial_nz_;
-  S_.artificial_ops_ = (double)operations_ - operations_no_relax_;
-  S_.assembly_ops_ = operations_assembly_;
+  S_.artificial_ops_ = (double)dense_ops_ - dense_ops_norelax_;
+  S_.sparse_ops_ = sparse_ops_;
   S_.largest_front_ = *std::max_element(sn_indices_.begin(), sn_indices_.end());
-  S_.max_storage_ = max_storage_;
-  S_.max_stack_entries_ = max_stack_entries_;
-  S_.max_clique_entries_ = max_clique_entries_;
+  S_.serial_storage_ = serial_storage_;
 
   // compute largest supernode
   std::vector<int> temp(sn_start_);
@@ -1418,7 +1435,7 @@ int Analyse::run() {
   S_.pivot_sign_.insert(S_.pivot_sign_.end(), n_ - negative_pivots_, 1);
   permuteVector(S_.pivot_sign_, perm_);
 
-  S_.dense_ops_ = operations_;
+  S_.dense_ops_ = dense_ops_;
   S_.iperm_ = std::move(iperm_);
   S_.rows_ = std::move(rows_sn_);
   S_.ptr_ = std::move(ptr_sn_);
@@ -1427,6 +1444,7 @@ int Analyse::run() {
   S_.relind_cols_ = std::move(relind_cols_);
   S_.relind_clique_ = std::move(relind_clique_);
   S_.consecutive_sums_ = std::move(consecutive_sums_);
+  S_.clique_block_start_ = std::move(clique_block_start_);
 
 #ifdef COARSE_TIMING
   DC_.times(kTimeAnalyse) += clock_total.stop();

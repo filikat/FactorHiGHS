@@ -7,16 +7,7 @@ void HybridHybridFormatHandler::initFrontal() {
 }
 
 void HybridHybridFormatHandler::initClique() {
-  const int n_blocks = (ldc_ - 1) / nb_ + 1;
-  clique_block_start_sn_.resize(n_blocks + 1);
-  int schur_size{};
-  for (int j = 0; j < n_blocks; ++j) {
-    clique_block_start_sn_[j] = schur_size;
-    const int jb = std::min(nb_, ldc_ - j * nb_);
-    schur_size += (ldc_ - j * nb_) * jb;
-  }
-  clique_block_start_sn_.back() = schur_size;
-  clique_.resize(schur_size);
+  clique_.resize(S_->cliqueSize(sn_));
 }
 
 void HybridHybridFormatHandler::assembleFrontal(int i, int j, double val) {
@@ -30,7 +21,7 @@ void HybridHybridFormatHandler::assembleFrontalMultiple(
   const int jb = std::min(nb_, nc - nb_ * jblock);
   const int row_ = row - jblock * nb_;
   const int col_ = col - jblock * nb_;
-  const int start_block = clique_block_start_[child_sn][jblock];
+  const int start_block = S_->cliqueBlockStart(child_sn, jblock);
   daxpy_(&num, &d_one, &child[start_block + col_ + jb * row_], &jb,
          &frontal_[i + ldf_ * j - j * (j + 1) / 2], &i_one);
 }
@@ -49,8 +40,8 @@ int HybridHybridFormatHandler::denseFactorise(
   double* regul = &regularization[sn_start];
 
   status = denseFactHH(ldf_, sn_size_, S_->blockSize(), frontal_.data(),
-                           clique_.data(), pivot_sign, reg_thresh, regul,
-                           &n_reg_piv, times.data());
+                       clique_.data(), pivot_sign, reg_thresh, regul,
+                       &n_reg_piv, times.data());
 
   return status;
 }
@@ -66,7 +57,7 @@ void HybridHybridFormatHandler::assembleClique(const std::vector<double>& child,
 
   // go through the blocks of columns of the child sn
   for (int b = 0; b < n_blocks; ++b) {
-    const int b_start = clique_block_start_[child_sn][b];
+    const int b_start = S_->cliqueBlockStart(child_sn, b);
 
     const int col_start = row_start;
     const int col_end = std::min(col_start + nb_, nc);
@@ -116,7 +107,7 @@ void HybridHybridFormatHandler::assembleClique(const std::vector<double>& child,
         const int jb = std::min(nb_, ldc_ - nb_ * jblock);
         const int i_ = i - jblock * nb_;
         const int j_ = j - jblock * nb_;
-        const int start_block = clique_block_start_sn_[jblock];
+        const int start_block = S_->cliqueBlockStart(sn_,jblock);
 
         const double d_one = 1.0;
         const int i_one = 1;

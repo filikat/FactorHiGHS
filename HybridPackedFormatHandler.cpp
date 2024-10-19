@@ -7,16 +7,7 @@ void HybridPackedFormatHandler::initFrontal() {
 }
 
 void HybridPackedFormatHandler::initClique() {
-  const int n_blocks = (ldc_ - 1) / nb_ + 1;
-  clique_block_start_sn_.resize(n_blocks + 1);
-  int schur_size{};
-  for (int j = 0; j < n_blocks; ++j) {
-    clique_block_start_sn_[j] = schur_size;
-    const int jb = std::min(nb_, ldc_ - j * nb_);
-    schur_size += (ldc_ - j * nb_) * jb;
-  }
-  clique_block_start_sn_.back() = schur_size;
-  clique_.resize(schur_size);
+  clique_.resize(S_->cliqueSize(sn_));
 }
 
 void HybridPackedFormatHandler::assembleFrontal(int i, int j, double val) {
@@ -29,7 +20,7 @@ void HybridPackedFormatHandler::assembleFrontalMultiple(
   const int jblock = col / nb_;
   const int row_ = row - jblock * nb_;
   const int col_ = col - jblock * nb_;
-  const int start_block = clique_block_start_[child_sn][jblock];
+  const int start_block = S_->cliqueBlockStart(child_sn, jblock);
   const int ld = nc - nb_ * jblock;
   daxpy_(&num, &d_one, &child[start_block + row_ + ld * col_], &i_one,
          &frontal_[i + ldf_ * j - j * (j + 1) / 2], &i_one);
@@ -48,9 +39,8 @@ int HybridPackedFormatHandler::denseFactorise(
   const int* pivot_sign = &S_->pivotSign().data()[sn_start];
   double* regul = &regularization[sn_start];
 
-  status =
-      denseFactHP(ldf_, sn_size_, nb_, frontal_.data(), clique_.data(),
-                      pivot_sign, reg_thresh, regul, &n_reg_piv, times.data());
+  status = denseFactHP(ldf_, sn_size_, nb_, frontal_.data(), clique_.data(),
+                       pivot_sign, reg_thresh, regul, &n_reg_piv, times.data());
 
   return status;
 }
@@ -83,14 +73,14 @@ void HybridPackedFormatHandler::assembleClique(const std::vector<double>& child,
         const int jb_c = std::min(nb_, nc - nb_ * jblock_c);
         const int row_ = row - jblock_c * nb_;
         const int col_ = col - jblock_c * nb_;
-        const int start_block_c = clique_block_start_[child_sn][jblock_c];
+        const int start_block_c = S_->cliqueBlockStart(child_sn, jblock_c);
         const int ld_c = nc - nb_ * jblock_c;
 
         const int jblock = j / nb_;
         const int jb = std::min(nb_, ldc_ - nb_ * jblock);
         const int i_ = i - jblock * nb_;
         const int j_ = j - jblock * nb_;
-        const int start_block = clique_block_start_sn_[jblock];
+        const int start_block = S_->cliqueBlockStart(sn_, jblock);
         const int ld = ldc_ - nb_ * jblock;
 
         daxpy_(&consecutive, &d_one, &child[start_block_c + row_ + ld_c * col_],

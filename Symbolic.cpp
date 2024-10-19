@@ -9,7 +9,7 @@ int Symbolic::blockSize() const { return block_size_; }
 int Symbolic::size() const { return n_; }
 int Symbolic::nz() const { return nz_; }
 double Symbolic::ops() const { return dense_ops_; }
-double Symbolic::assemblyOps() const { return assembly_ops_; }
+double Symbolic::assemblyOps() const { return sparse_ops_; }
 int Symbolic::sn() const { return sn_; }
 int Symbolic::rows(int i) const { return rows_[i]; }
 int Symbolic::ptr(int i) const { return ptr_[i]; }
@@ -19,8 +19,12 @@ int Symbolic::relindClique(int i, int j) const { return relind_clique_[i][j]; }
 int Symbolic::consecutiveSums(int i, int j) const {
   return consecutive_sums_[i][j];
 }
-int Symbolic::stackSize() const { return max_stack_entries_; }
-int Symbolic::maxCliqueSize() const { return max_clique_entries_; }
+int Symbolic::cliqueBlockStart(int sn, int bl) const {
+  return clique_block_start_[sn][bl];
+}
+int Symbolic::cliqueSize(int sn) const {
+  return clique_block_start_[sn].back();
+}
 
 const std::vector<int>& Symbolic::ptr() const { return ptr_; }
 const std::vector<int>& Symbolic::iperm() const { return iperm_; }
@@ -49,13 +53,13 @@ void Symbolic::print() const {
   printf(" - largest supernode    %d\n", largest_sn_);
   printf(" - largest front        %d\n", largest_front_);
   printf(" - dense operations     %.2e\n", dense_ops_);
-  printf(" - assembly operations  %.2e\n", assembly_ops_);
+  printf(" - assembly operations  %.2e\n", sparse_ops_);
   printf(" - artificial nonzeros  %.2e (%4.1f%%)\n", (double)artificial_nz_,
          (double)artificial_nz_ / nz_ * 100);
   printf(" - artificial ops       %.2e (%4.1f%%)\n", artificial_ops_,
          artificial_ops_ / dense_ops_ * 100);
   printf(" - est. max memory      ");
-  printMemory(max_storage_);
+  printMemory(serial_storage_);
 }
 
 void Symbolic::printShort() const {
@@ -65,6 +69,6 @@ void Symbolic::printShort() const {
   printf("fill-in         : %.2f\n", fillin_);
   printf("operations      : %.2e\n", dense_ops_);
   printf("serial memory   : ");
-  printMemory(max_storage_);
+  printMemory(serial_storage_);
   printf("\n");
 }
