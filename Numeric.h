@@ -22,7 +22,6 @@ class Numeric {
 
   // scaling applied to the matrix
   std::vector<double> colscale_{};
-  std::vector<int> colexp_{};
 
   friend class Factorise;
 

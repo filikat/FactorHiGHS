@@ -12,159 +12,14 @@
 
 /*
 Names:
-dense_fact_(pf)(di)(bu)(flhs)
-
-pf: Partial or Full factorization
-di: (positive) Definite or Indefinite
-bu: Blocked or Unblocked
-flhs: Full format, Lower packed format, lower-blocked-Hybrid packed format
-      with packed schur complement, lower-blocked-hybrid packed format with
-      hybrid Schur complement
-
+denseFact:
+ - K : factorization kernel for diagonal blocks
+ - F : blocked factorization in full format
+ - HP: blocked factorization in hybrid-packed format
+ - HH: blocked factorization in hybrid-hybrid format
 */
 
-int dense_fact_fduf(char uplo, int n, double* restrict A, int lda,
-                    double thresh, double* regul) {
-  // ===========================================================================
-  // Positive definite factorization without blocks.
-  // BLAS calls: ddot_, dgemv_, dscal_.
-  // ===========================================================================
-
-  // check input
-  if (n < 0 || !A || lda < n || (uplo != 'L' && uplo != 'U')) {
-    printf("\ndense_fact_fduf: invalid input\n");
-    return kRetInvalidInput;
-  }
-
-  // quick return
-  if (n == 0) return kRetOk;
-
-  // main operations
-  if (uplo == 'L') {
-    for (int j = 0; j < n; ++j) {
-      const int N = j;
-      const int M = n - j - 1;
-
-      // update diagonal element
-      double Ajj = A[j + lda * j] - ddot_(&N, &A[j], &lda, &A[j], &lda);
-      if (isnan(Ajj)) {
-        A[j + lda * j] = Ajj;
-        printf("\ndense_fact_fduf: invalid pivot %e\n", Ajj);
-        return kRetInvalidPivot;
-      }
-
-      // update column j
-      if (j < n - 1) {
-        dgemv_(&c_N, &M, &N, &d_m_one, &A[j + 1], &lda, &A[j], &lda, &d_one,
-               &A[j + 1 + j * lda], &i_one);
-      }
-
-      // compute diagonal element
-      if (Ajj <= thresh) {
-        // if pivot is not acceptable, push it up to thresh
-        // printf("small pivot %e ", Ajj);
-        double old_pivot = Ajj;
-        Ajj = thresh;
-
-        // compute the minimum pivot required to keep the diagonal of the
-        // current block acceptable:
-        // b is column below pivot, d is diagonal of block, p is pivot
-        // we want d_k - b_k^2 / p \ge thresh
-        // i.e.
-        // p \ge b_k^2 / (d_k - thresh)
-        //
-        double required_pivot = 0.0;
-        for (int k = j + 1; k < n; ++k) {
-          double bk = A[k + j * lda];
-          double dk = A[k + lda * k];
-          double temp = (dk - thresh);
-          temp = (bk * bk) / temp;
-          required_pivot = max(required_pivot, temp);
-        }
-
-        Ajj = max(Ajj, required_pivot);
-
-        // record regularization used
-        regul[j] += Ajj - old_pivot;
-
-        // printf("set to %e\n", Ajj);
-      }
-
-      Ajj = sqrt(Ajj);
-      A[j + lda * j] = Ajj;
-      const double coeff = 1.0 / Ajj;
-
-      // scale column j
-      if (j < n - 1) {
-        dscal_(&M, &coeff, &A[j + 1 + j * lda], &i_one);
-      }
-    }
-  } else {
-    for (int j = 0; j < n; ++j) {
-      const int N = j;
-      const int M = n - j - 1;
-
-      // update diagonal element
-      double Ajj =
-          A[j + lda * j] - ddot_(&N, &A[lda * j], &i_one, &A[lda * j], &i_one);
-      if (isnan(Ajj)) {
-        A[j + lda * j] = Ajj;
-        printf("\ndense_fact_fduf: invalid pivot %e\n", Ajj);
-        return kRetInvalidPivot;
-      }
-
-      // update column j
-      if (j < n - 1) {
-        dgemv_(&c_T, &N, &M, &d_m_one, &A[lda * (j + 1)], &lda, &A[lda * j],
-               &i_one, &d_one, &A[j + (j + 1) * lda], &lda);
-      }
-
-      // compute diagonal element
-      if (Ajj <= thresh) {
-        // if pivot is not acceptable, push it up to thresh
-        // printf("small pivot %e ", Ajj);
-        double old_pivot = Ajj;
-        Ajj = thresh;
-
-        // compute the minimum pivot required to keep the diagonal of the
-        // current block acceptable:
-        // b is column below pivot, d is diagonal of block, p is pivot
-        // we want d_k - b_k^2 / p \ge thresh
-        // i.e.
-        // p \ge b_k^2 / (d_k - thresh)
-        //
-        double required_pivot = 0.0;
-        for (int k = j + 1; k < n; ++k) {
-          double bk = A[j + k * lda];
-          double dk = A[k + lda * k];
-          double temp = (dk - thresh);
-          temp = (bk * bk) / temp;
-          required_pivot = max(required_pivot, temp);
-        }
-
-        Ajj = max(Ajj, required_pivot);
-
-        // record regularization used
-        regul[j] += Ajj - old_pivot;
-
-        // printf("set to %e\n", Ajj);
-      }
-
-      Ajj = sqrt(Ajj);
-      A[j + lda * j] = Ajj;
-      const double coeff = 1.0 / Ajj;
-
-      // scale column j
-      if (j < n - 1) {
-        dscal_(&M, &coeff, &A[j + (j + 1) * lda], &lda);
-      }
-    }
-  }
-
-  return kRetOk;
-}
-
-double pivot_compensated_sum(double base, int k, const double* row, int ldr,
+double pivotCompensatedSum(double base, int k, const double* row, int ldr,
                              const double* piv, int ldp) {
   // Use Kahan-Babushka compensated summation to compute the pivot.
   // Compute base + \sum_0^k row[i*ldr]^2*piv[i*ldp]
@@ -186,7 +41,7 @@ double pivot_compensated_sum(double base, int k, const double* row, int ldr,
   return sum;
 }
 
-double regularize_pivot(double pivot, double thresh, const int* sign,
+double regularizePivot(double pivot, double thresh, const int* sign,
                         const double* A, int lda, int j, int n, char uplo,
                         int* n_reg_piv) {
   // add static regularization
@@ -271,11 +126,11 @@ double regularize_pivot(double pivot, double thresh, const int* sign,
   return pivot;
 }
 
-int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
-                    const int* pivot_sign, double thresh, double* regul,
-                    int* n_reg_piv) {
+int denseFactK(char uplo, int n, double* restrict A, int lda,
+                 const int* pivot_sign, double thresh, double* regul,
+                 int* n_reg_piv) {
   // ===========================================================================
-  // Infedinite factorization without blocks.
+  // Factorization kernel.
   // BLAS calls: dgemv_, dscal_.
   // ===========================================================================
 
@@ -308,7 +163,7 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
 
       // update diagonal element
       double Ajj =
-          pivot_compensated_sum(A[j + lda * j], N, &A[j], lda, A, lda + 1);
+          pivotCompensatedSum(A[j + lda * j], N, &A[j], lda, A, lda + 1);
 
       if (isnan(Ajj)) {
         A[j + lda * j] = Ajj;
@@ -324,7 +179,7 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
 
       // add regularization
       double old_pivot = Ajj;
-      Ajj = regularize_pivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo,
+      Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo,
                              n_reg_piv);
       regul[j] = fabs(Ajj - old_pivot);
 
@@ -358,7 +213,7 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
 
       // update diagonal element
       double Ajj =
-          pivot_compensated_sum(A[j + lda * j], N, &A[lda * j], 1, A, lda + 1);
+          pivotCompensatedSum(A[j + lda * j], N, &A[lda * j], 1, A, lda + 1);
 
       if (isnan(Ajj)) {
         A[j + lda * j] = Ajj;
@@ -374,7 +229,7 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
 
       // add regularization
       double old_pivot = Ajj;
-      Ajj = regularize_pivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo,
+      Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo,
                              n_reg_piv);
       regul[j] = fabs(Ajj - old_pivot);
 
@@ -443,73 +298,11 @@ int dense_fact_fiuf(char uplo, int n, double* restrict A, int lda,
 // the rectangular block below P. See the report for a full explanation.
 // ===========================================================================
 
-int dense_fact_pdbf(int n, int k, int nb, double* restrict A, int lda,
-                    double* restrict B, int ldb, double thresh, double* regul,
-                    double* times) {
+int denseFactF(int n, int k, int nb, double* restrict A, int lda,
+                 double* restrict B, int ldb, const int* pivot_sign,
+                 double thresh, double* regul, int* n_reg_piv, double* times) {
   // ===========================================================================
-  // Positive definite factorization with blocks.
-  // BLAS calls: dsyrk_, dgemm_, dtrsm_.
-  // ===========================================================================
-
-  // check input
-  if (n < 0 || k < 0 || !A || lda < n || (k < n && (!B || ldb < n - k)) ||
-      !times) {
-    printf("\ndense_fact_pdbf: invalid input\n");
-    return kRetInvalidInput;
-  }
-
-  // quick return
-  if (n == 0) return kRetOk;
-
-  // j is the starting col of the block of columns
-  for (int j = 0; j < k; j += nb) {
-    // jb is the size of the block
-    const int jb = min(nb, k - j);
-
-    // sizes for blas calls
-    const int N = jb;
-    const int K = j;
-    const int M = n - j - jb;
-
-    // starting position of matrices for BLAS calls
-    double* D = &A[j + lda * j];
-    const double* P = &A[j];
-    const double* Q = &A[j + N];
-    double* R = &A[j + N + lda * j];
-
-    // update diagonal block
-    callAndTime_dsyrk('L', 'N', N, K, -1.0, P, lda, 1.0, D, lda, times);
-
-    // factorize diagonal block
-    double* regul_current = &regul[j];
-    int info = callAndTime_fduf('L', N, D, lda, thresh, regul_current, times);
-    if (info != 0) return info;
-
-    if (j + jb < n) {
-      // update block of columns
-      callAndTime_dgemm('N', 'T', M, N, K, -1.0, Q, lda, P, lda, 1.0, R, lda,
-                        times);
-
-      // solve block of columns with diagonal block
-      callAndTime_dtrsm('R', 'L', 'T', 'N', M, N, 1.0, D, lda, R, lda, times);
-    }
-  }
-
-  // update Schur complement if partial factorization is required
-  if (k < n) {
-    const int N = n - k;
-    callAndTime_dsyrk('L', 'N', N, k, -1.0, &A[k], lda, 1.0, B, ldb, times);
-  }
-
-  return kRetOk;
-}
-
-int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
-                    double* restrict B, int ldb, const int* pivot_sign,
-                    double thresh, double* regul, int* n_reg_piv,
-                    double* times) {
-  // ===========================================================================
-  // Indefinite factorization with blocks.
+  // Blocked factorization in full format.
   // BLAS calls: dcopy_, dscal_, dgemm_, dtrsm_, dsyrk_
   // ===========================================================================
 
@@ -557,7 +350,7 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
     // factorize diagonal block
     const int* pivot_sign_current = &pivot_sign[j];
     double* regul_current = &regul[j];
-    int info = callAndTime_fiuf('L', N, D, lda, pivot_sign_current, thresh,
+    int info = callAndTime_denseFactK('L', N, D, lda, pivot_sign_current, thresh,
                                 regul_current, n_reg_piv, times);
     if (info != 0) return info;
 
@@ -645,213 +438,14 @@ int dense_fact_pibf(int n, int k, int nb, double* restrict A, int lda,
   return kRetOk;
 }
 
-int dense_fact_pdbh(int n, int k, int nb, double* restrict A,
-                    double* restrict B, double thresh, double* regul,
-                    double* times) {
+int denseFactHP(int n, int k, int nb, double* restrict A, double* restrict B,
+                  const int* pivot_sign, double thresh, double* regul,
+                  int* n_reg_piv, double* times) {
   // ===========================================================================
-  // Positive definite factorization with blocks in lower-blocked-hybrid
-  // format. A should be in lower-blocked-hybrid format. Schur complement is
-  // returned in B in lower packed format (not lower-blocked-hybrid).
-  // BLAS calls: dsyrk_, dgemm_, dtrsm_, dcopy_
-  // ===========================================================================
-
-  // check input
-  if (n < 0 || k < 0 || !A || (k < n && !B)) {
-    printf("\ndense_fact_pdbh: invalid input\n");
-    return kRetInvalidInput;
-  }
-
-  // quick return
-  if (n == 0) return kRetOk;
-
-  // number of blocks of columns
-  const int n_blocks = (k - 1) / nb + 1;
-
-  // start of diagonal blocks
-  int* diag_start = malloc(n_blocks * sizeof(double));
-  if (!diag_start) {
-    printf("\ndense_fact_pdbh: out of memory\n");
-    return kRetOutOfMemory;
-  }
-  diag_start[0] = 0;
-  for (int i = 1; i < n_blocks; ++i) {
-    diag_start[i] =
-        diag_start[i - 1] + nb * (2 * n - 2 * (i - 1) * nb - nb + 1) / 2;
-  }
-
-  // size of blocks
-  const int diag_size = nb * (nb + 1) / 2;
-  const int full_size = nb * nb;
-
-  // variables for blas calls
-  int info;
-
-  // buffer for full-format diagonal blocks
-  double* D = malloc(nb * nb * sizeof(double));
-  if (!D) {
-    printf("\ndense_fact_pdbh: out of memory\n");
-    return kRetOutOfMemory;
-  }
-
-  // j is the index of the block column
-  for (int j = 0; j < n_blocks; ++j) {
-    // jb is the number of columns
-    const int jb = min(nb, k - nb * j);
-
-    // size of current block could be smaller than diag_size and full_size
-    const int this_diag_size = jb * (jb + 1) / 2;
-    const int this_full_size = nb * jb;
-
-    // full copy of diagonal block by rows, in D
-    int offset = 0;
-    for (int Drow = 0; Drow < jb; ++Drow) {
-      const int N = Drow + 1;
-      callAndTime_dcopy(N, &A[diag_start[j] + offset], 1, &D[Drow * jb], 1,
-                        times);
-      offset += N;
-    }
-
-    // number of rows left below block j
-    const int M = n - nb * j - jb;
-
-    // block of columns below diagonal block j
-    double* R = &A[diag_start[j] + this_diag_size];
-
-    // update diagonal block and block of columns
-    for (int k = 0; k < j; ++k) {
-      // starting position of block to input to dsyrk_
-      int Pk_pos = diag_start[k] + diag_size;
-      if (j > k + 1) Pk_pos += full_size * (j - k - 1);
-      const double* Pk = &A[Pk_pos];
-
-      callAndTime_dsyrk('U', 'T', jb, nb, -1.0, Pk, nb, 1.0, D, jb, times);
-
-      if (M > 0) {
-        const int Qk_pos = Pk_pos + this_full_size;
-        const double* Qk = &A[Qk_pos];
-
-        callAndTime_dgemm('T', 'N', jb, M, nb, -1.0, Pk, nb, Qk, nb, 1.0, R, jb,
-                          times);
-      }
-    }
-
-    // factorize diagonal block
-    double* regul_current = &regul[j * nb];
-    int info = callAndTime_fduf('U', jb, D, jb, thresh, regul_current, times);
-    if (info != 0) return info;
-
-    if (M > 0) {
-      // solve block of columns with diagonal block
-      callAndTime_dtrsm('L', 'U', 'T', 'N', jb, M, 1.0, D, jb, R, jb, times);
-    }
-
-    // put D back into packed format
-    offset = 0;
-    for (int Drow = 0; Drow < jb; ++Drow) {
-      const int N = Drow + 1;
-      callAndTime_dcopy(N, &D[Drow * jb], 1, &A[diag_start[j] + offset], 1,
-                        times);
-      offset += N;
-    }
-  }
-  free(D);
-
-  // compute Schur complement if partial factorization is required
-  if (k < n) {
-    // number of rows/columns in the Schur complement
-    const int ns = n - k;
-
-    // size of last full block (may be smaller than full_size)
-    const int ncol_last = k % nb;
-    const int last_full_size = ncol_last == 0 ? full_size : ncol_last * nb;
-
-    double beta = 0.0;
-
-    // buffer for full-format of block of columns of Schur complement
-    double* schur_buf = malloc(ns * nb * sizeof(double));
-    if (!schur_buf) {
-      printf("\ndense_fact_pdbh: out of memory\n");
-      return kRetOutOfMemory;
-    }
-
-    // number of blocks in Schur complement
-    const int s_blocks = (ns - 1) / nb + 1;
-
-    // index to write into B
-    int B_start = 0;
-
-    // Go through block of columns of Schur complement.
-    // Each block will have a full-format copy made in schur_buf
-    for (int sb = 0; sb < s_blocks; ++sb) {
-      // number of rows of the block
-      const int nrow = ns - nb * sb;
-
-      // number of columns of the block
-      const int ncol = min(nb, nrow);
-
-      // number of elements in diagonal block
-      const int schur_diag_size = ncol * (ncol + 1) / 2;
-
-      beta = 0.0;
-
-      // each block receives contributions from the blocks of the leading part
-      // of A
-      for (int j = 0; j < n_blocks; ++j) {
-        const int jb = min(nb, k - nb * j);
-        const int this_diag_size = jb * (jb + 1) / 2;
-        const int this_full_size = nb * jb;
-
-        // compute index to access diagonal block in A
-        int diag_pos = diag_start[j] + this_diag_size;
-        if (j < n_blocks - 1) {
-          diag_pos += (n_blocks - j - 2) * full_size + last_full_size;
-        }
-        diag_pos += sb * this_full_size;
-
-        // update diagonal block
-        callAndTime_dsyrk('U', 'T', ncol, jb, -1.0, &A[diag_pos], jb, beta,
-                          schur_buf, ncol, times);
-
-        // update subdiagonal part
-        const int M = nrow - nb;
-        if (M > 0) {
-          callAndTime_dgemm('T', 'N', nb, M, jb, -1.0, &A[diag_pos], jb,
-                            &A[diag_pos + this_full_size], jb, beta,
-                            &schur_buf[ncol * ncol], ncol, times);
-        }
-
-        // beta is 0 for the first time (to avoid initializing schur_buf) and
-        // 1 for the next calls
-        beta = 1.0;
-      }
-
-      // schur_buf contains Schur complement in hybrid format (with full
-      // diagonal blocks). Sum it in lower-packed format in B.
-
-      for (int buf_row = 0; buf_row < nrow; ++buf_row) {
-        const int N = ncol;
-        callAndTime_daxpy(N, 1.0, &schur_buf[buf_row * ncol], 1,
-                          &B[B_start + buf_row], nrow, times);
-      }
-      B_start += nrow * ncol;
-    }
-
-    free(schur_buf);
-  }
-
-  free(diag_start);
-
-  return kRetOk;
-}
-
-int dense_fact_pibh(int n, int k, int nb, double* restrict A,
-                    double* restrict B, const int* pivot_sign, double thresh,
-                    double* regul, int* n_reg_piv, double* times) {
-  // ===========================================================================
-  // Indefinite factorization with blocks in lower-blocked-hybrid format.
+  // Blocked factorization in hybrid-packed format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
-  // in B in lower packed format (not lower-blocked-hybrid). BLAS calls:
-  // dsyrk_, dgemm_, dtrsm_, dcopy_, dscal_
+  // in B in lower packed format (not lower-blocked-hybrid).
+  // BLAS calls: dgemm_, dtrsm_, dcopy_, dscal_, daxpy_
   // ===========================================================================
 
   const int sizeA = n * k - k * (k - 1) / 2;
@@ -959,7 +553,7 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
     // factorize diagonal block
     double* regul_current = &regul[j * nb];
     const int* pivot_sign_current = &pivot_sign[j * nb];
-    int info = callAndTime_fiuf('U', jb, D, jb, pivot_sign_current, thresh,
+    int info = callAndTime_denseFactK('U', jb, D, jb, pivot_sign_current, thresh,
                                 regul_current, n_reg_piv, times);
     if (info != 0) return info;
 
@@ -1090,186 +684,14 @@ int dense_fact_pibh(int n, int k, int nb, double* restrict A,
   return kRetOk;
 }
 
-int dense_fact_pdbs(int n, int k, int nb, double* A, double* B, double thresh,
-                    double* regul, double* times) {
+int denseFactHH(int n, int k, int nb, double* A, double* B,
+                  const int* pivot_sign, double thresh, double* regul,
+                  int* n_reg_piv, double* times) {
   // ===========================================================================
-  // Positive definite factorization with blocks in lower-blocked-hybrid
-  // format. A should be in lower-blocked-hybrid format. Schur complement is
-  // returned in B in lower-block-hybrid format, with full diagonal blocks.
-  // BLAS calls: dsyrk_, dgemm_, dtrsm_, dcopy_
-  // ===========================================================================
-
-  // check input
-  if (n < 0 || k < 0 || !A || (k < n && !B)) {
-    printf("\ndense_fact_pdbs: invalid input\n");
-    return kRetInvalidInput;
-  }
-
-  // quick return
-  if (n == 0) return kRetOk;
-
-  // number of blocks of columns
-  const int n_blocks = (k - 1) / nb + 1;
-
-  // start of diagonal blocks
-  int* diag_start = malloc(n_blocks * sizeof(double));
-  if (!diag_start) {
-    printf("\ndense_fact_pdbs: out of memory\n");
-    return kRetOutOfMemory;
-  }
-  diag_start[0] = 0;
-  for (int i = 1; i < n_blocks; ++i) {
-    diag_start[i] =
-        diag_start[i - 1] + nb * (2 * n - 2 * (i - 1) * nb - nb + 1) / 2;
-  }
-
-  // size of blocks
-  const int diag_size = nb * (nb + 1) / 2;
-  const int full_size = nb * nb;
-
-  // variables for blas calls
-  int info;
-
-  // buffer for full-format diagonal blocks
-  double* D = malloc(nb * nb * sizeof(double));
-  if (!D) {
-    printf("\ndense_fact_pdbs: out of memory\n");
-    return kRetOutOfMemory;
-  }
-
-  // j is the index of the block column
-  for (int j = 0; j < n_blocks; ++j) {
-    // jb is the number of columns
-    const int jb = min(nb, k - nb * j);
-
-    // size of current block could be smaller than diag_size and full_size
-    const int this_diag_size = jb * (jb + 1) / 2;
-    const int this_full_size = nb * jb;
-
-    // full copy of diagonal block by rows, in D
-    int offset = 0;
-    for (int Drow = 0; Drow < jb; ++Drow) {
-      const int N = Drow + 1;
-      callAndTime_dcopy(N, &A[diag_start[j] + offset], 1, &D[Drow * jb], 1,
-                        times);
-      offset += N;
-    }
-
-    // number of rows left below block j
-    const int M = n - nb * j - jb;
-
-    // block of columns below diagonal block j
-    double* R = &A[diag_start[j] + this_diag_size];
-
-    // update diagonal block and block of columns
-    for (int k = 0; k < j; ++k) {
-      // starting position of block to input to dsyrk_
-      int Pk_pos = diag_start[k] + diag_size;
-      if (j > k + 1) Pk_pos += full_size * (j - k - 1);
-      const double* Pk = &A[Pk_pos];
-
-      callAndTime_dsyrk('U', 'T', jb, nb, -1.0, Pk, nb, 1.0, D, jb, times);
-
-      if (M > 0) {
-        const int Qk_pos = Pk_pos + this_full_size;
-        const double* Qk = &A[Qk_pos];
-        callAndTime_dgemm('T', 'N', jb, M, nb, -1.0, Pk, nb, Qk, nb, 1.0, R, jb,
-                          times);
-      }
-    }
-
-    // factorize diagonal block
-    double* regul_current = &regul[j * nb];
-    int info = callAndTime_fduf('U', jb, D, jb, thresh, regul_current, times);
-    if (info != 0) return info;
-
-    if (M > 0) {
-      // solve block of columns with diagonal block
-      callAndTime_dtrsm('L', 'U', 'T', 'N', jb, M, 1.0, D, jb, R, jb, times);
-    }
-
-    // put D back into packed format
-    offset = 0;
-    for (int Drow = 0; Drow < jb; ++Drow) {
-      const int N = Drow + 1;
-      callAndTime_dcopy(N, &D[Drow * jb], 1, &A[diag_start[j] + offset], 1,
-                        times);
-      offset += N;
-    }
-  }
-  free(D);
-
-  // compute Schur complement if partial factorization is required
-  if (k < n) {
-    // number of rows/columns in the Schur complement
-    const int ns = n - k;
-
-    // size of last full block (may be smaller than full_size)
-    const int ncol_last = k % nb;
-    const int last_full_size = ncol_last == 0 ? full_size : ncol_last * nb;
-
-    // number of blocks in Schur complement
-    const int s_blocks = (ns - 1) / nb + 1;
-
-    // index to write into B
-    int B_start = 0;
-
-    // Go through block of columns of Schur complement.
-    // Each block will have a full-format copy made in schur_buf
-    for (int sb = 0; sb < s_blocks; ++sb) {
-      // location in B where to write the next block of columns
-      double* schur_buf = &B[B_start];
-
-      // number of rows of the block
-      const int nrow = ns - nb * sb;
-
-      // number of columns of the block
-      const int ncol = min(nb, nrow);
-
-      // each block receives contributions from the blocks of the leading part
-      // of A
-      for (int j = 0; j < n_blocks; ++j) {
-        const int jb = min(nb, k - nb * j);
-        const int this_diag_size = jb * (jb + 1) / 2;
-        const int this_full_size = nb * jb;
-
-        // compute index to access diagonal block in A
-        int diag_pos = diag_start[j] + this_diag_size;
-        if (j < n_blocks - 1) {
-          diag_pos += (n_blocks - j - 2) * full_size + last_full_size;
-        }
-        diag_pos += sb * this_full_size;
-
-        // update diagonal block
-        callAndTime_dsyrk('U', 'T', ncol, jb, -1.0, &A[diag_pos], jb, 1.0,
-                          schur_buf, ncol, times);
-
-        // update subdiagonal part
-        const int M = nrow - nb;
-        if (M > 0) {
-          callAndTime_dgemm('T', 'N', nb, M, jb, -1.0, &A[diag_pos], jb,
-                            &A[diag_pos + this_full_size], jb, 1.0,
-                            &schur_buf[ncol * ncol], ncol, times);
-        }
-      }
-
-      B_start += nrow * ncol;
-    }
-  }
-
-  free(diag_start);
-
-  return kRetOk;
-}
-
-int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
-                    const int* pivot_sign, double thresh, double* regul,
-                    int* n_reg_piv, double* times) {
-  // ===========================================================================
-  // Indefinite factorization with blocks in lower-blocked-hybrid format.
+  // Blocked factorization in hybrid-hybrid format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
   // in B in in lower-block-hybrid format, with full diagonal blocks.
-  // BLAS calls: dsyrk_, dgemm_, dtrsm_, dcopy_, dscal_
+  // BLAS calls: dgemm_, dtrsm_, dcopy_, dscal_
   // ===========================================================================
 
   // check input
@@ -1376,7 +798,7 @@ int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
     // factorize diagonal block
     const int* pivot_sign_current = &pivot_sign[j * nb];
     double* regul_current = &regul[j * nb];
-    int info = callAndTime_fiuf('U', jb, D, jb, pivot_sign_current, thresh,
+    int info = callAndTime_denseFactK('U', jb, D, jb, pivot_sign_current, thresh,
                                 regul_current, n_reg_piv, times);
     if (info != 0) return info;
 
@@ -1477,7 +899,7 @@ int dense_fact_pibs(int n, int k, int nb, double* A, double* B,
   return kRetOk;
 }
 
-int dense_fact_l2h(double* restrict A, int nrow, int ncol, int nb,
+int denseFactL2H(double* restrict A, int nrow, int ncol, int nb,
                    double* times) {
   // ===========================================================================
   // Takes a matrix in lower-packed format, with nrow rows.

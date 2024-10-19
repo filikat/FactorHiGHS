@@ -23,24 +23,16 @@ int FullFormatHandler::denseFactorise(double reg_thresh,
                                       int& n_reg_piv,
                                       std::vector<double>& times) {
   int status;
-  if (S_->factType() == FactType::Chol) {
-    // find the position within regularization corresponding to this supernode
-    int sn_start = S_->snStart(sn_);
-    double* regul = &regularization[sn_start];
 
-    status =
-        dense_fact_pdbf(ldf_, sn_size_, nb_, frontal_.data(), ldf_,
-                        clique_.data(), ldc_, reg_thresh, regul, times.data());
-  } else {
-    // find the position within pivot_sign corresponding to this supernode
-    int sn_start = S_->snStart(sn_);
-    const int* pivot_sign = &S_->pivotSign().data()[sn_start];
-    double* regul = &regularization[sn_start];
+  // find the position within pivot_sign corresponding to this supernode
+  int sn_start = S_->snStart(sn_);
+  const int* pivot_sign = &S_->pivotSign().data()[sn_start];
+  double* regul = &regularization[sn_start];
 
-    status = dense_fact_pibf(ldf_, sn_size_, nb_, frontal_.data(), ldf_,
-                             clique_.data(), ldc_, pivot_sign, reg_thresh,
-                             regul, &n_reg_piv, times.data());
-  }
+  status = denseFactF(ldf_, sn_size_, nb_, frontal_.data(), ldf_,
+                           clique_.data(), ldc_, pivot_sign, reg_thresh, regul,
+                           &n_reg_piv, times.data());
+
   return status;
 }
 

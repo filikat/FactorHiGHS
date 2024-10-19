@@ -5,7 +5,6 @@
 
 #include "Auxiliary.h"
 #include "Blas_declaration.h"
-#include "CurtisReidScalingSym.h"
 #include "DataCollector.h"
 #include "DenseFact_declaration.h"
 #include "FormatHandler.h"
@@ -47,7 +46,6 @@ class Factorise {
 
   // symmetric scaling to apply to the original matrix
   std::vector<double> colscale_{};
-  std::vector<int> colexp_{};
 
   // regularization
   std::vector<double> total_reg_{};

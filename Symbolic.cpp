@@ -2,10 +2,8 @@
 
 #include <iostream>
 
-Symbolic::Symbolic(FactType fact_type, FormatType format_type)
-    : fact_type_{fact_type}, format_type_{format_type} {}
+Symbolic::Symbolic(FormatType format_type) : format_type_{format_type} {}
 
-FactType Symbolic::factType() const { return fact_type_; }
 FormatType Symbolic::formatType() const { return format_type_; }
 int Symbolic::blockSize() const { return block_size_; }
 int Symbolic::size() const { return n_; }
@@ -43,8 +41,6 @@ void printMemory(double mem) {
 
 void Symbolic::print() const {
   printf("Symbolic factorisation:\n");
-  printf(" - type                 %s\n",
-         fact_type_ == FactType::Chol ? "Cholesky" : "LDLt");
   printf(" - size                 %d\n", n_);
   printf(" - nonzero entries      %.2e\n", nz_);
   printf(" - density              %.2f\n", (nz_ / n_) / n_);

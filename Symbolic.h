@@ -3,11 +3,6 @@
 
 #include <vector>
 
-// Type of factorization:
-// - Cholesky
-// - LDLt
-enum class FactType { Chol, LDLt };
-
 // Storage format for dense matrices:
 // - full
 // - lower-blocked hybrid with packed Schur complement
@@ -17,9 +12,6 @@ enum class FormatType { Full, HybridPacked, HybridHybrid };
 
 // Symbolic factorization object
 class Symbolic {
-  // Type of factorization
-  const FactType fact_type_ = FactType::LDLt;
-
   // Format
   const FormatType format_type_ = FormatType::HybridPacked;
 
@@ -112,14 +104,13 @@ class Symbolic {
   friend class Analyse;
 
  public:
-  Symbolic(FactType fact_type, FormatType format_type);
+  Symbolic(FormatType format_type = FormatType::HybridPacked);
 
   // print information to screen
   void print() const;
   void printShort() const;
 
   // provide const access to symbolic factorization
-  FactType factType() const;
   FormatType formatType() const;
   int blockSize() const;
   int size() const;

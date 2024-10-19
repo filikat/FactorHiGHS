@@ -46,7 +46,6 @@ Factorise::Factorise(const Symbolic& S, DataCollector& DC,
 
   // scale the matrix
   // equilibrate();
-  // scale();
 
   // compute largest diagonal entry in absolute value
   max_diag_ = 0.0;
@@ -347,28 +346,6 @@ void Factorise::equilibrate() {
   */
 }
 
-void Factorise::scale() {
-  colexp_.resize(n_);
-  CurtisReidScalingSym(ptrA_, rowsA_, valA_, colexp_);
-
-  for (int col = 0; col < n_; ++col) {
-    for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
-      int row = rowsA_[el];
-      valA_[el] = std::ldexp(valA_[el], colexp_[col]);
-      valA_[el] = std::ldexp(valA_[el], colexp_[row]);
-    }
-  }
-
-  int maxexp = 0;
-  int minexp = INT_MAX;
-  for (int i = 0; i < n_; ++i) {
-    maxexp = std::max(maxexp, colexp_[i]);
-    minexp = std::min(minexp, colexp_[i]);
-  }
-  printf("Scaling: [%.2e,%.2e]\n", std::ldexp(1.0, minexp),
-         std::ldexp(1.0, maxexp));
-}
-
 int Factorise::run(Numeric& num) {
   Clock clock;
 
@@ -417,16 +394,17 @@ int Factorise::run(Numeric& num) {
     for (int i = 0; i < n_; ++i) {
       total_reg_[i] /= (colscale_[i] * colscale_[i]);
     }
-  } else if (colexp_.size() > 0) {
-    for (int i = 0; i < n_; ++i) {
-      total_reg_[i] = std::ldexp(total_reg_[i], -2 * colexp_[i]);
-    }
+  }
+
+  // compute maximum regularization
+  DC_.max_reg_ = 0.0;
+  for (int i = 0; i < total_reg_.size(); ++i) {
+    DC_.max_reg_ = std::max(DC_.max_reg_, std::abs(total_reg_[i]));
   }
 
   // move factorisation to numerical object
   num.sn_columns_ = std::move(sn_columns_);
   num.colscale_ = std::move(colscale_);
-  num.colexp_ = std::move(colexp_);
   num.total_reg_ = std::move(total_reg_);
 
 #ifdef COARSE_TIMING

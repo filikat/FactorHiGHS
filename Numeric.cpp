@@ -15,9 +15,6 @@ void Numeric::forwardSolve(std::vector<double>& x) const {
   const double d_one = 1.0;
   const double d_zero = 0.0;
 
-  // unit diagonal for augmented system only
-  const char DD = S_.factType() == FactType::Chol ? 'N' : 'U';
-
   if (S_.formatType() == FormatType::HybridPacked ||
       S_.formatType() == FormatType::HybridHybrid) {
     // supernode columns in hybrid-blocked format
@@ -54,7 +51,7 @@ void Numeric::forwardSolve(std::vector<double>& x) const {
         // index to access vector x
         const int x_start = sn_start + nb * j;
 
-        dtpsv_(&c_U, &c_T, &DD, &jb, &sn_columns_[sn][SnCol_ind], &x[x_start],
+        dtpsv_(&c_U, &c_T, &c_U, &jb, &sn_columns_[sn][SnCol_ind], &x[x_start],
                &i_one);
         SnCol_ind += diag_entries;
 
@@ -93,7 +90,7 @@ void Numeric::forwardSolve(std::vector<double>& x) const {
       // index to access S->rows for this supernode
       const int start_row = S_.ptr(sn);
 
-      dtrsv_(&c_L, &c_N, &DD, &sn_size, sn_columns_[sn].data(), &ldSn,
+      dtrsv_(&c_L, &c_N, &c_U, &sn_size, sn_columns_[sn].data(), &ldSn,
              &x[sn_start], &i_one);
 
       // temporary space for gemv
@@ -124,9 +121,6 @@ void Numeric::backwardSolve(std::vector<double>& x) const {
   const double d_m_one = -1.0;
   const double d_one = 1.0;
   const double d_zero = 0.0;
-
-  // unit diagonal for augmented system only
-  const char DD = S_.factType() == FactType::Chol ? 'N' : 'U';
 
   if (S_.formatType() == FormatType::HybridPacked ||
       S_.formatType() == FormatType::HybridHybrid) {
@@ -181,7 +175,7 @@ void Numeric::backwardSolve(std::vector<double>& x) const {
                &jb, y.data(), &i_one, &d_one, &x[x_start], &i_one);
 
         SnCol_ind -= diag_entries;
-        dtpsv_(&c_U, &c_N, &DD, &jb, &sn_columns_[sn][SnCol_ind], &x[x_start],
+        dtpsv_(&c_U, &c_N, &c_U, &jb, &sn_columns_[sn][SnCol_ind], &x[x_start],
                &i_one);
       }
     }
@@ -217,7 +211,7 @@ void Numeric::backwardSolve(std::vector<double>& x) const {
       dgemv_(&c_T, &clique_size, &sn_size, &d_m_one, &sn_columns_[sn][sn_size],
              &ldSn, y.data(), &i_one, &d_one, &x[sn_start], &i_one);
 
-      dtrsv_(&c_L, &c_T, &DD, &sn_size, sn_columns_[sn].data(), &ldSn,
+      dtrsv_(&c_L, &c_T, &c_U, &sn_size, sn_columns_[sn].data(), &ldSn,
              &x[sn_start], &i_one);
     }
   }
@@ -225,9 +219,6 @@ void Numeric::backwardSolve(std::vector<double>& x) const {
 
 void Numeric::diagSolve(std::vector<double>& x) const {
   // Diagonal solve
-
-  // Dsolve performed only for LDLt factorisation
-  if (S_.factType() == FactType::Chol) return;
 
   if (S_.formatType() == FormatType::HybridPacked ||
       S_.formatType() == FormatType::HybridHybrid) {
@@ -307,10 +298,6 @@ void Numeric::solve(std::vector<double>& x) const {
     for (int i = 0; i < S_.size(); ++i) {
       x[i] *= colscale_[i];
     }
-  } else if (colexp_.size() > 0) {
-    for (int i = 0; i < S_.size(); ++i) {
-      x[i] = std::ldexp(x[i], colexp_[i]);
-    }
   }
 
   // solve
@@ -322,10 +309,6 @@ void Numeric::solve(std::vector<double>& x) const {
   if (colscale_.size() > 0) {
     for (int i = 0; i < S_.size(); ++i) {
       x[i] *= colscale_[i];
-    }
-  } else if (colexp_.size() > 0) {
-    for (int i = 0; i < S_.size(); ++i) {
-      x[i] = std::ldexp(x[i], colexp_[i]);
     }
   }
 

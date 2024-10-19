@@ -5,6 +5,7 @@
 #include <string>
 
 #include "Analyse.h"
+#include "DataCollector.h"
 #include "Factorise.h"
 #include "Highs.h"
 #include "hsl_wrapper.h"
@@ -163,7 +164,7 @@ int main(int argc, char** argv) {
   assert(status == HighsStatus::kOk);
   const HighsLp lp = highs.getPresolvedLp();
 
-  FactType type = (FactType)atoi(argv[2]);
+  int type = atoi(argv[2]);
 
   int nA = lp.a_matrix_.num_col_;
   int mA = lp.a_matrix_.num_row_;
@@ -179,7 +180,7 @@ int main(int argc, char** argv) {
   int n;
   int nz;
 
-  if (type == FactType::LDLt) {
+  if (type == 1) {
     // Augmented system, lower triangular
 
     const HighsSparseMatrix& A = lp.a_matrix_;
@@ -275,23 +276,21 @@ int main(int argc, char** argv) {
   // Symbolic factorisation
   // ===========================================================================
   int negative_pivots{};
-  if (type == FactType::LDLt) {
+  if (type == 1) {
     negative_pivots = nA;
   }
 
   Symbolic S;
-  Analyse An(rowsLower, ptrLower, order_to_use, negative_pivots);
-  An.run(S);
+  DataCollector DC;
+  Analyse An(S, DC, rowsLower, ptrLower, negative_pivots);
+  An.run();
   S.print();
-
-  // save inverse permutation to pass to MAxx
-  if (atoi(argv[4]) == 1) order_to_use = An.metis_order_;
 
   // ===========================================================================
   // Numerical factorisation
   // ===========================================================================
-  Numeric Num;
-  Factorise F(S, rowsLower, ptrLower, valLower);
+  Numeric Num(S, DC);
+  Factorise F(S, DC, rowsLower, ptrLower, valLower);
   int ret_status = F.run(Num);
   if (ret_status) return 1;
 
@@ -391,7 +390,7 @@ int main(int argc, char** argv) {
   double ma87_time_analyse{};
   double ma87_time_factorise{};
   double ma87_time_solve{};
-  if (atoi(argv[3]) == 1 && S.factType() == FactType::Chol) {
+  if (atoi(argv[3]) == 1 && type == 0) {
     std::vector<double> solMa87(rhs);
 
     MA87Data ma87_data;
@@ -447,7 +446,7 @@ int main(int argc, char** argv) {
   double ma97_time_factorise{};
   double ma97_time_solve{};
   MA97Data ma97_data;
-  if (atoi(argv[3]) == 1 && S.factType() == FactType::Chol) {
+  if (atoi(argv[3]) == 1 && type == 0) {
     std::vector<double> solMa97(rhs);
 
     clock.start();

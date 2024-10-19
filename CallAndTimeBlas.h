@@ -18,9 +18,7 @@ void callAndTime_daxpy(int n, double da, const double* dx, int incx, double* dy,
 void callAndTime_dscal(int n, const double da, double* dx, int incx,
                        double* times);
 
-int callAndTime_fduf(char uplo, int n, double* A, int lda, double thresh,
-                     double* regul, double* times);
-int callAndTime_fiuf(char uplo, int n, double* A, int lda,
+int callAndTime_denseFactK(char uplo, int n, double* A, int lda,
                      const int* pivot_sign, double thresh, double* regul,
                      int* n_reg_piv, double* times);
 

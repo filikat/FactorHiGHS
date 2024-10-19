@@ -40,26 +40,17 @@ int HybridPackedFormatHandler::denseFactorise(
     std::vector<double>& times) {
   int status;
 
-  status = dense_fact_l2h(frontal_.data(), ldf_, sn_size_, nb_, times.data());
+  status = denseFactL2H(frontal_.data(), ldf_, sn_size_, nb_, times.data());
   if (status) return status;
 
-  if (S_->factType() == FactType::Chol) {
-    // find the position within regularization corresponding to this supernode
-    int sn_start = S_->snStart(sn_);
-    double* regul = &regularization[sn_start];
+  // find the position within pivot_sign corresponding to this supernode
+  int sn_start = S_->snStart(sn_);
+  const int* pivot_sign = &S_->pivotSign().data()[sn_start];
+  double* regul = &regularization[sn_start];
 
-    status = dense_fact_pdbh(ldf_, sn_size_, nb_, frontal_.data(),
-                             clique_.data(), reg_thresh, regul, times.data());
-  } else {
-    // find the position within pivot_sign corresponding to this supernode
-    int sn_start = S_->snStart(sn_);
-    const int* pivot_sign = &S_->pivotSign().data()[sn_start];
-    double* regul = &regularization[sn_start];
-
-    status = dense_fact_pibh(ldf_, sn_size_, nb_, frontal_.data(),
-                             clique_.data(), pivot_sign, reg_thresh, regul,
-                             &n_reg_piv, times.data());
-  }
+  status =
+      denseFactHP(ldf_, sn_size_, nb_, frontal_.data(), clique_.data(),
+                      pivot_sign, reg_thresh, regul, &n_reg_piv, times.data());
 
   return status;
 }
