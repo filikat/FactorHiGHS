@@ -141,9 +141,12 @@ std::unique_ptr<FormatHandler> getFormatHandler(const Symbolic& S, int sn) {
   return ptr;
 }
 
-int Factorise::processSupernode(int sn) {
+void Factorise::processSupernode(int sn) {
   // Assemble frontal matrix for supernode sn, perform partial factorisation and
   // store the result.
+
+  if (flag_stop_) return;
+
   Clock clock;
 
 #ifdef FINE_TIMING
@@ -273,8 +276,10 @@ int Factorise::processSupernode(int sn) {
   // threshold for regularization
   const double reg_thresh = max_diag_ * 1e-16 * 1e-10;
 
-  int status = FH->denseFactorise(reg_thresh, DC_.n_reg_piv_, DC_.times());
-  if (status) return status;
+  if (FH->denseFactorise(reg_thresh, DC_.n_reg_piv_, DC_.times())) {
+    flag_stop_ = true;
+    return;
+  };
 
 #ifdef FINE_TIMING
   DC_.times(kTimeFactoriseDenseFact) += clock.stop();
@@ -285,8 +290,6 @@ int Factorise::processSupernode(int sn) {
 
   // terminate the format handler
   FH->terminate(sn_columns_[sn], schur_contribution_[sn], total_reg_);
-
-  return kRetOk;
 }
 
 void Factorise::equilibrate() {
@@ -361,7 +364,7 @@ void Factorise::equilibrate() {
   */
 }
 
-int Factorise::run(Numeric& num) {
+bool Factorise::run(Numeric& num) {
   Clock clock;
 
 #ifdef COARSE_TIMING
@@ -376,13 +379,11 @@ int Factorise::run(Numeric& num) {
 
   DC_.resetExtremeEntries();
 
-  int status{};
   for (int sn = 0; sn < S_.sn(); ++sn) {
-    status = processSupernode(sn);
-    if (status) break;
+    processSupernode(sn);
   }
 
-  if (status) return status;
+  if (flag_stop_) return true;
 
   // un-scale regularization
   if (colscale_.size() > 0) {
@@ -406,5 +407,5 @@ int Factorise::run(Numeric& num) {
   DC_.times(kTimeFactorise) += clock.stop();
 #endif
 
-  return kRetOk;
+  return false;
 }

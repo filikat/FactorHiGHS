@@ -47,16 +47,19 @@ class Factorise {
   // regularization
   std::vector<double> total_reg_{};
 
+  // flag to stop computation
+  bool flag_stop_ = false;
+
  public:
   void permute(const std::vector<int>& iperm);
-  int processSupernode(int sn);
+  void processSupernode(int sn);
   void equilibrate();
 
  public:
   Factorise(const Symbolic& S, DataCollector& DC, const std::vector<int>& rowsA,
             const std::vector<int>& ptrA, const std::vector<double>& valA);
 
-  int run(Numeric& num);
+  bool run(Numeric& num);
 };
 
 #endif

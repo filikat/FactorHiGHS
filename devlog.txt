@@ -1210,6 +1210,9 @@ I was hoping to include terminate in the destructor, but it needs to know where 
 ---
 Now each supernode has its own local regularization, that is summed to the total one at the end.
 ---
+I added a flag to stop the computation. If something goes wrong in a supernode, the flag is set. During the computation, other supernodes should check the flag and stop if it is set.
+I think the flag should be atomic, but it probably works with a normal bool (?).
+---
 
 
 
@@ -1219,5 +1222,4 @@ To do:
 - parallel stuff
 - check iterative refinement
 
-- atomic flag to block all threads if status\ne0
 - timing with lock
