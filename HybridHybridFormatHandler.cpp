@@ -1,5 +1,12 @@
 #include "HybridHybridFormatHandler.h"
 
+HybridHybridFormatHandler::HybridHybridFormatHandler(const Symbolic& S, int sn)
+    : FormatHandler(S, sn) {
+  // initialize frontal and clique
+  initFrontal();
+  initClique();
+}
+
 void HybridHybridFormatHandler::initFrontal() {
   // frontal is initialized to zero
   frontal_.resize(ldf_ * sn_size_ - sn_size_ * (sn_size_ - 1) / 2 + 10);
@@ -107,7 +114,7 @@ void HybridHybridFormatHandler::assembleClique(const std::vector<double>& child,
         const int jb = std::min(nb_, ldc_ - nb_ * jblock);
         const int i_ = i - jblock * nb_;
         const int j_ = j - jblock * nb_;
-        const int start_block = S_->cliqueBlockStart(sn_,jblock);
+        const int start_block = S_->cliqueBlockStart(sn_, jblock);
 
         const double d_one = 1.0;
         const int i_one = 1;

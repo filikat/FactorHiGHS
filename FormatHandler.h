@@ -20,49 +20,45 @@
 //                original matrix)
 // - assembleFrontalMultiple: to sum a given number of consecutive entries into
 //                frontal (used to assemble the child supernodes)
-// - denseFactorise: to perform the dense partial factorization of frontal,
-//                storing the Schur complement in clique.
 // - assembleClique: to sum the contributions of a given child supernode into
 //                clique.
-//
-
-// Constants for BLAS calls
-const int i_one = 1;
-const double d_one = 1.0;
+// - denseFactorise: to perform the dense partial factorization of frontal,
+//                storing the Schur complement in clique.
 
 class FormatHandler {
  protected:
-  // data shared by all supernodes
+  // symbolic object
   const Symbolic* S_;
 
-  // data of a given supernode
+  // supernode being processed
+  const int sn_{};
+
+  // block size
+  const int nb_{};
+
+  // size of the supernode
+  const int sn_size_{};
+
+  // size of the front
+  const int ldf_{};
+
+  // size of the clique
+  const int ldc_{};
+
+  // local copies of frontal and clique
   std::vector<double> frontal_{};
   std::vector<double> clique_{};
 
-  // which supernode is being processed
-  int sn_{};
-
-  // size of the front
-  int ldf_{};
-
-  // size of the clique
-  int ldc_{};
-
-  // block size
-  int nb_{};
-
-  // size of the supernode
-  int sn_size_{};
-
  public:
-  // initialize the whole object
-  void init(const Symbolic* S);
+  FormatHandler(const Symbolic& S, int sn);
+  void terminate(std::vector<double>& frontal, std::vector<double>& clique);
 
-  // initialize the data of a specific supernode
-  void attach(int sn);
+  // avoid copies
+  FormatHandler(const FormatHandler&) = delete;
+  FormatHandler& operator=(const FormatHandler&) = delete;
 
-  // reset the FormatHandler
-  void detach(std::vector<double>& frontal, std::vector<double>& clique);
+  // virtual destructor
+  virtual ~FormatHandler() = default;
 
   // =================================================================
   // Pure virtual functions.
@@ -75,19 +71,21 @@ class FormatHandler {
                                        const std::vector<double>& child, int nc,
                                        int child_sn, int row, int col, int i,
                                        int j) = 0;
+  virtual void assembleClique(const std::vector<double>& child, int nc,
+                              int child_sn) = 0;
   virtual int denseFactorise(double reg_thresh,
                              std::vector<double>& regularization,
                              int& n_reg_piv, std::vector<double>& times) = 0;
-  virtual void assembleClique(const std::vector<double>& child, int nc,
-                              int child_sn) = 0;
-  // =================================================================
 
   // =================================================================
   // Virtual functions.
   // These may be overridden by derived classes, if needed.
   // =================================================================
   virtual void extremeEntries(DataCollector& DC) {}
-  // =================================================================
 };
+
+// Constants for BLAS calls
+const int i_one = 1;
+const double d_one = 1.0;
 
 #endif

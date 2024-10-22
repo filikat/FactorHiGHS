@@ -1,5 +1,12 @@
 #include "HybridPackedFormatHandler.h"
 
+HybridPackedFormatHandler::HybridPackedFormatHandler(const Symbolic& S, int sn)
+    : FormatHandler(S, sn) {
+  // initialize frontal and clique
+  initFrontal();
+  initClique();
+}
+
 void HybridPackedFormatHandler::initFrontal() {
   // frontal is initialized to zero
   frontal_.resize(ldf_ * sn_size_ - sn_size_ * (sn_size_ - 1) / 2 + 10);

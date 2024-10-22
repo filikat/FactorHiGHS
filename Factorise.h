@@ -27,9 +27,6 @@ class Factorise {
   // object to handle times and statistics
   DataCollector& DC_;
 
-  // interface to specific format used for dense matrices
-  FormatHandler* FH_;
-
   // children in supernodal elimination tree
   std::vector<int> first_children_{};
   std::vector<int> next_children_{};

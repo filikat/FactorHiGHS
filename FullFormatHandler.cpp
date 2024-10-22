@@ -1,5 +1,12 @@
 #include "FullFormatHandler.h"
 
+FullFormatHandler::FullFormatHandler(const Symbolic& S, int sn)
+    : FormatHandler(S, sn) {
+  // initialize frontal and clique
+  initFrontal();
+  initClique();
+}
+
 void FullFormatHandler::initFrontal() {
   // frontal is initialized to zero
   frontal_.resize(ldf_ * sn_size_);
@@ -29,9 +36,9 @@ int FullFormatHandler::denseFactorise(double reg_thresh,
   const int* pivot_sign = &S_->pivotSign().data()[sn_start];
   double* regul = &regularization[sn_start];
 
-  status = denseFactF(ldf_, sn_size_, nb_, frontal_.data(), ldf_,
-                           clique_.data(), ldc_, pivot_sign, reg_thresh, regul,
-                           &n_reg_piv, times.data());
+  status =
+      denseFactF(ldf_, sn_size_, nb_, frontal_.data(), ldf_, clique_.data(),
+                 ldc_, pivot_sign, reg_thresh, regul, &n_reg_piv, times.data());
 
   return status;
 }

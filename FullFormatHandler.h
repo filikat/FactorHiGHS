@@ -15,6 +15,9 @@ class FullFormatHandler : public FormatHandler {
   void assembleClique(const std::vector<double>& child, int nc,
                       int child_sn) override;
   void extremeEntries(DataCollector& DC) override;
+
+ public:
+  FullFormatHandler(const Symbolic& S, int sn);
 };
 
 #endif

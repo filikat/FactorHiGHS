@@ -125,6 +125,22 @@ void Factorise::permute(const std::vector<int>& iperm) {
   valA_ = std::move(new_val);
 }
 
+std::unique_ptr<FormatHandler> getFormatHandler(const Symbolic& S, int sn) {
+  std::unique_ptr<FormatHandler> ptr;
+  switch (S.formatType()) {
+    case FormatType::Full:
+      ptr.reset(new FullFormatHandler(S, sn));
+      break;
+    case FormatType::HybridPacked:
+      ptr.reset(new HybridPackedFormatHandler(S, sn));
+      break;
+    case FormatType::HybridHybrid:
+      ptr.reset(new HybridHybridFormatHandler(S, sn));
+      break;
+  }
+  return ptr;
+}
+
 int Factorise::processSupernode(int sn) {
   // Assemble frontal matrix for supernode sn, perform partial factorisation and
   // store the result.
@@ -141,9 +157,9 @@ int Factorise::processSupernode(int sn) {
   const int sn_end = S_.snStart(sn + 1);
   const int sn_size = sn_end - sn_begin;
 
-  // attach to the format handler
+  // initialize the format handler
   // this also allocates space for the frontal matrix and schur complement
-  FH_->attach(sn);
+  std::unique_ptr<FormatHandler> FH = getFormatHandler(S_, sn);
 
 #ifdef FINE_TIMING
   DC_.times(kTimeFactorisePrepare) += clock.stop();
@@ -165,7 +181,7 @@ int Factorise::processSupernode(int sn) {
       // relative row index in the frontal matrix
       const int i = S_.relindCols(el);
 
-      FH_->assembleFrontal(i, j, valA_[el]);
+      FH->assembleFrontal(i, j, valA_[el]);
     }
   }
 #ifdef FINE_TIMING
@@ -215,8 +231,8 @@ int Factorise::processSupernode(int sn) {
           // how many entries to sum
           const int consecutive = S_.consecutiveSums(child_sn, row);
 
-          FH_->assembleFrontalMultiple(consecutive, child_clique, nc, child_sn,
-                                       row, col, i, j);
+          FH->assembleFrontalMultiple(consecutive, child_clique, nc, child_sn,
+                                      row, col, i, j);
 
           row += consecutive;
         }
@@ -230,7 +246,7 @@ int Factorise::processSupernode(int sn) {
 #ifdef FINEST_TIMING
     clock2.start();
 #endif
-    FH_->assembleClique(child_clique, nc, child_sn);
+    FH->assembleClique(child_clique, nc, child_sn);
 #ifdef FINEST_TIMING
     DC_.times(kTimeFactoriseAssembleChildrenClique) += clock2.stop();
 #endif
@@ -258,7 +274,7 @@ int Factorise::processSupernode(int sn) {
   const double reg_thresh = max_diag_ * 1e-16 * 1e-10;
 
   int status =
-      FH_->denseFactorise(reg_thresh, total_reg_, DC_.n_reg_piv_, DC_.times());
+      FH->denseFactorise(reg_thresh, total_reg_, DC_.n_reg_piv_, DC_.times());
   if (status) return status;
 
 #ifdef FINE_TIMING
@@ -266,10 +282,10 @@ int Factorise::processSupernode(int sn) {
 #endif
 
   // compute largest elements in factorization
-  FH_->extremeEntries(DC_);
+  FH->extremeEntries(DC_);
 
-  // detach from the format handler
-  FH_->detach(sn_columns_[sn], schur_contribution_[sn]);
+  // terminate the format handler
+  FH->terminate(sn_columns_[sn], schur_contribution_[sn]);
 
   return kRetOk;
 }
@@ -354,26 +370,6 @@ int Factorise::run(Numeric& num) {
 #endif
 
   total_reg_.assign(n_, 0.0);
-
-  // Handle multiple formats
-  FullFormatHandler full_FH;
-  HybridPackedFormatHandler hybrid_packed_FH;
-  HybridHybridFormatHandler hybrid_hybrid_FH;
-
-  switch (S_.formatType()) {
-    case FormatType::Full:
-      FH_ = &full_FH;
-      break;
-    case FormatType::HybridPacked:
-      FH_ = &hybrid_packed_FH;
-      break;
-    case FormatType::HybridHybrid:
-      FH_ = &hybrid_hybrid_FH;
-      break;
-  }
-
-  // initialize format handler
-  FH_->init(&S_);
 
   // allocate space for list of generated elements and columns of L
   schur_contribution_.resize(S_.sn());
