@@ -21,26 +21,8 @@ class Symbolic {
   // Size of the matrix L
   int n_{};
 
-  // Number of nonzeros in L
-  double nz_{};
-  double fillin_{};
-
-  int serial_storage_{};
-
-  // Number of dense operations and assembly operations
-  double dense_ops_{};
-  double sparse_ops_{};
-
   // Number of supernodes
   int sn_{};
-
-  // Number of artificial nonzero entries introduced to merge supernodes
-  int artificial_nz_{};
-  double artificial_ops_{};
-
-  // Size of the largest frontal matrix and largest sn
-  int largest_front_{};
-  int largest_sn_{};
 
   // Inverse permutation
   std::vector<int> iperm_{};
@@ -99,6 +81,7 @@ class Symbolic {
   // should have.
   std::vector<int> pivot_sign_{};
 
+  // Starting position of diagonal blocks for hybrid formats
   std::vector<std::vector<int>> clique_block_start_{};
 
   friend class Analyse;
@@ -106,17 +89,10 @@ class Symbolic {
  public:
   Symbolic(FormatType format_type = FormatType::HybridPacked);
 
-  // print information to screen
-  void print() const;
-  void printShort() const;
-
   // provide const access to symbolic factorization
   FormatType formatType() const;
   int blockSize() const;
   int size() const;
-  int nz() const;
-  double ops() const;
-  double assemblyOps() const;
   int sn() const;
   int rows(int i) const;
   int ptr(int i) const;

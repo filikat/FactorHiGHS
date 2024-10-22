@@ -54,7 +54,6 @@ class Factorise {
   void permute(const std::vector<int>& iperm);
   int processSupernode(int sn);
   void equilibrate();
-  void scale();
 
  public:
   Factorise(const Symbolic& S, DataCollector& DC, const std::vector<int>& rowsA,

@@ -1414,28 +1414,31 @@ int Analyse::run() {
   computeStorage();
   computeBlockStart();
 
-  // move relevant stuff into S
+  // move relevant stuff into S and DC
   S_.n_ = n_;
-  S_.nz_ = nz_factor_;
-  S_.fillin_ = (double)nz_factor_ / nz_;
   S_.sn_ = sn_count_;
-  S_.artificial_nz_ = artificial_nz_;
-  S_.artificial_ops_ = (double)dense_ops_ - dense_ops_norelax_;
-  S_.sparse_ops_ = sparse_ops_;
-  S_.largest_front_ = *std::max_element(sn_indices_.begin(), sn_indices_.end());
-  S_.serial_storage_ = serial_storage_;
+
+  DC_.n_ = n_;
+  DC_.nz_ = nz_factor_;
+  DC_.fillin_ = (double)nz_factor_ / nz_;
+  DC_.artificial_nz_ = artificial_nz_;
+  DC_.artificial_ops_ = (double)dense_ops_ - dense_ops_norelax_;
+  DC_.sparse_ops_ = sparse_ops_;
+  DC_.largest_front_ =
+      *std::max_element(sn_indices_.begin(), sn_indices_.end());
+  DC_.serial_storage_ = serial_storage_;
+  DC_.dense_ops_ = dense_ops_;
 
   // compute largest supernode
   std::vector<int> temp(sn_start_);
   for (int i = sn_count_; i > 0; --i) temp[i] -= temp[i - 1];
-  S_.largest_sn_ = *std::max_element(temp.begin(), temp.end());
+  DC_.largest_sn_ = *std::max_element(temp.begin(), temp.end());
 
   // initialize sign of pivots and permute them
   S_.pivot_sign_.insert(S_.pivot_sign_.end(), negative_pivots_, -1);
   S_.pivot_sign_.insert(S_.pivot_sign_.end(), n_ - negative_pivots_, 1);
   permuteVector(S_.pivot_sign_, perm_);
 
-  S_.dense_ops_ = dense_ops_;
   S_.iperm_ = std::move(iperm_);
   S_.rows_ = std::move(rows_sn_);
   S_.ptr_ = std::move(ptr_sn_);

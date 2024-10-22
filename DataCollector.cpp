@@ -100,3 +100,32 @@ void DataCollector::printTimes() const {
 
 #endif
 }
+
+void printMemory(double mem) {
+  if (mem < 1024)
+    printf("%.1f B\n", mem);
+  else if (mem < 1024 * 1024)
+    printf("%.1f KB\n", mem / 1024);
+  else if (mem < 1024 * 1024 * 1024)
+    printf("%.1f MB\n", mem / 1024 / 1024);
+  else
+    printf("%.1f GB\n", mem / 1024 / 1024 / 1024);
+}
+
+void DataCollector::printSymbolic(bool verbose) const {
+  printf("\nStatistic of Factor L\n");
+  printf("size            : %.2e\n", (double)n_);
+  printf("nnz             : %.2e\n", nz_);
+  printf("fill-in         : %.2f\n", fillin_);
+  printf("operations      : %.2e\n", dense_ops_);
+  printf("serial memory   : ");
+  printMemory(serial_storage_);
+  if (verbose) {
+    printf("sparse ops      : %.2e\n", sparse_ops_);
+    printf("artificial nz   : %.2e\n", (double)artificial_nz_);
+    printf("artificial ops  : %.2e\n", artificial_ops_);
+    printf("largest front   : %.2e\n", (double)largest_front_);
+    printf("largest sn      : %.2e\n", (double)largest_sn_);
+  }
+  printf("\n");
+}

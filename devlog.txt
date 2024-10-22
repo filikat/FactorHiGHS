@@ -1196,6 +1196,11 @@ I should create a separate object to collect times and other data.
 Then, each thread could have its own object, and the times can be added together at the end.
 ---
 
+22 Oct 2024
+I moved the statistics about the factor from Symbolic to DataCollector.
+Symbolic is now cleaner and only contains information used later by Factorise. 
+---
+
 
 
 *****
@@ -1203,3 +1208,8 @@ To do:
 - row growth factor (and store inverse of D?)
 - parallel stuff
 - check iterative refinement
+
+- separate format handler, maybe a factory?
+- atomic flag to block all threads if status\ne0
+- local copy of total_reg
+- timing with lock
