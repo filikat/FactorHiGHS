@@ -8,7 +8,6 @@ void DataCollector::resetExtremeEntries() {
   maxD_ = 0.0;
   minL_ = std::numeric_limits<double>::max();
   maxL_ = 0.0;
-  num_reg_ = 0;
   max_reg_ = 0.0;
   worst_res_ = 0.0;
   n_reg_piv_ = 0;

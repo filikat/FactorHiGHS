@@ -30,7 +30,6 @@ class DataCollector {
 
   // ==== Data ====
   double minD_, maxD_, minL_, maxL_;
-  int num_reg_;
   double max_reg_;
   double worst_res_;
   int n_reg_piv_;

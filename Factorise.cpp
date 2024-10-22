@@ -273,8 +273,7 @@ int Factorise::processSupernode(int sn) {
   // threshold for regularization
   const double reg_thresh = max_diag_ * 1e-16 * 1e-10;
 
-  int status =
-      FH->denseFactorise(reg_thresh, total_reg_, DC_.n_reg_piv_, DC_.times());
+  int status = FH->denseFactorise(reg_thresh, DC_.n_reg_piv_, DC_.times());
   if (status) return status;
 
 #ifdef FINE_TIMING
@@ -285,7 +284,7 @@ int Factorise::processSupernode(int sn) {
   FH->extremeEntries(DC_);
 
   // terminate the format handler
-  FH->terminate(sn_columns_[sn], schur_contribution_[sn]);
+  FH->terminate(sn_columns_[sn], schur_contribution_[sn], total_reg_);
 
   return kRetOk;
 }

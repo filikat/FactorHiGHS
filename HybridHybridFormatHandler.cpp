@@ -33,9 +33,8 @@ void HybridHybridFormatHandler::assembleFrontalMultiple(
          &frontal_[i + ldf_ * j - j * (j + 1) / 2], &i_one);
 }
 
-int HybridHybridFormatHandler::denseFactorise(
-    double reg_thresh, std::vector<double>& regularization, int& n_reg_piv,
-    std::vector<double>& times) {
+int HybridHybridFormatHandler::denseFactorise(double reg_thresh, int& n_reg_piv,
+                                              std::vector<double>& times) {
   int status;
 
   status = denseFactL2H(frontal_.data(), ldf_, sn_size_, nb_, times.data());
@@ -44,11 +43,10 @@ int HybridHybridFormatHandler::denseFactorise(
   // find the position within pivot_sign corresponding to this supernode
   int sn_start = S_->snStart(sn_);
   const int* pivot_sign = &S_->pivotSign().data()[sn_start];
-  double* regul = &regularization[sn_start];
 
   status = denseFactHH(ldf_, sn_size_, S_->blockSize(), frontal_.data(),
-                       clique_.data(), pivot_sign, reg_thresh, regul,
-                       &n_reg_piv, times.data());
+                       clique_.data(), pivot_sign, reg_thresh,
+                       local_reg_.data(), &n_reg_piv, times.data());
 
   return status;
 }

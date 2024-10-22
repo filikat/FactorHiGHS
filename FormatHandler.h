@@ -45,13 +45,15 @@ class FormatHandler {
   // size of the clique
   const int ldc_{};
 
-  // local copies of frontal and clique
+  // local copies to be moved at the end
   std::vector<double> frontal_{};
   std::vector<double> clique_{};
+  std::vector<double> local_reg_{};
 
  public:
   FormatHandler(const Symbolic& S, int sn);
-  void terminate(std::vector<double>& frontal, std::vector<double>& clique);
+  void terminate(std::vector<double>& frontal, std::vector<double>& clique,
+                 std::vector<double>& total_reg);
 
   // avoid copies
   FormatHandler(const FormatHandler&) = delete;
@@ -73,9 +75,8 @@ class FormatHandler {
                                        int j) = 0;
   virtual void assembleClique(const std::vector<double>& child, int nc,
                               int child_sn) = 0;
-  virtual int denseFactorise(double reg_thresh,
-                             std::vector<double>& regularization,
-                             int& n_reg_piv, std::vector<double>& times) = 0;
+  virtual int denseFactorise(double reg_thresh, int& n_reg_piv,
+                             std::vector<double>& times) = 0;
 
   // =================================================================
   // Virtual functions.

@@ -20,7 +20,7 @@ denseFact:
 */
 
 double pivotCompensatedSum(double base, int k, const double* row, int ldr,
-                             const double* piv, int ldp) {
+                           const double* piv, int ldp) {
   // Use Kahan-Babushka compensated summation to compute the pivot.
   // Compute base + \sum_0^k row[i*ldr]^2*piv[i*ldp]
 
@@ -42,8 +42,8 @@ double pivotCompensatedSum(double base, int k, const double* row, int ldr,
 }
 
 double regularizePivot(double pivot, double thresh, const int* sign,
-                        const double* A, int lda, int j, int n, char uplo,
-                        int* n_reg_piv) {
+                       const double* A, int lda, int j, int n, char uplo,
+                       int* n_reg_piv) {
   // add static regularization
   if (sign[j] == 1)
     pivot += kDualStaticRegularization;
@@ -127,8 +127,8 @@ double regularizePivot(double pivot, double thresh, const int* sign,
 }
 
 int denseFactK(char uplo, int n, double* restrict A, int lda,
-                 const int* pivot_sign, double thresh, double* regul,
-                 int* n_reg_piv) {
+               const int* pivot_sign, double thresh, double* regul,
+               int* n_reg_piv) {
   // ===========================================================================
   // Factorization kernel.
   // BLAS calls: dgemv_, dscal_.
@@ -180,7 +180,7 @@ int denseFactK(char uplo, int n, double* restrict A, int lda,
       // add regularization
       double old_pivot = Ajj;
       Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo,
-                             n_reg_piv);
+                            n_reg_piv);
       regul[j] = fabs(Ajj - old_pivot);
 
       // save diagonal element
@@ -230,7 +230,7 @@ int denseFactK(char uplo, int n, double* restrict A, int lda,
       // add regularization
       double old_pivot = Ajj;
       Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo,
-                             n_reg_piv);
+                            n_reg_piv);
       regul[j] = fabs(Ajj - old_pivot);
 
       // save diagonal element
@@ -299,8 +299,8 @@ int denseFactK(char uplo, int n, double* restrict A, int lda,
 // ===========================================================================
 
 int denseFactF(int n, int k, int nb, double* restrict A, int lda,
-                 double* restrict B, int ldb, const int* pivot_sign,
-                 double thresh, double* regul, int* n_reg_piv, double* times) {
+               double* restrict B, int ldb, const int* pivot_sign,
+               double thresh, double* regul, int* n_reg_piv, double* times) {
   // ===========================================================================
   // Blocked factorization in full format.
   // BLAS calls: dcopy_, dscal_, dgemm_, dtrsm_, dsyrk_
@@ -350,8 +350,8 @@ int denseFactF(int n, int k, int nb, double* restrict A, int lda,
     // factorize diagonal block
     const int* pivot_sign_current = &pivot_sign[j];
     double* regul_current = &regul[j];
-    int info = callAndTime_denseFactK('L', N, D, lda, pivot_sign_current, thresh,
-                                regul_current, n_reg_piv, times);
+    int info = callAndTime_denseFactK('L', N, D, lda, pivot_sign_current,
+                                      thresh, regul_current, n_reg_piv, times);
     if (info != 0) return info;
 
     if (j + jb < n) {
@@ -439,8 +439,8 @@ int denseFactF(int n, int k, int nb, double* restrict A, int lda,
 }
 
 int denseFactHP(int n, int k, int nb, double* restrict A, double* restrict B,
-                  const int* pivot_sign, double thresh, double* regul,
-                  int* n_reg_piv, double* times) {
+                const int* pivot_sign, double thresh, double* regul,
+                int* n_reg_piv, double* times) {
   // ===========================================================================
   // Blocked factorization in hybrid-packed format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
@@ -553,8 +553,8 @@ int denseFactHP(int n, int k, int nb, double* restrict A, double* restrict B,
     // factorize diagonal block
     double* regul_current = &regul[j * nb];
     const int* pivot_sign_current = &pivot_sign[j * nb];
-    int info = callAndTime_denseFactK('U', jb, D, jb, pivot_sign_current, thresh,
-                                regul_current, n_reg_piv, times);
+    int info = callAndTime_denseFactK('U', jb, D, jb, pivot_sign_current,
+                                      thresh, regul_current, n_reg_piv, times);
     if (info != 0) return info;
 
     if (M > 0) {
@@ -685,8 +685,8 @@ int denseFactHP(int n, int k, int nb, double* restrict A, double* restrict B,
 }
 
 int denseFactHH(int n, int k, int nb, double* A, double* B,
-                  const int* pivot_sign, double thresh, double* regul,
-                  int* n_reg_piv, double* times) {
+                const int* pivot_sign, double thresh, double* regul,
+                int* n_reg_piv, double* times) {
   // ===========================================================================
   // Blocked factorization in hybrid-hybrid format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
@@ -798,8 +798,8 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
     // factorize diagonal block
     const int* pivot_sign_current = &pivot_sign[j * nb];
     double* regul_current = &regul[j * nb];
-    int info = callAndTime_denseFactK('U', jb, D, jb, pivot_sign_current, thresh,
-                                regul_current, n_reg_piv, times);
+    int info = callAndTime_denseFactK('U', jb, D, jb, pivot_sign_current,
+                                      thresh, regul_current, n_reg_piv, times);
     if (info != 0) return info;
 
     if (M > 0) {
@@ -900,7 +900,7 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
 }
 
 int denseFactL2H(double* restrict A, int nrow, int ncol, int nb,
-                   double* times) {
+                 double* times) {
   // ===========================================================================
   // Takes a matrix in lower-packed format, with nrow rows.
   // Converts the first ncol columns into lower-blocked-hybrid format, with

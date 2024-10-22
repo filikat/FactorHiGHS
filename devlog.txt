@@ -1208,6 +1208,8 @@ It also required FormatHandler to have a virtual destructor (for some reason).
 I also modified FormatHandler so that the function init is now performed in the constructor.
 I was hoping to include terminate in the destructor, but it needs to know where to move the local copies. I could do this with extra parameters in the constructor, but it's annoying. I could do it with a custom deleter, but it becomes overly complicated with little benefit. I leave it as it is for now.
 ---
+Now each supernode has its own local regularization, that is summed to the total one at the end.
+---
 
 
 
@@ -1218,5 +1220,4 @@ To do:
 - check iterative refinement
 
 - atomic flag to block all threads if status\ne0
-- local copy of total_reg
 - timing with lock
