@@ -1,14 +1,14 @@
-#include "DenseFact.h"
-
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <vector>
+
 #include "../ProtoIPM/Regularization.h"
+#include "Blas_declaration.h"
 #include "CallAndTimeBlas.h"
-#include "DenseFact_declaration.h"
 #include "ReturnValues.h"
-#include "timing.h"
+#include "Timing.h"
 
 /*
 Names:
@@ -126,9 +126,8 @@ double regularizePivot(double pivot, double thresh, const int* sign,
   return pivot;
 }
 
-int denseFactK(char uplo, int n, double* restrict A, int lda,
-               const int* pivot_sign, double thresh, double* regul,
-               int* n_reg_piv) {
+int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
+               double thresh, double* regul, int* n_reg_piv, double* times) {
   // ===========================================================================
   // Factorization kernel.
   // BLAS calls: dgemv_, dscal_.
@@ -146,11 +145,7 @@ int denseFactK(char uplo, int n, double* restrict A, int lda,
   // main operations
   if (uplo == 'L') {
     // allocate space for copy of col multiplied by pivots
-    double* temp = malloc((n - 1) * sizeof(double));
-    if (!temp) {
-      printf("\ndense_fact_fiuf: out of memory\n");
-      return kRetOutOfMemory;
-    }
+    std::vector<double> temp(n - 1);
 
     for (int j = 0; j < n; ++j) {
       const int N = j;
@@ -173,8 +168,8 @@ int denseFactK(char uplo, int n, double* restrict A, int lda,
 
       // update column j
       if (j < n - 1) {
-        dgemv_(&c_N, &M, &N, &d_m_one, &A[j + 1], &lda, temp, &i_one, &d_one,
-               &A[j + 1 + j * lda], &i_one);
+        callAndTime_dgemv('N', M, N, -1.0, &A[j + 1], lda, temp.data(), 1, 1.0,
+                          &A[j + 1 + j * lda], 1, times);
       }
 
       // add regularization
@@ -189,18 +184,12 @@ int denseFactK(char uplo, int n, double* restrict A, int lda,
 
       // scale column j
       if (j < n - 1) {
-        dscal_(&M, &coeff, &A[j + 1 + j * lda], &i_one);
+        callAndTime_dscal(M, coeff, &A[j + 1 + j * lda], 1, times);
       }
     }
-    // free temporary copy of row
-    free(temp);
   } else {
     // allocate space for copy of col multiplied by pivots
-    double* temp = malloc((n - 1) * sizeof(double));
-    if (!temp) {
-      printf("\ndense_fact_fiuf: out of memory\n");
-      return kRetOutOfMemory;
-    }
+    std::vector<double> temp(n - 1);
 
     for (int j = 0; j < n; ++j) {
       const int N = j;
@@ -223,8 +212,8 @@ int denseFactK(char uplo, int n, double* restrict A, int lda,
 
       // update column j
       if (j < n - 1) {
-        dgemv_(&c_T, &N, &M, &d_m_one, &A[(j + 1) * lda], &lda, temp, &i_one,
-               &d_one, &A[j + (j + 1) * lda], &lda);
+        callAndTime_dgemv('T', N, M, -1.0, &A[(j + 1) * lda], lda, temp.data(),
+                          1, 1.0, &A[j + (j + 1) * lda], lda, times);
       }
 
       // add regularization
@@ -239,12 +228,9 @@ int denseFactK(char uplo, int n, double* restrict A, int lda,
 
       // scale column j
       if (j < n - 1) {
-        dscal_(&M, &coeff, &A[j + (j + 1) * lda], &lda);
+        callAndTime_dscal(M, coeff, &A[j + (j + 1) * lda], lda, times);
       }
     }
-
-    // free temporary copy of row
-    free(temp);
   }
 
   return kRetOk;
@@ -257,12 +243,7 @@ int denseFactK(char uplo, int n, double* restrict A, int lda,
 // A is used to access the first k columns, i.e., M(0:n-1,0:k-1).
 // B is used to access the remaining lower triangle, i.e., M(k:n-1,k:n-1).
 //
-// NB: the content of B is discarded.
-//
-// For indefinite matrices:
-// - 2x2 pivoting is not performed. If a zero pivot is found, the code stops.
-// - the elements of D are stored as diagonal entries of A; the unit diagonal
-//   entries of A are not stored.
+// No pivoting is performed. Regularization is used to deal with small pivots.
 //
 // These functions are similar to Lapack dpotrf("L", n, A, lda, info).
 //
@@ -286,11 +267,6 @@ int denseFactK(char uplo, int n, double* restrict A, int lda,
 //            can be larger if B is stored as a block of a larger martix.
 //            Not used if k >= n.
 //
-// Return:
-// - 0      : factorization successful
-// - i > 0  : i-th pivot illegal
-// - -1     : invalid input
-//
 // ===========================================================================
 // In the following, block D represents the current diagonal block, in the block
 // of columns that is being factorized. Block R is the rectangular block below
@@ -298,9 +274,9 @@ int denseFactK(char uplo, int n, double* restrict A, int lda,
 // the rectangular block below P. See the report for a full explanation.
 // ===========================================================================
 
-int denseFactF(int n, int k, int nb, double* restrict A, int lda,
-               double* restrict B, int ldb, const int* pivot_sign,
-               double thresh, double* regul, int* n_reg_piv, double* times) {
+int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
+               const int* pivot_sign, double thresh, double* regul,
+               int* n_reg_piv, double* times) {
   // ===========================================================================
   // Blocked factorization in full format.
   // BLAS calls: dcopy_, dscal_, dgemm_, dtrsm_, dsyrk_
@@ -318,7 +294,7 @@ int denseFactF(int n, int k, int nb, double* restrict A, int lda,
   // j is the starting col of the block of columns
   for (int j = 0; j < k; j += nb) {
     // jb is the size of the block
-    const int jb = min(nb, k - j);
+    const int jb = std::min(nb, k - j);
 
     // sizes for blas calls
     const int N = jb;
@@ -332,11 +308,8 @@ int denseFactF(int n, int k, int nb, double* restrict A, int lda,
     double* R = &A[j + N + lda * j];
 
     // create temporary copy of block of rows, multiplied by pivots
-    double* T = malloc(j * jb * sizeof(double));
-    if (!T) {
-      printf("\ndense_fact_pibf: out of memory\n");
-      return kRetOutOfMemory;
-    }
+    std::vector<double> T(j * jb);
+
     int ldt = jb;
     for (int i = 0; i < j; ++i) {
       callAndTime_dcopy(N, &A[j + i * lda], 1, &T[i * ldt], 1, times);
@@ -344,8 +317,8 @@ int denseFactF(int n, int k, int nb, double* restrict A, int lda,
     }
 
     // update diagonal block using dgemm_
-    callAndTime_dgemm('N', 'T', jb, jb, j, -1.0, P, lda, T, ldt, 1.0, D, lda,
-                      times);
+    callAndTime_dgemm('N', 'T', jb, jb, j, -1.0, P, lda, T.data(), ldt, 1.0, D,
+                      lda, times);
 
     // factorize diagonal block
     const int* pivot_sign_current = &pivot_sign[j];
@@ -356,8 +329,8 @@ int denseFactF(int n, int k, int nb, double* restrict A, int lda,
 
     if (j + jb < n) {
       // update block of columns
-      callAndTime_dgemm('N', 'T', M, N, K, -1.0, Q, lda, T, ldt, 1.0, R, lda,
-                        times);
+      callAndTime_dgemm('N', 'T', M, N, K, -1.0, Q, lda, T.data(), ldt, 1.0, R,
+                        lda, times);
 
       // solve block of columns with L
       callAndTime_dtrsm('R', 'L', 'T', 'U', M, N, 1.0, D, lda, R, lda, times);
@@ -368,8 +341,6 @@ int denseFactF(int n, int k, int nb, double* restrict A, int lda,
         callAndTime_dscal(M, coeff, &A[j + jb + lda * (j + i)], 1, times);
       }
     }
-
-    free(T);
   }
 
   // update Schur complement
@@ -388,16 +359,8 @@ int denseFactF(int n, int k, int nb, double* restrict A, int lda,
     }
 
     // make temporary copies of positive and negative columns separately
-    double* temp_pos = malloc((n - k) * pos_pivot * sizeof(double));
-    if (!temp_pos) {
-      printf("\ndense_fact_pibf: out of memory\n");
-      return kRetOutOfMemory;
-    }
-    double* temp_neg = malloc((n - k) * neg_pivot * sizeof(double));
-    if (!temp_neg) {
-      printf("\ndense_fact_pibf: out of memory\n");
-      return kRetOutOfMemory;
-    }
+    std::vector<double> temp_pos((n - k) * pos_pivot);
+    std::vector<double> temp_neg((n - k) * neg_pivot);
 
     const int ldt = n - k;
 
@@ -426,19 +389,16 @@ int denseFactF(int n, int k, int nb, double* restrict A, int lda,
     // In this way, I can use dsyrk_ instead of dgemm_ and avoid updating the
     // full square schur complement.
 
-    callAndTime_dsyrk('L', 'N', N, pos_pivot, -1.0, temp_pos, ldt, 1.0, B, ldb,
-                      times);
-    callAndTime_dsyrk('L', 'N', N, neg_pivot, 1.0, temp_neg, ldt, 1.0, B, ldb,
-                      times);
-
-    free(temp_pos);
-    free(temp_neg);
+    callAndTime_dsyrk('L', 'N', N, pos_pivot, -1.0, temp_pos.data(), ldt, 1.0,
+                      B, ldb, times);
+    callAndTime_dsyrk('L', 'N', N, neg_pivot, 1.0, temp_neg.data(), ldt, 1.0, B,
+                      ldb, times);
   }
 
   return kRetOk;
 }
 
-int denseFactHP(int n, int k, int nb, double* restrict A, double* restrict B,
+int denseFactHP(int n, int k, int nb, double* A, double* B,
                 const int* pivot_sign, double thresh, double* regul,
                 int* n_reg_piv, double* times) {
   // ===========================================================================
@@ -463,11 +423,8 @@ int denseFactHP(int n, int k, int nb, double* restrict A, double* restrict B,
   const int n_blocks = (k - 1) / nb + 1;
 
   // start of diagonal blocks
-  int* diag_start = malloc(n_blocks * sizeof(double));
-  if (!diag_start) {
-    printf("\ndense_fact_pibh: out of memory\n");
-    return kRetOutOfMemory;
-  }
+  std::vector<int> diag_start(n_blocks);
+
   diag_start[0] = 0;
   for (int i = 1; i < n_blocks; ++i) {
     diag_start[i] =
@@ -482,23 +439,15 @@ int denseFactHP(int n, int k, int nb, double* restrict A, double* restrict B,
   int info;
 
   // buffer for full-format diagonal blocks
-  double* D = malloc(nb * nb * sizeof(double));
-  if (!D) {
-    printf("\ndense_fact_pibh: out of memory\n");
-    return kRetOutOfMemory;
-  }
+  std::vector<double> D(nb * nb);
 
   // buffer for copy of block scaled by pivots
-  double* T = malloc(nb * nb * sizeof(double));
-  if (!T) {
-    printf("\ndense_fact_pibh: out of memory\n");
-    return kRetOutOfMemory;
-  }
+  std::vector<double> T(nb * nb);
 
   // j is the index of the block column
   for (int j = 0; j < n_blocks; ++j) {
     // jb is the number of columns
-    const int jb = min(nb, k - nb * j);
+    const int jb = std::min(nb, k - nb * j);
 
     // size of current block could be smaller than diag_size and full_size
     const int this_diag_size = jb * (jb + 1) / 2;
@@ -528,7 +477,7 @@ int denseFactHP(int n, int k, int nb, double* restrict A, double* restrict B,
       const double* Pk = &A[Pk_pos];
 
       // copy block jk into temp
-      callAndTime_dcopy(this_full_size, Pk, 1, T, 1, times);
+      callAndTime_dcopy(this_full_size, Pk, 1, T.data(), 1, times);
 
       // scale temp by pivots
       int pivot_pos = diag_start[k];
@@ -538,28 +487,29 @@ int denseFactHP(int n, int k, int nb, double* restrict A, double* restrict B,
       }
 
       // update diagonal block with dgemm_
-      callAndTime_dgemm('T', 'N', jb, jb, nb, -1.0, T, nb, Pk, nb, 1.0, D, jb,
-                        times);
+      callAndTime_dgemm('T', 'N', jb, jb, nb, -1.0, T.data(), nb, Pk, nb, 1.0,
+                        D.data(), jb, times);
 
       // update rectangular block
       if (M > 0) {
         const int Qk_pos = Pk_pos + this_full_size;
         const double* Qk = &A[Qk_pos];
-        callAndTime_dgemm('T', 'N', jb, M, nb, -1.0, T, nb, Qk, nb, 1.0, R, jb,
-                          times);
+        callAndTime_dgemm('T', 'N', jb, M, nb, -1.0, T.data(), nb, Qk, nb, 1.0,
+                          R, jb, times);
       }
     }
 
     // factorize diagonal block
     double* regul_current = &regul[j * nb];
     const int* pivot_sign_current = &pivot_sign[j * nb];
-    int info = callAndTime_denseFactK('U', jb, D, jb, pivot_sign_current,
+    int info = callAndTime_denseFactK('U', jb, D.data(), jb, pivot_sign_current,
                                       thresh, regul_current, n_reg_piv, times);
     if (info != 0) return info;
 
     if (M > 0) {
       // solve block of columns with diagonal block
-      callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D, jb, R, jb, times);
+      callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D.data(), jb, R, jb,
+                        times);
 
       // scale columns by pivots
       int pivot_pos = 0;
@@ -579,7 +529,6 @@ int denseFactHP(int n, int k, int nb, double* restrict A, double* restrict B,
       offset += N;
     }
   }
-  free(D);
 
   // compute Schur complement if partial factorization is required
   if (k < n) {
@@ -593,11 +542,7 @@ int denseFactHP(int n, int k, int nb, double* restrict A, double* restrict B,
     double beta = 0.0;
 
     // buffer for full-format of block of columns of Schur complement
-    double* schur_buf = malloc(ns * nb * sizeof(double));
-    if (!schur_buf) {
-      printf("\ndense_fact_pibh: out of memory\n");
-      return kRetOutOfMemory;
-    }
+    std::vector<double> schur_buf(ns * nb);
 
     // number of blocks in Schur complement
     const int s_blocks = (ns - 1) / nb + 1;
@@ -612,7 +557,7 @@ int denseFactHP(int n, int k, int nb, double* restrict A, double* restrict B,
       const int nrow = ns - nb * sb;
 
       // number of columns of the block
-      const int ncol = min(nb, nrow);
+      const int ncol = std::min(nb, nrow);
 
       // number of elements in diagonal block
       const int schur_diag_size = ncol * (ncol + 1) / 2;
@@ -622,7 +567,7 @@ int denseFactHP(int n, int k, int nb, double* restrict A, double* restrict B,
       // each block receives contributions from the blocks of the leading part
       // of A
       for (int j = 0; j < n_blocks; ++j) {
-        const int jb = min(nb, k - nb * j);
+        const int jb = std::min(nb, k - nb * j);
         const int this_diag_size = jb * (jb + 1) / 2;
         const int this_full_size = nb * jb;
 
@@ -635,7 +580,7 @@ int denseFactHP(int n, int k, int nb, double* restrict A, double* restrict B,
 
         // create copy of block, multiplied by pivots
         const int N = ncol * jb;
-        callAndTime_dcopy(N, &A[diag_pos], 1, T, 1, times);
+        callAndTime_dcopy(N, &A[diag_pos], 1, T.data(), 1, times);
 
         int pivot_pos = diag_start[j];
 
@@ -649,13 +594,13 @@ int denseFactHP(int n, int k, int nb, double* restrict A, double* restrict B,
         // printf("A: size %d, access %d\n", sizeA, diag_pos + ncol * jb);
         // printf("S: size %d, acceess %d\n", ns * nb, ncol * ncol);
 
-        callAndTime_dgemm('T', 'N', ncol, ncol, jb, -1.0, &A[diag_pos], jb, T,
-                          jb, beta, schur_buf, ncol, times);
+        callAndTime_dgemm('T', 'N', ncol, ncol, jb, -1.0, &A[diag_pos], jb,
+                          T.data(), jb, beta, schur_buf.data(), ncol, times);
 
         // update subdiagonal part
         const int M = nrow - nb;
         if (M > 0) {
-          callAndTime_dgemm('T', 'N', ncol, M, jb, -1.0, T, jb,
+          callAndTime_dgemm('T', 'N', ncol, M, jb, -1.0, T.data(), jb,
                             &A[diag_pos + this_full_size], jb, beta,
                             &schur_buf[ncol * ncol], ncol, times);
         }
@@ -674,12 +619,7 @@ int denseFactHP(int n, int k, int nb, double* restrict A, double* restrict B,
       }
       B_start += nrow * ncol;
     }
-
-    free(schur_buf);
   }
-
-  free(T);
-  free(diag_start);
 
   return kRetOk;
 }
@@ -707,11 +647,7 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
   const int n_blocks = (k - 1) / nb + 1;
 
   // start of diagonal blocks
-  int* diag_start = malloc(n_blocks * sizeof(double));
-  if (!diag_start) {
-    printf("\ndense_fact_pibs: out of memory\n");
-    return kRetOutOfMemory;
-  }
+  std::vector<int> diag_start(n_blocks);
   diag_start[0] = 0;
   for (int i = 1; i < n_blocks; ++i) {
     diag_start[i] =
@@ -726,23 +662,15 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
   int info;
 
   // buffer for full-format diagonal blocks
-  double* D = malloc(nb * nb * sizeof(double));
-  if (!D) {
-    printf("\ndense_fact_pibs: out of memory\n");
-    return kRetOutOfMemory;
-  }
+  std::vector<double> D(nb * nb);
 
   // buffer for copy of block scaled by pivots
-  double* T = malloc(nb * nb * sizeof(double));
-  if (!T) {
-    printf("\ndense_fact_pibs: out of memory\n");
-    return kRetOutOfMemory;
-  }
+  std::vector<double> T(nb * nb);
 
   // j is the index of the block column
   for (int j = 0; j < n_blocks; ++j) {
     // jb is the number of columns
-    const int jb = min(nb, k - nb * j);
+    const int jb = std::min(nb, k - nb * j);
 
     // size of current block could be smaller than diag_size and full_size
     const int this_diag_size = jb * (jb + 1) / 2;
@@ -772,7 +700,7 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
       const double* Pk = &A[Pk_pos];
 
       // copy block jk into temp
-      callAndTime_dcopy(this_full_size, Pk, 1, T, 1, times);
+      callAndTime_dcopy(this_full_size, Pk, 1, T.data(), 1, times);
 
       // scale temp by pivots
       int pivot_pos = diag_start[k];
@@ -782,29 +710,30 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
       }
 
       // update diagonal block with dgemm_
-      callAndTime_dgemm('T', 'N', jb, jb, nb, -1.0, T, nb, Pk, nb, 1.0, D, jb,
-                        times);
+      callAndTime_dgemm('T', 'N', jb, jb, nb, -1.0, T.data(), nb, Pk, nb, 1.0,
+                        D.data(), jb, times);
 
       // update rectangular block
       if (M > 0) {
         const int Qk_pos = Pk_pos + this_full_size;
         double* Qk = &A[Qk_pos];
 
-        callAndTime_dgemm('T', 'N', jb, M, nb, -1.0, T, nb, Qk, nb, 1.0, R, jb,
-                          times);
+        callAndTime_dgemm('T', 'N', jb, M, nb, -1.0, T.data(), nb, Qk, nb, 1.0,
+                          R, jb, times);
       }
     }
 
     // factorize diagonal block
     const int* pivot_sign_current = &pivot_sign[j * nb];
     double* regul_current = &regul[j * nb];
-    int info = callAndTime_denseFactK('U', jb, D, jb, pivot_sign_current,
+    int info = callAndTime_denseFactK('U', jb, D.data(), jb, pivot_sign_current,
                                       thresh, regul_current, n_reg_piv, times);
     if (info != 0) return info;
 
     if (M > 0) {
       // solve block of columns with diagonal block
-      callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D, jb, R, jb, times);
+      callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D.data(), jb, R, jb,
+                        times);
 
       // scale columns by pivots
       int pivot_pos = 0;
@@ -824,7 +753,6 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
       offset += N;
     }
   }
-  free(D);
 
   // compute Schur complement if partial factorization is required
   if (k < n) {
@@ -851,12 +779,12 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
       const int nrow = ns - nb * sb;
 
       // number of columns of the block
-      const int ncol = min(nb, nrow);
+      const int ncol = std::min(nb, nrow);
 
       // each block receives contributions from the blocks of the leading part
       // of A
       for (int j = 0; j < n_blocks; ++j) {
-        const int jb = min(nb, k - nb * j);
+        const int jb = std::min(nb, k - nb * j);
         const int this_diag_size = jb * (jb + 1) / 2;
         const int this_full_size = nb * jb;
 
@@ -869,7 +797,7 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
 
         // create copy of block, multiplied by pivots
         const int N = ncol * jb;
-        callAndTime_dcopy(N, &A[diag_pos], 1, T, 1, times);
+        callAndTime_dcopy(N, &A[diag_pos], 1, T.data(), 1, times);
 
         int pivot_pos = diag_start[j];
         for (int col = 0; col < jb; ++col) {
@@ -878,13 +806,13 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
         }
 
         // update diagonal block using dgemm_
-        callAndTime_dgemm('T', 'N', ncol, ncol, jb, -1.0, T, jb, &A[diag_pos],
-                          jb, 1.0, schur_buf, ncol, times);
+        callAndTime_dgemm('T', 'N', ncol, ncol, jb, -1.0, T.data(), jb,
+                          &A[diag_pos], jb, 1.0, schur_buf, ncol, times);
 
         // update subdiagonal part
         const int M = nrow - nb;
         if (M > 0) {
-          callAndTime_dgemm('T', 'N', ncol, M, jb, -1.0, T, jb,
+          callAndTime_dgemm('T', 'N', ncol, M, jb, -1.0, T.data(), jb,
                             &A[diag_pos + this_full_size], jb, 1.0,
                             &schur_buf[ncol * ncol], ncol, times);
         }
@@ -893,14 +821,10 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
     }
   }
 
-  free(T);
-  free(diag_start);
-
   return kRetOk;
 }
 
-int denseFactL2H(double* restrict A, int nrow, int ncol, int nb,
-                 double* times) {
+int denseFactL2H(double* A, int nrow, int ncol, int nb, double* times) {
   // ===========================================================================
   // Takes a matrix in lower-packed format, with nrow rows.
   // Converts the first ncol columns into lower-blocked-hybrid format, with
@@ -912,11 +836,8 @@ int denseFactL2H(double* restrict A, int nrow, int ncol, int nb,
   double t0 = GetTime();
 #endif
 
-  double* buf = malloc(nrow * nb * sizeof(double));
-  if (!buf) {
-    printf("\ndense_fact_l2h: out of memory\n");
-    return kRetOutOfMemory;
-  }
+  std::vector<double> buf(nrow * nb);
+
   int startAtoBuf = 0;
   int startBuftoA = 0;
 
@@ -927,7 +848,7 @@ int denseFactL2H(double* restrict A, int nrow, int ncol, int nb,
     // back.
 
     // Number of columns in the block. Can be smaller than nb for last block.
-    const int block_size = min(nb, ncol - k * nb);
+    const int block_size = std::min(nb, ncol - k * nb);
 
     // Number of rows in the block
     const int row_size = nrow - k * nb;
@@ -936,7 +857,7 @@ int denseFactL2H(double* restrict A, int nrow, int ncol, int nb,
     for (int j = 0; j < block_size; ++j) {
       // Copy each column in the block
       const int N = row_size - j;
-      dcopy_(&N, &A[startAtoBuf], &i_one, &buf[startBuf], &i_one);
+      callAndTime_dcopy(N, &A[startAtoBuf], 1, &buf[startBuf], 1, times);
       startAtoBuf += N;
 
       // +1 to align rows
@@ -946,13 +867,11 @@ int denseFactL2H(double* restrict A, int nrow, int ncol, int nb,
     // Copy columns back into A, row by row.
     // One call of dcopy_ for each row of the block of columns.
     for (int i = 0; i < row_size; ++i) {
-      const int N = min(i + 1, block_size);
-      dcopy_(&N, &buf[i], &row_size, &A[startBuftoA], &i_one);
+      const int N = std::min(i + 1, block_size);
+      callAndTime_dcopy(N, &buf[i], row_size, &A[startBuftoA], 1, times);
       startBuftoA += N;
     }
   }
-
-  free(buf);
 
 #ifdef FINEST_TIMING
   times[kTimeDenseFact_convert] += GetTime() - t0;

@@ -1340,8 +1340,6 @@ int Analyse::run() {
 
   if (!ready_) return kRetGeneric;
 
-  DC_.times().resize(kTimeSize);
-
   Clock clock_total{};
   Clock clock_items{};
 

@@ -6,7 +6,7 @@
 // - TIMING_1: basic timing
 // - TIMING_2: advanced timing
 // - TIMING_3: extreme timing (it slows down considerably)
-#define TIMING_2
+#define TIMING_3
 
 // define for timing
 #if (defined(TIMING_1) || defined(TIMING_2) || defined(TIMING_3))
@@ -42,13 +42,14 @@ enum TimeItems {
   kTimeFactoriseAssembleChildrenClique,   // TIMING_3
   kTimeFactoriseDenseFact,                // TIMING_2
   // DenseFact items
+  kTimeDenseFact_copy,     // TIMING_3
+  kTimeDenseFact_axpy,     // TIMING_3
+  kTimeDenseFact_scal,     // TIMING_3
+  kTimeDenseFact_gemv,     // TIMING_3
   kTimeDenseFact_trsm,     // TIMING_3
   kTimeDenseFact_syrk,     // TIMING_3
   kTimeDenseFact_gemm,     // TIMING_3
   kTimeDenseFact_fact,     // TIMING_3
-  kTimeDenseFact_copy,     // TIMING_3
-  kTimeDenseFact_axpy,     // TIMING_3
-  kTimeDenseFact_scal,     // TIMING_3
   kTimeDenseFact_convert,  // TIMING_3
   // Solve times
   kTimeSolve,  // TIMING_1

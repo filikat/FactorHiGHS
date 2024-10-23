@@ -3,10 +3,12 @@
 
 #include <vector>
 
-#include "timing.h"
+#include "Timing.h"
 
 class DataCollector {
  public:
+  DataCollector();
+
   // ==== Times ====
   std::vector<double> times_{};
 

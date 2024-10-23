@@ -1,22 +1,27 @@
 #ifndef DENSE_FACT_H
 #define DENSE_FACT_H
 
-#include <time.h>
+// dense factorization kernel
+int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
+               double thresh, double* regul, int* n_reg_piv, double* times);
 
-#include "Blas_declaration.h"
+// dense partial factorization, with blocks
+int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
+               const int* pivot_sign, double thresh, double* regul,
+               int* n_reg_piv, double* times);
 
-#define max(i, j) ((i) >= (j) ? (i) : (j))
-#define min(i, j) ((i) >= (j) ? (j) : (i))
+// dense partial factorization, in blocked-hybrid format
+int denseFactHP(int n, int k, int nb, double* A, double* B,
+                const int* pivot_sign, double thresh, double* regul,
+                int* n_reg_piv, double* times);
 
-// variables for BLAS calls
-const double d_one = 1.0;
-const double d_zero = 0.0;
-const double d_m_one = -1.0;
-const int i_one = 1;
-const char c_L = 'L';
-const char c_N = 'N';
-const char c_R = 'R';
-const char c_T = 'T';
-const char c_U = 'U';
+// dense partial factorization, in blocked-hybrid format with hybrid Schur
+// complement
+int denseFactHH(int n, int k, int nb, double* A, double* B,
+                const int* pivot_sign, double thresh, double* regul,
+                int* n_reg_piv, double* times);
+
+// function to convert A from lower packed, to lower-blocked-hybrid format
+int denseFactL2H(double* A, int nrow, int ncol, int nb, double* times);
 
 #endif

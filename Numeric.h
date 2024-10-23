@@ -5,9 +5,8 @@
 
 #include "Auxiliary.h"
 #include "Blas_declaration.h"
-#include "DenseFact_declaration.h"
 #include "Symbolic.h"
-#include "timing.h"
+#include "Timing.h"
 #include "DataCollector.h"
 
 class Numeric {

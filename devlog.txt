@@ -1213,6 +1213,18 @@ Now each supernode has its own local regularization, that is summed to the total
 I added a flag to stop the computation. If something goes wrong in a supernode, the flag is set. During the computation, other supernodes should check the flag and stop if it is set.
 I think the flag should be atomic, but it probably works with a normal bool (?).
 ---
+Adding a lock to the record of times requires to access it in a specific way.
+I cannot do it now, because DenseFact accesses the whole vector, since it is in C.
+I need to change DenseFact to cpp before doing this.
+I need to do it anyway, since DenseFact should eventually use the scheduler as well.
+---
+
+*****
+23 Oct 2024
+I switched DenseFact to cpp. Now there are no c files to compile.
+I left the functions C-like, instead of making them into an object. It doesn't seem worth it to over complicate things.
+I have a small issue with the timing. The time for fact and convert now include the time for the BLAS calls. I don't want to create a fourth level of timing though. I will leave like this for now.
+---
 
 
 

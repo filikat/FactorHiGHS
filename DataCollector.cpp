@@ -1,5 +1,7 @@
 #include "DataCollector.h"
 
+DataCollector::DataCollector() { times_.resize(kTimeSize); }
+
 double& DataCollector::times(TimeItems i) { return times_[i]; }
 std::vector<double>& DataCollector::times() { return times_; }
 
@@ -75,23 +77,23 @@ void DataCollector::printTimes() const {
 
 #ifdef FINEST_TIMING
   printf("\n");
-  printf("\t\ttrsm:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_trsm],
-         times_[kTimeDenseFact_trsm] / times_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\tsyrk:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_syrk],
-         times_[kTimeDenseFact_syrk] / times_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\tgemm:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_gemm],
-         times_[kTimeDenseFact_gemm] / times_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\tfact:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_fact],
-         times_[kTimeDenseFact_fact] / times_[kTimeFactoriseDenseFact] * 100);
   printf("\t\tcopy:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_copy],
          times_[kTimeDenseFact_copy] / times_[kTimeFactoriseDenseFact] * 100);
   printf("\t\taxpy:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_axpy],
          times_[kTimeDenseFact_axpy] / times_[kTimeFactoriseDenseFact] * 100);
   printf("\t\tscal:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_scal],
          times_[kTimeDenseFact_scal] / times_[kTimeFactoriseDenseFact] * 100);
-  printf(
-      "\t\tconvert:        %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_convert],
-      times_[kTimeDenseFact_convert] / times_[kTimeFactoriseDenseFact] * 100);
+  printf("\t\tgemv:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_gemv],
+         times_[kTimeDenseFact_gemv] / times_[kTimeFactoriseDenseFact] * 100);
+  printf("\t\ttrsm:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_trsm],
+         times_[kTimeDenseFact_trsm] / times_[kTimeFactoriseDenseFact] * 100);
+  printf("\t\tsyrk:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_syrk],
+         times_[kTimeDenseFact_syrk] / times_[kTimeFactoriseDenseFact] * 100);
+  printf("\t\tgemm:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_gemm],
+         times_[kTimeDenseFact_gemm] / times_[kTimeFactoriseDenseFact] * 100);
+
+  printf("\t\tfact:           %8.4f\n", times_[kTimeDenseFact_fact]);
+  printf("\t\tconvert:        %8.4f\n", times_[kTimeDenseFact_convert]);
 #endif
   printf("----------------------------------------------------\n");
   printf("Solve time              \t%8.4f\n", times_[kTimeSolve]);

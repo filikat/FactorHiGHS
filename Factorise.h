@@ -6,7 +6,6 @@
 #include "Auxiliary.h"
 #include "Blas_declaration.h"
 #include "DataCollector.h"
-#include "DenseFact_declaration.h"
 #include "FormatHandler.h"
 #include "Numeric.h"
 #include "ReturnValues.h"

@@ -6,7 +6,7 @@
 #include "Auxiliary.h"
 #include "Blas_declaration.h"
 #include "DataCollector.h"
-#include "DenseFact_declaration.h"
+#include "DenseFact.h"
 #include "Symbolic.h"
 
 // Interface class to handle different formats of dense matrices during the

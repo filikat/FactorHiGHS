@@ -15,13 +15,10 @@ cpp_sources = \
 	FormatHandler.cpp \
 	FullFormatHandler.cpp \
 	HybridPackedFormatHandler.cpp \
-	HybridHybridFormatHandler.cpp
-
-c_sources = \
-	hsl_wrapper.c \
-	DenseFact.c \
-	CallAndTimeBlas.c \
-	timing.c
+	HybridHybridFormatHandler.cpp \
+	DenseFact.cpp \
+	CallAndTimeBlas.cpp \
+	Timing.cpp
 
 # binary file name
 binary_name = fact
@@ -31,11 +28,9 @@ objdir = obj
 
 # compilers
 CPP = /opt/homebrew/Cellar/llvm/17.0.6_1/bin/clang++
-CC = /opt/homebrew/Cellar/llvm/17.0.6_1/bin/clang
 
 # compiler flags
 CPPFLAGS = -std=c++11 -O3 -g3 -Wno-deprecated #-fsanitize=address
-CFLAGS = -O3 -g3 #-fsanitize=address
 
 # includes and libraries
 includes = -I$(highs_path)/build -I$(highs_path)/src/ -I$(metis_path)/include -I$(local_path)/include
@@ -48,14 +43,13 @@ OPENMP_FLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebr
 
 # name of objects
 cpp_objects = $(cpp_sources:%.cpp=$(objdir)/%.o)
-c_objects = $(c_sources:%.c=$(objdir)/%.o)
 
 # dependency files
 dep = $(cpp_sources:%.cpp=$(objdir)/%.d)
 
 
 # link
-$(binary_name): $(cpp_objects) $(c_objects)
+$(binary_name): $(cpp_objects)
 	@echo Linking objects into $@
 	@$(CPP) $(CPPFLAGS) $(OPENMP_FLAGS) $(libs_path) $(libs) $^ -o $@
 
@@ -67,13 +61,6 @@ $(cpp_objects): $(objdir)/%.o: %.cpp
 	@echo Compiling $<
 	@mkdir -p $(@D)
 	@$(CPP) -MMD -c $(CPPFLAGS) $(includes) $< -o $@
-
-# compile c
-$(c_objects): $(objdir)/%.o: %.c
-	@echo Compiling $<
-	@mkdir -p $(@D)
-	@$(CC) -MMD -c $(CFLAGS) $(includes) $< -o $@
-
 
 .PHONY : clean
 clean: 
