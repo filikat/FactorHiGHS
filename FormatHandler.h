@@ -30,6 +30,8 @@ class FormatHandler {
   // symbolic object
   const Symbolic* S_;
 
+  DataCollector& DC_;
+
   // supernode being processed
   const int sn_{};
 
@@ -51,7 +53,7 @@ class FormatHandler {
   std::vector<double> local_reg_{};
 
  public:
-  FormatHandler(const Symbolic& S, int sn);
+  FormatHandler(const Symbolic& S, DataCollector& DC, int sn);
   void terminate(std::vector<double>& frontal, std::vector<double>& clique,
                  std::vector<double>& total_reg);
 
@@ -75,14 +77,13 @@ class FormatHandler {
                                        int j) = 0;
   virtual void assembleClique(const std::vector<double>& child, int nc,
                               int child_sn) = 0;
-  virtual int denseFactorise(double reg_thresh, int& n_reg_piv,
-                             std::vector<double>& times) = 0;
+  virtual int denseFactorise(double reg_thresh) = 0;
 
   // =================================================================
   // Virtual functions.
   // These may be overridden by derived classes, if needed.
   // =================================================================
-  virtual void extremeEntries(DataCollector& DC) {}
+  virtual void extremeEntries() {}
 };
 
 // Constants for BLAS calls

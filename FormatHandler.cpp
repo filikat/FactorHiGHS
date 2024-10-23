@@ -1,7 +1,8 @@
 #include "FormatHandler.h"
 
-FormatHandler::FormatHandler(const Symbolic& S, int sn)
+FormatHandler::FormatHandler(const Symbolic& S, DataCollector& DC, int sn)
     : S_{&S},
+      DC_{DC},
       sn_{sn},
       nb_{S_->blockSize()},
       sn_size_{S_->snStart(sn_ + 1) - S_->snStart(sn_)},

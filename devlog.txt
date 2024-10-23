@@ -1225,7 +1225,11 @@ I switched DenseFact to cpp. Now there are no c files to compile.
 I left the functions C-like, instead of making them into an object. It doesn't seem worth it to over complicate things.
 I have a small issue with the timing. The time for fact and convert now include the time for the BLAS calls. I don't want to create a fourth level of timing though. I will leave like this for now.
 ---
-
+I have changed the DataCollector so that the times and regularized pivots are set with a function.
+This will allow the use of a lock when the code is parallel.
+The lock will need to be used also for extremeEntries.
+I also modified the way the maximum regularization is computed.
+---
 
 
 *****
@@ -1233,5 +1237,3 @@ To do:
 - row growth factor (and store inverse of D?)
 - parallel stuff
 - check iterative refinement
-
-- timing with lock

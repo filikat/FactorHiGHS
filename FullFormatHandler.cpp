@@ -1,7 +1,8 @@
 #include "FullFormatHandler.h"
 
-FullFormatHandler::FullFormatHandler(const Symbolic& S, int sn)
-    : FormatHandler(S, sn) {
+FullFormatHandler::FullFormatHandler(const Symbolic& S, DataCollector& DC,
+                                     int sn)
+    : FormatHandler(S, DC, sn) {
   // initialize frontal and clique
   initFrontal();
   initClique();
@@ -25,8 +26,7 @@ void FullFormatHandler::assembleFrontalMultiple(
          &i_one);
 }
 
-int FullFormatHandler::denseFactorise(double reg_thresh, int& n_reg_piv,
-                                      std::vector<double>& times) {
+int FullFormatHandler::denseFactorise(double reg_thresh) {
   int status;
 
   // find the position within pivot_sign corresponding to this supernode
@@ -35,7 +35,7 @@ int FullFormatHandler::denseFactorise(double reg_thresh, int& n_reg_piv,
 
   status = denseFactF(ldf_, sn_size_, nb_, frontal_.data(), ldf_,
                       clique_.data(), ldc_, pivot_sign, reg_thresh,
-                      local_reg_.data(), &n_reg_piv, times.data());
+                      local_reg_.data(), DC_);
 
   return status;
 }
@@ -72,7 +72,7 @@ void FullFormatHandler::assembleClique(const std::vector<double>& child, int nc,
   }
 }
 
-void FullFormatHandler::extremeEntries(DataCollector& DC) {
+void FullFormatHandler::extremeEntries() {
   double minD = 1e100;
   double maxD = 0.0;
   double minoffD = 1e100;
@@ -92,5 +92,5 @@ void FullFormatHandler::extremeEntries(DataCollector& DC) {
     }
   }
 
-  DC.extremeEntries(minD, maxD, minoffD, maxoffD);
+  DC_.extremeEntries(minD, maxD, minoffD, maxoffD);
 }

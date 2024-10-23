@@ -10,14 +10,13 @@ class HybridHybridFormatHandler : public FormatHandler {
   void assembleFrontalMultiple(int num, const std::vector<double>& child,
                                int nc, int child_sn, int row, int col, int i,
                                int j) override;
-  int denseFactorise(double reg_thresh, int& n_reg_piv,
-                     std::vector<double>& times) override;
+  int denseFactorise(double reg_thresh) override;
   void assembleClique(const std::vector<double>& child, int nc,
                       int child_sn) override;
-  void extremeEntries(DataCollector& DC) override;
+  void extremeEntries() override;
 
  public:
-  HybridHybridFormatHandler(const Symbolic& S, int sn);
+  HybridHybridFormatHandler(const Symbolic& S,DataCollector& DC, int sn);
 };
 
 #endif

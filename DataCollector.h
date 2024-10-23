@@ -12,9 +12,7 @@ class DataCollector {
   // ==== Times ====
   std::vector<double> times_{};
 
-  double& times(TimeItems i);
-  std::vector<double>& times();
-
+  void sumTime(TimeItems i, double t);
   void printTimes() const;
 
   // ==== Symbolic factorization statistics ====
@@ -30,11 +28,14 @@ class DataCollector {
   int serial_storage_{};
   void printSymbolic(bool verbose = false) const;
 
-  // ==== Data ====
+  // ==== Other statistics ====
   double minD_, maxD_, minL_, maxL_;
   double max_reg_;
   double worst_res_;
   int n_reg_piv_;
+
+  void sumRegPiv();
+  void setMaxReg(double new_reg);
 
   void resetExtremeEntries();
   void extremeEntries(double minD, double maxD, double minoffD, double maxoffD);

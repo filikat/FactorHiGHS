@@ -1,7 +1,8 @@
 #include "HybridPackedFormatHandler.h"
 
-HybridPackedFormatHandler::HybridPackedFormatHandler(const Symbolic& S, int sn)
-    : FormatHandler(S, sn) {
+HybridPackedFormatHandler::HybridPackedFormatHandler(const Symbolic& S,
+                                                     DataCollector& DC, int sn)
+    : FormatHandler(S, DC, sn) {
   // initialize frontal and clique
   initFrontal();
   initClique();
@@ -33,11 +34,10 @@ void HybridPackedFormatHandler::assembleFrontalMultiple(
          &frontal_[i + ldf_ * j - j * (j + 1) / 2], &i_one);
 }
 
-int HybridPackedFormatHandler::denseFactorise(double reg_thresh, int& n_reg_piv,
-                                              std::vector<double>& times) {
+int HybridPackedFormatHandler::denseFactorise(double reg_thresh) {
   int status;
 
-  status = denseFactL2H(frontal_.data(), ldf_, sn_size_, nb_, times.data());
+  status = denseFactL2H(frontal_.data(), ldf_, sn_size_, nb_, DC_);
   if (status) return status;
 
   // find the position within pivot_sign corresponding to this supernode
@@ -45,8 +45,7 @@ int HybridPackedFormatHandler::denseFactorise(double reg_thresh, int& n_reg_piv,
   const int* pivot_sign = &S_->pivotSign().data()[sn_start];
 
   status = denseFactHP(ldf_, sn_size_, nb_, frontal_.data(), clique_.data(),
-                       pivot_sign, reg_thresh, local_reg_.data(), &n_reg_piv,
-                       times.data());
+                       pivot_sign, reg_thresh, local_reg_.data(), DC_);
 
   return status;
 }
@@ -98,7 +97,7 @@ void HybridPackedFormatHandler::assembleClique(const std::vector<double>& child,
   }
 }
 
-void HybridPackedFormatHandler::extremeEntries(DataCollector& DC) {
+void HybridPackedFormatHandler::extremeEntries() {
   double minD = 1e100;
   double maxD = 0.0;
   double minoffD = 1e100;
@@ -143,5 +142,5 @@ void HybridPackedFormatHandler::extremeEntries(DataCollector& DC) {
     }
   }
 
-  DC.extremeEntries(minD, maxD, minoffD, maxoffD);
+  DC_.extremeEntries(minD, maxD, minoffD, maxoffD);
 }

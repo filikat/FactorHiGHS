@@ -125,17 +125,18 @@ void Factorise::permute(const std::vector<int>& iperm) {
   valA_ = std::move(new_val);
 }
 
-std::unique_ptr<FormatHandler> getFormatHandler(const Symbolic& S, int sn) {
+std::unique_ptr<FormatHandler> getFormatHandler(const Symbolic& S,
+                                                DataCollector& DC, int sn) {
   std::unique_ptr<FormatHandler> ptr;
   switch (S.formatType()) {
     case FormatType::Full:
-      ptr.reset(new FullFormatHandler(S, sn));
+      ptr.reset(new FullFormatHandler(S, DC, sn));
       break;
     case FormatType::HybridPacked:
-      ptr.reset(new HybridPackedFormatHandler(S, sn));
+      ptr.reset(new HybridPackedFormatHandler(S, DC, sn));
       break;
     case FormatType::HybridHybrid:
-      ptr.reset(new HybridHybridFormatHandler(S, sn));
+      ptr.reset(new HybridHybridFormatHandler(S, DC, sn));
       break;
   }
   return ptr;
@@ -162,10 +163,10 @@ void Factorise::processSupernode(int sn) {
 
   // initialize the format handler
   // this also allocates space for the frontal matrix and schur complement
-  std::unique_ptr<FormatHandler> FH = getFormatHandler(S_, sn);
+  std::unique_ptr<FormatHandler> FH = getFormatHandler(S_, DC_, sn);
 
 #ifdef FINE_TIMING
-  DC_.times(kTimeFactorisePrepare) += clock.stop();
+  DC_.sumTime(kTimeFactorisePrepare, clock.stop());
 #endif
 
 #ifdef FINE_TIMING
@@ -188,7 +189,7 @@ void Factorise::processSupernode(int sn) {
     }
   }
 #ifdef FINE_TIMING
-  DC_.times(kTimeFactoriseAssembleOriginal) += clock.stop();
+  DC_.sumTime(kTimeFactoriseAssembleOriginal, clock.stop());
 #endif
 
 // ===================================================
@@ -242,7 +243,7 @@ void Factorise::processSupernode(int sn) {
       }
     }
 #ifdef FINEST_TIMING
-    DC_.times(kTimeFactoriseAssembleChildrenFrontal) += clock2.stop();
+    DC_.sumTime(kTimeFactoriseAssembleChildrenFrontal, clock2.stop());
 #endif
 
 // ASSEMBLE INTO CLIQUE
@@ -251,7 +252,7 @@ void Factorise::processSupernode(int sn) {
 #endif
     FH->assembleClique(child_clique, nc, child_sn);
 #ifdef FINEST_TIMING
-    DC_.times(kTimeFactoriseAssembleChildrenClique) += clock2.stop();
+    DC_.sumTime(kTimeFactoriseAssembleChildrenClique, clock2.stop());
 #endif
 
     // Schur contribution of the child is no longer needed
@@ -263,7 +264,7 @@ void Factorise::processSupernode(int sn) {
     child_sn = next_children_[child_sn];
   }
 #ifdef FINE_TIMING
-  DC_.times(kTimeFactoriseAssembleChildren) += clock.stop();
+  DC_.sumTime(kTimeFactoriseAssembleChildren, clock.stop());
 #endif
 
   // ===================================================
@@ -276,17 +277,17 @@ void Factorise::processSupernode(int sn) {
   // threshold for regularization
   const double reg_thresh = max_diag_ * 1e-16 * 1e-10;
 
-  if (FH->denseFactorise(reg_thresh, DC_.n_reg_piv_, DC_.times())) {
+  if (FH->denseFactorise(reg_thresh)) {
     flag_stop_ = true;
     return;
   };
 
 #ifdef FINE_TIMING
-  DC_.times(kTimeFactoriseDenseFact) += clock.stop();
+  DC_.sumTime(kTimeFactoriseDenseFact, clock.stop());
 #endif
 
   // compute largest elements in factorization
-  FH->extremeEntries(DC_);
+  FH->extremeEntries();
 
   // terminate the format handler
   FH->terminate(sn_columns_[sn], schur_contribution_[sn], total_reg_);
@@ -392,19 +393,13 @@ bool Factorise::run(Numeric& num) {
     }
   }
 
-  // compute maximum regularization
-  DC_.max_reg_ = 0.0;
-  for (int i = 0; i < total_reg_.size(); ++i) {
-    DC_.max_reg_ = std::max(DC_.max_reg_, std::abs(total_reg_[i]));
-  }
-
   // move factorisation to numerical object
   num.sn_columns_ = std::move(sn_columns_);
   num.colscale_ = std::move(colscale_);
   num.total_reg_ = std::move(total_reg_);
 
 #ifdef COARSE_TIMING
-  DC_.times(kTimeFactorise) += clock.stop();
+  DC_.sumTime(kTimeFactorise, clock.stop());
 #endif
 
   return false;

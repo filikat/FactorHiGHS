@@ -2,8 +2,10 @@
 
 DataCollector::DataCollector() { times_.resize(kTimeSize); }
 
-double& DataCollector::times(TimeItems i) { return times_[i]; }
-std::vector<double>& DataCollector::times() { return times_; }
+void DataCollector::sumTime(TimeItems i, double t) {
+  // will need lock
+  times_[i] += t;
+}
 
 void DataCollector::resetExtremeEntries() {
   minD_ = std::numeric_limits<double>::max();
@@ -17,10 +19,20 @@ void DataCollector::resetExtremeEntries() {
 
 void DataCollector::extremeEntries(double minD, double maxD, double minoffD,
                                    double maxoffD) {
+  // will need lock
   minD_ = std::min(minD_, minD);
   maxD_ = std::max(maxD_, maxD);
   minL_ = std::min(minL_, minoffD);
   maxL_ = std::max(maxL_, maxoffD);
+}
+
+void DataCollector::sumRegPiv() {
+  // will need lock
+  ++n_reg_piv_;
+}
+void DataCollector::setMaxReg(double new_reg) {
+  // will need lock
+  max_reg_ = std::max(max_reg_, new_reg);
 }
 
 void DataCollector::printTimes() const {

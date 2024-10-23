@@ -316,6 +316,6 @@ void Numeric::solve(std::vector<double>& x) const {
   permuteVector(x, S_.iperm());
 
 #ifdef COARSE_TIMING
-  DC_.times(kTimeSolve) += clock.stop();
+  DC_.sumTime(kTimeSolve, clock.stop());
 #endif
 }

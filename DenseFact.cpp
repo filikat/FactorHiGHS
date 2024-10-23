@@ -7,6 +7,7 @@
 #include "../ProtoIPM/Regularization.h"
 #include "Blas_declaration.h"
 #include "CallAndTimeBlas.h"
+#include "DataCollector.h"
 #include "ReturnValues.h"
 #include "Timing.h"
 
@@ -43,7 +44,7 @@ double pivotCompensatedSum(double base, int k, const double* row, int ldr,
 
 double regularizePivot(double pivot, double thresh, const int* sign,
                        const double* A, int lda, int j, int n, char uplo,
-                       int* n_reg_piv) {
+                       DataCollector& DC) {
   // add static regularization
   if (sign[j] == 1)
     pivot += kDualStaticRegularization;
@@ -59,19 +60,19 @@ double regularizePivot(double pivot, double thresh, const int* sign,
   if (spivot <= thresh && spivot >= -thresh) {
     // small pivot, lift to thresh
     pivot = s * thresh;
-    *n_reg_piv += 1;
+    DC.sumRegPiv();
     printf("%3d: small pivot %e, with sign %d, set to %e\n", j, old_pivot,
            sign[j], pivot);
   } else if (spivot < -thresh && spivot >= -thresh * K) {
     // wrong sign, lift more
     pivot = s * thresh * 10;
-    *n_reg_piv += 1;
+    DC.sumRegPiv();
     printf("%3d: wrong pivot %e, with sign %d, set to %e\n", j, old_pivot,
            sign[j], pivot);
   } else if (spivot < -thresh * K) {
     // pivot is completely lost
     pivot = s * 1e100;
-    *n_reg_piv += 1;
+    DC.sumRegPiv();
     printf("%3d: disaster pivot %e, with sign %d, set to %e\n", j, old_pivot,
            sign[j], pivot);
   }
@@ -127,7 +128,7 @@ double regularizePivot(double pivot, double thresh, const int* sign,
 }
 
 int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
-               double thresh, double* regul, int* n_reg_piv, double* times) {
+               double thresh, double* regul, DataCollector& DC) {
   // ===========================================================================
   // Factorization kernel.
   // BLAS calls: dgemv_, dscal_.
@@ -169,14 +170,14 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
       // update column j
       if (j < n - 1) {
         callAndTime_dgemv('N', M, N, -1.0, &A[j + 1], lda, temp.data(), 1, 1.0,
-                          &A[j + 1 + j * lda], 1, times);
+                          &A[j + 1 + j * lda], 1, DC);
       }
 
       // add regularization
       double old_pivot = Ajj;
-      Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo,
-                            n_reg_piv);
+      Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, DC);
       regul[j] = fabs(Ajj - old_pivot);
+      DC.setMaxReg(regul[j]);
 
       // save diagonal element
       A[j + lda * j] = Ajj;
@@ -184,7 +185,7 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
 
       // scale column j
       if (j < n - 1) {
-        callAndTime_dscal(M, coeff, &A[j + 1 + j * lda], 1, times);
+        callAndTime_dscal(M, coeff, &A[j + 1 + j * lda], 1, DC);
       }
     }
   } else {
@@ -213,14 +214,14 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
       // update column j
       if (j < n - 1) {
         callAndTime_dgemv('T', N, M, -1.0, &A[(j + 1) * lda], lda, temp.data(),
-                          1, 1.0, &A[j + (j + 1) * lda], lda, times);
+                          1, 1.0, &A[j + (j + 1) * lda], lda, DC);
       }
 
       // add regularization
       double old_pivot = Ajj;
-      Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo,
-                            n_reg_piv);
+      Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, DC);
       regul[j] = fabs(Ajj - old_pivot);
+      DC.setMaxReg(regul[j]);
 
       // save diagonal element
       A[j + lda * j] = Ajj;
@@ -228,7 +229,7 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
 
       // scale column j
       if (j < n - 1) {
-        callAndTime_dscal(M, coeff, &A[j + (j + 1) * lda], lda, times);
+        callAndTime_dscal(M, coeff, &A[j + (j + 1) * lda], lda, DC);
       }
     }
   }
@@ -276,7 +277,7 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
 
 int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
                const int* pivot_sign, double thresh, double* regul,
-               int* n_reg_piv, double* times) {
+               DataCollector& DC) {
   // ===========================================================================
   // Blocked factorization in full format.
   // BLAS calls: dcopy_, dscal_, dgemm_, dtrsm_, dsyrk_
@@ -312,33 +313,33 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
 
     int ldt = jb;
     for (int i = 0; i < j; ++i) {
-      callAndTime_dcopy(N, &A[j + i * lda], 1, &T[i * ldt], 1, times);
-      callAndTime_dscal(N, A[i + i * lda], &T[i * ldt], 1, times);
+      callAndTime_dcopy(N, &A[j + i * lda], 1, &T[i * ldt], 1, DC);
+      callAndTime_dscal(N, A[i + i * lda], &T[i * ldt], 1, DC);
     }
 
     // update diagonal block using dgemm_
     callAndTime_dgemm('N', 'T', jb, jb, j, -1.0, P, lda, T.data(), ldt, 1.0, D,
-                      lda, times);
+                      lda, DC);
 
     // factorize diagonal block
     const int* pivot_sign_current = &pivot_sign[j];
     double* regul_current = &regul[j];
     int info = callAndTime_denseFactK('L', N, D, lda, pivot_sign_current,
-                                      thresh, regul_current, n_reg_piv, times);
+                                      thresh, regul_current, DC);
     if (info != 0) return info;
 
     if (j + jb < n) {
       // update block of columns
       callAndTime_dgemm('N', 'T', M, N, K, -1.0, Q, lda, T.data(), ldt, 1.0, R,
-                        lda, times);
+                        lda, DC);
 
       // solve block of columns with L
-      callAndTime_dtrsm('R', 'L', 'T', 'U', M, N, 1.0, D, lda, R, lda, times);
+      callAndTime_dtrsm('R', 'L', 'T', 'U', M, N, 1.0, D, lda, R, lda, DC);
 
       // solve block of columns with D
       for (int i = 0; i < jb; ++i) {
         const double coeff = 1.0 / A[j + i + (j + i) * lda];
-        callAndTime_dscal(M, coeff, &A[j + jb + lda * (j + i)], 1, times);
+        callAndTime_dscal(M, coeff, &A[j + jb + lda * (j + i)], 1, DC);
       }
     }
   }
@@ -372,14 +373,14 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
       if (Ajj >= 0.0) {
         Ajj = sqrt(Ajj);
         callAndTime_dcopy(N, &A[k + j * lda], 1, &temp_pos[start_pos * ldt], 1,
-                          times);
-        callAndTime_dscal(N, Ajj, &temp_pos[start_pos * ldt], 1, times);
+                          DC);
+        callAndTime_dscal(N, Ajj, &temp_pos[start_pos * ldt], 1, DC);
         ++start_pos;
       } else {
         Ajj = sqrt(-Ajj);
         callAndTime_dcopy(N, &A[k + j * lda], 1, &temp_neg[start_neg * ldt], 1,
-                          times);
-        callAndTime_dscal(N, Ajj, &temp_neg[start_neg * ldt], 1, times);
+                          DC);
+        callAndTime_dscal(N, Ajj, &temp_neg[start_neg * ldt], 1, DC);
         ++start_neg;
       }
     }
@@ -390,9 +391,9 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
     // full square schur complement.
 
     callAndTime_dsyrk('L', 'N', N, pos_pivot, -1.0, temp_pos.data(), ldt, 1.0,
-                      B, ldb, times);
+                      B, ldb, DC);
     callAndTime_dsyrk('L', 'N', N, neg_pivot, 1.0, temp_neg.data(), ldt, 1.0, B,
-                      ldb, times);
+                      ldb, DC);
   }
 
   return kRetOk;
@@ -400,7 +401,7 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
 
 int denseFactHP(int n, int k, int nb, double* A, double* B,
                 const int* pivot_sign, double thresh, double* regul,
-                int* n_reg_piv, double* times) {
+                DataCollector& DC) {
   // ===========================================================================
   // Blocked factorization in hybrid-packed format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
@@ -457,8 +458,7 @@ int denseFactHP(int n, int k, int nb, double* A, double* B,
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       const int N = Drow + 1;
-      callAndTime_dcopy(N, &A[diag_start[j] + offset], 1, &D[Drow * jb], 1,
-                        times);
+      callAndTime_dcopy(N, &A[diag_start[j] + offset], 1, &D[Drow * jb], 1, DC);
       offset += N;
     }
 
@@ -477,25 +477,25 @@ int denseFactHP(int n, int k, int nb, double* A, double* B,
       const double* Pk = &A[Pk_pos];
 
       // copy block jk into temp
-      callAndTime_dcopy(this_full_size, Pk, 1, T.data(), 1, times);
+      callAndTime_dcopy(this_full_size, Pk, 1, T.data(), 1, DC);
 
       // scale temp by pivots
       int pivot_pos = diag_start[k];
       for (int col = 0; col < nb; ++col) {
-        callAndTime_dscal(jb, A[pivot_pos], &T[col], nb, times);
+        callAndTime_dscal(jb, A[pivot_pos], &T[col], nb, DC);
         pivot_pos += col + 2;
       }
 
       // update diagonal block with dgemm_
       callAndTime_dgemm('T', 'N', jb, jb, nb, -1.0, T.data(), nb, Pk, nb, 1.0,
-                        D.data(), jb, times);
+                        D.data(), jb, DC);
 
       // update rectangular block
       if (M > 0) {
         const int Qk_pos = Pk_pos + this_full_size;
         const double* Qk = &A[Qk_pos];
         callAndTime_dgemm('T', 'N', jb, M, nb, -1.0, T.data(), nb, Qk, nb, 1.0,
-                          R, jb, times);
+                          R, jb, DC);
       }
     }
 
@@ -503,19 +503,19 @@ int denseFactHP(int n, int k, int nb, double* A, double* B,
     double* regul_current = &regul[j * nb];
     const int* pivot_sign_current = &pivot_sign[j * nb];
     int info = callAndTime_denseFactK('U', jb, D.data(), jb, pivot_sign_current,
-                                      thresh, regul_current, n_reg_piv, times);
+                                      thresh, regul_current, DC);
     if (info != 0) return info;
 
     if (M > 0) {
       // solve block of columns with diagonal block
       callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D.data(), jb, R, jb,
-                        times);
+                        DC);
 
       // scale columns by pivots
       int pivot_pos = 0;
       for (int col = 0; col < jb; ++col) {
         const double coeff = 1.0 / D[pivot_pos];
-        callAndTime_dscal(M, coeff, &A[R_pos + col], jb, times);
+        callAndTime_dscal(M, coeff, &A[R_pos + col], jb, DC);
         pivot_pos += jb + 1;
       }
     }
@@ -524,8 +524,7 @@ int denseFactHP(int n, int k, int nb, double* A, double* B,
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       const int N = Drow + 1;
-      callAndTime_dcopy(N, &D[Drow * jb], 1, &A[diag_start[j] + offset], 1,
-                        times);
+      callAndTime_dcopy(N, &D[Drow * jb], 1, &A[diag_start[j] + offset], 1, DC);
       offset += N;
     }
   }
@@ -580,12 +579,12 @@ int denseFactHP(int n, int k, int nb, double* A, double* B,
 
         // create copy of block, multiplied by pivots
         const int N = ncol * jb;
-        callAndTime_dcopy(N, &A[diag_pos], 1, T.data(), 1, times);
+        callAndTime_dcopy(N, &A[diag_pos], 1, T.data(), 1, DC);
 
         int pivot_pos = diag_start[j];
 
         for (int col = 0; col < jb; ++col) {
-          callAndTime_dscal(ncol, A[pivot_pos], &T[col], jb, times);
+          callAndTime_dscal(ncol, A[pivot_pos], &T[col], jb, DC);
           pivot_pos += col + 2;
         }
 
@@ -595,14 +594,14 @@ int denseFactHP(int n, int k, int nb, double* A, double* B,
         // printf("S: size %d, acceess %d\n", ns * nb, ncol * ncol);
 
         callAndTime_dgemm('T', 'N', ncol, ncol, jb, -1.0, &A[diag_pos], jb,
-                          T.data(), jb, beta, schur_buf.data(), ncol, times);
+                          T.data(), jb, beta, schur_buf.data(), ncol, DC);
 
         // update subdiagonal part
         const int M = nrow - nb;
         if (M > 0) {
           callAndTime_dgemm('T', 'N', ncol, M, jb, -1.0, T.data(), jb,
                             &A[diag_pos + this_full_size], jb, beta,
-                            &schur_buf[ncol * ncol], ncol, times);
+                            &schur_buf[ncol * ncol], ncol, DC);
         }
 
         // beta is 0 for the first time (to avoid initializing schur_buf) and
@@ -615,7 +614,7 @@ int denseFactHP(int n, int k, int nb, double* A, double* B,
       for (int buf_row = 0; buf_row < nrow; ++buf_row) {
         const int N = ncol;
         callAndTime_daxpy(N, 1.0, &schur_buf[buf_row * ncol], 1,
-                          &B[B_start + buf_row], nrow, times);
+                          &B[B_start + buf_row], nrow, DC);
       }
       B_start += nrow * ncol;
     }
@@ -626,7 +625,7 @@ int denseFactHP(int n, int k, int nb, double* A, double* B,
 
 int denseFactHH(int n, int k, int nb, double* A, double* B,
                 const int* pivot_sign, double thresh, double* regul,
-                int* n_reg_piv, double* times) {
+                DataCollector& DC) {
   // ===========================================================================
   // Blocked factorization in hybrid-hybrid format.
   // A should be in lower-blocked-hybrid format. Schur complement is returned
@@ -680,8 +679,7 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
     int offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       const int N = Drow + 1;
-      callAndTime_dcopy(N, &A[diag_start[j] + offset], 1, &D[Drow * jb], 1,
-                        times);
+      callAndTime_dcopy(N, &A[diag_start[j] + offset], 1, &D[Drow * jb], 1, DC);
       offset += N;
     }
 
@@ -700,18 +698,18 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
       const double* Pk = &A[Pk_pos];
 
       // copy block jk into temp
-      callAndTime_dcopy(this_full_size, Pk, 1, T.data(), 1, times);
+      callAndTime_dcopy(this_full_size, Pk, 1, T.data(), 1, DC);
 
       // scale temp by pivots
       int pivot_pos = diag_start[k];
       for (int col = 0; col < nb; ++col) {
-        callAndTime_dscal(jb, A[pivot_pos], &T[col], nb, times);
+        callAndTime_dscal(jb, A[pivot_pos], &T[col], nb, DC);
         pivot_pos += col + 2;
       }
 
       // update diagonal block with dgemm_
       callAndTime_dgemm('T', 'N', jb, jb, nb, -1.0, T.data(), nb, Pk, nb, 1.0,
-                        D.data(), jb, times);
+                        D.data(), jb, DC);
 
       // update rectangular block
       if (M > 0) {
@@ -719,7 +717,7 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
         double* Qk = &A[Qk_pos];
 
         callAndTime_dgemm('T', 'N', jb, M, nb, -1.0, T.data(), nb, Qk, nb, 1.0,
-                          R, jb, times);
+                          R, jb, DC);
       }
     }
 
@@ -727,19 +725,19 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
     const int* pivot_sign_current = &pivot_sign[j * nb];
     double* regul_current = &regul[j * nb];
     int info = callAndTime_denseFactK('U', jb, D.data(), jb, pivot_sign_current,
-                                      thresh, regul_current, n_reg_piv, times);
+                                      thresh, regul_current, DC);
     if (info != 0) return info;
 
     if (M > 0) {
       // solve block of columns with diagonal block
       callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D.data(), jb, R, jb,
-                        times);
+                        DC);
 
       // scale columns by pivots
       int pivot_pos = 0;
       for (int col = 0; col < jb; ++col) {
         double coeff = 1.0 / D[pivot_pos];
-        callAndTime_dscal(M, coeff, &A[R_pos + col], jb, times);
+        callAndTime_dscal(M, coeff, &A[R_pos + col], jb, DC);
         pivot_pos += jb + 1;
       }
     }
@@ -748,8 +746,7 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
     offset = 0;
     for (int Drow = 0; Drow < jb; ++Drow) {
       const int N = Drow + 1;
-      callAndTime_dcopy(N, &D[Drow * jb], 1, &A[diag_start[j] + offset], 1,
-                        times);
+      callAndTime_dcopy(N, &D[Drow * jb], 1, &A[diag_start[j] + offset], 1, DC);
       offset += N;
     }
   }
@@ -797,24 +794,24 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
 
         // create copy of block, multiplied by pivots
         const int N = ncol * jb;
-        callAndTime_dcopy(N, &A[diag_pos], 1, T.data(), 1, times);
+        callAndTime_dcopy(N, &A[diag_pos], 1, T.data(), 1, DC);
 
         int pivot_pos = diag_start[j];
         for (int col = 0; col < jb; ++col) {
-          callAndTime_dscal(ncol, A[pivot_pos], &T[col], jb, times);
+          callAndTime_dscal(ncol, A[pivot_pos], &T[col], jb, DC);
           pivot_pos += col + 2;
         }
 
         // update diagonal block using dgemm_
         callAndTime_dgemm('T', 'N', ncol, ncol, jb, -1.0, T.data(), jb,
-                          &A[diag_pos], jb, 1.0, schur_buf, ncol, times);
+                          &A[diag_pos], jb, 1.0, schur_buf, ncol, DC);
 
         // update subdiagonal part
         const int M = nrow - nb;
         if (M > 0) {
           callAndTime_dgemm('T', 'N', ncol, M, jb, -1.0, T.data(), jb,
                             &A[diag_pos + this_full_size], jb, 1.0,
-                            &schur_buf[ncol * ncol], ncol, times);
+                            &schur_buf[ncol * ncol], ncol, DC);
         }
       }
       B_start += nrow * ncol;
@@ -824,7 +821,7 @@ int denseFactHH(int n, int k, int nb, double* A, double* B,
   return kRetOk;
 }
 
-int denseFactL2H(double* A, int nrow, int ncol, int nb, double* times) {
+int denseFactL2H(double* A, int nrow, int ncol, int nb, DataCollector& DC) {
   // ===========================================================================
   // Takes a matrix in lower-packed format, with nrow rows.
   // Converts the first ncol columns into lower-blocked-hybrid format, with
@@ -857,7 +854,7 @@ int denseFactL2H(double* A, int nrow, int ncol, int nb, double* times) {
     for (int j = 0; j < block_size; ++j) {
       // Copy each column in the block
       const int N = row_size - j;
-      callAndTime_dcopy(N, &A[startAtoBuf], 1, &buf[startBuf], 1, times);
+      callAndTime_dcopy(N, &A[startAtoBuf], 1, &buf[startBuf], 1, DC);
       startAtoBuf += N;
 
       // +1 to align rows
@@ -868,13 +865,13 @@ int denseFactL2H(double* A, int nrow, int ncol, int nb, double* times) {
     // One call of dcopy_ for each row of the block of columns.
     for (int i = 0; i < row_size; ++i) {
       const int N = std::min(i + 1, block_size);
-      callAndTime_dcopy(N, &buf[i], row_size, &A[startBuftoA], 1, times);
+      callAndTime_dcopy(N, &buf[i], row_size, &A[startBuftoA], 1, DC);
       startBuftoA += N;
     }
   }
 
 #ifdef FINEST_TIMING
-  times[kTimeDenseFact_convert] += GetTime() - t0;
+  DC.sumTime(kTimeDenseFact_convert, GetTime() - t0);
 #endif
 
   return kRetOk;

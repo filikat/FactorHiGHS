@@ -1353,7 +1353,7 @@ int Analyse::run() {
   int metis_status = getPermutation();
   if (metis_status) return kRetMetisError;
 #ifdef FINE_TIMING
-  DC_.times(kTimeAnalyseMetis) += clock_items.stop();
+  DC_.sumTime(kTimeAnalyseMetis, clock_items.stop());
 #endif
 
 #ifdef FINE_TIMING
@@ -1363,7 +1363,7 @@ int Analyse::run() {
   eTree();
   postorder();
 #ifdef FINE_TIMING
-  DC_.times(kTimeAnalyseTree) += clock_items.stop();
+  DC_.sumTime(kTimeAnalyseTree, clock_items.stop());
 #endif
 
 #ifdef FINE_TIMING
@@ -1371,7 +1371,7 @@ int Analyse::run() {
 #endif
   colCount();
 #ifdef FINE_TIMING
-  DC_.times(kTimeAnalyseCount) += clock_items.stop();
+  DC_.sumTime(kTimeAnalyseCount, clock_items.stop());
 #endif
 
 #ifdef FINE_TIMING
@@ -1381,7 +1381,7 @@ int Analyse::run() {
   relaxSupernodes();
   afterRelaxSn();
 #ifdef FINE_TIMING
-  DC_.times(kTimeAnalyseSn) += clock_items.stop();
+  DC_.sumTime(kTimeAnalyseSn, clock_items.stop());
 #endif
 
 #ifdef FINE_TIMING
@@ -1389,7 +1389,7 @@ int Analyse::run() {
 #endif
   reorderChildren();
 #ifdef FINE_TIMING
-  DC_.times(kTimeAnalyseReorder) += clock_items.stop();
+  DC_.sumTime(kTimeAnalyseReorder, clock_items.stop());
 #endif
 
 #ifdef FINE_TIMING
@@ -1397,7 +1397,7 @@ int Analyse::run() {
 #endif
   snPattern();
 #ifdef FINE_TIMING
-  DC_.times(kTimeAnalysePattern) += clock_items.stop();
+  DC_.sumTime(kTimeAnalysePattern, clock_items.stop());
 #endif
 
 #ifdef FINE_TIMING
@@ -1406,7 +1406,7 @@ int Analyse::run() {
   relativeIndCols();
   relativeIndClique();
 #ifdef FINE_TIMING
-  DC_.times(kTimeAnalyseRelInd) += clock_items.stop();
+  DC_.sumTime(kTimeAnalyseRelInd, clock_items.stop());
 #endif
 
   computeStorage();
@@ -1448,7 +1448,7 @@ int Analyse::run() {
   S_.clique_block_start_ = std::move(clique_block_start_);
 
 #ifdef COARSE_TIMING
-  DC_.times(kTimeAnalyse) += clock_total.stop();
+  DC_.sumTime(kTimeAnalyse, clock_total.stop());
 #endif
 
   return kRetOk;

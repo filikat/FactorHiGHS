@@ -1,7 +1,8 @@
 #include "HybridHybridFormatHandler.h"
 
-HybridHybridFormatHandler::HybridHybridFormatHandler(const Symbolic& S, int sn)
-    : FormatHandler(S, sn) {
+HybridHybridFormatHandler::HybridHybridFormatHandler(const Symbolic& S,
+                                                     DataCollector& DC, int sn)
+    : FormatHandler(S, DC, sn) {
   // initialize frontal and clique
   initFrontal();
   initClique();
@@ -33,11 +34,10 @@ void HybridHybridFormatHandler::assembleFrontalMultiple(
          &frontal_[i + ldf_ * j - j * (j + 1) / 2], &i_one);
 }
 
-int HybridHybridFormatHandler::denseFactorise(double reg_thresh, int& n_reg_piv,
-                                              std::vector<double>& times) {
+int HybridHybridFormatHandler::denseFactorise(double reg_thresh) {
   int status;
 
-  status = denseFactL2H(frontal_.data(), ldf_, sn_size_, nb_, times.data());
+  status = denseFactL2H(frontal_.data(), ldf_, sn_size_, nb_, DC_);
   if (status) return status;
 
   // find the position within pivot_sign corresponding to this supernode
@@ -46,7 +46,7 @@ int HybridHybridFormatHandler::denseFactorise(double reg_thresh, int& n_reg_piv,
 
   status = denseFactHH(ldf_, sn_size_, S_->blockSize(), frontal_.data(),
                        clique_.data(), pivot_sign, reg_thresh,
-                       local_reg_.data(), &n_reg_piv, times.data());
+                       local_reg_.data(), DC_);
 
   return status;
 }
@@ -127,7 +127,7 @@ void HybridHybridFormatHandler::assembleClique(const std::vector<double>& child,
   }
 }
 
-void HybridHybridFormatHandler::extremeEntries(DataCollector& DC) {
+void HybridHybridFormatHandler::extremeEntries() {
   double minD = 1e100;
   double maxD = 0.0;
   double minoffD = 1e100;
@@ -172,5 +172,5 @@ void HybridHybridFormatHandler::extremeEntries(DataCollector& DC) {
     }
   }
 
-  DC.extremeEntries(minD, maxD, minoffD, maxoffD);
+  DC_.extremeEntries(minD, maxD, minoffD, maxoffD);
 }
