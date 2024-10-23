@@ -6,7 +6,7 @@
 // - TIMING_1: basic timing
 // - TIMING_2: advanced timing
 // - TIMING_3: extreme timing (it slows down considerably)
-#define TIMING_3
+#define TIMING_2
 
 // define for timing
 #if (defined(TIMING_1) || defined(TIMING_2) || defined(TIMING_3))

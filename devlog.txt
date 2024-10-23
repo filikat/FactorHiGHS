@@ -1230,6 +1230,12 @@ This will allow the use of a lock when the code is parallel.
 The lock will need to be used also for extremeEntries.
 I also modified the way the maximum regularization is computed.
 ---
+I put together DenseFact HP and HH, since the code is almost identical.
+I have an extra parameter format, that is used when computing the Schur complement, so that it is computed in the correct format.
+The rest of the code is identical.
+I should implement another format, similar to Full, but that only stores the blocks and not the full matrix.
+It should be quite similar to the hybrid code, but the BLAS calls change.
+---
 
 
 *****
@@ -1237,3 +1243,5 @@ To do:
 - row growth factor (and store inverse of D?)
 - parallel stuff
 - check iterative refinement
+
+- update full format

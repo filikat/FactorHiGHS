@@ -44,8 +44,8 @@ int HybridPackedFormatHandler::denseFactorise(double reg_thresh) {
   int sn_start = S_->snStart(sn_);
   const int* pivot_sign = &S_->pivotSign().data()[sn_start];
 
-  status = denseFactHP(ldf_, sn_size_, nb_, frontal_.data(), clique_.data(),
-                       pivot_sign, reg_thresh, local_reg_.data(), DC_);
+  status = denseFactH('P', ldf_, sn_size_, nb_, frontal_.data(), clique_.data(),
+                      pivot_sign, reg_thresh, local_reg_.data(), DC_);
 
   return status;
 }

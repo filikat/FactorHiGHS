@@ -22,7 +22,8 @@ void FormatHandler::terminate(std::vector<double>& frontal,
   frontal = std::move(frontal_);
   clique = std::move(clique_);
 
-  // move local regularization into total regularization
+  // move local regularization into total regularization.
+  // will need lock
   for (int i = 0; i < sn_size_; ++i)
     total_reg[S_->snStart(sn_) + i] = local_reg_[i];
 }
