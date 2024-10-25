@@ -6,7 +6,6 @@
 
 #include "../ProtoIPM/Regularization.h"
 #include "Auxiliary.h"
-#include "Blas_declaration.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
 #include "ReturnValues.h"
@@ -808,7 +807,7 @@ int denseFactP2H(double* A, int nrow, int ncol, int nb, DataCollector& DC) {
   // BLAS calls: dcopy
   // ===========================================================================
 
-#ifdef FINEST_TIMING
+#ifdef FINE_TIMING
   double t0 = GetTime();
 #endif
 
@@ -849,7 +848,7 @@ int denseFactP2H(double* A, int nrow, int ncol, int nb, DataCollector& DC) {
     }
   }
 
-#ifdef FINEST_TIMING
+#ifdef FINE_TIMING
   DC.sumTime(kTimeDenseFact_convert, GetTime() - t0);
 #endif
 

@@ -1,5 +1,9 @@
 #include "Numeric.h"
 
+#include "Auxiliary.h"
+#include "CallAndTimeBlas.h"
+#include "Timing.h"
+
 Numeric::Numeric(const Symbolic& S, DataCollector& DC) : S_{S}, DC_{DC} {}
 
 void Numeric::forwardSolve(std::vector<double>& x) const {
@@ -51,16 +55,16 @@ void Numeric::forwardSolve(std::vector<double>& x) const {
         // index to access vector x
         const int x_start = sn_start + nb * j;
 
-        dtpsv_(&c_U, &c_T, &c_U, &jb, &sn_columns_[sn][SnCol_ind], &x[x_start],
-               &i_one);
+        callAndTime_dtpsv('U', 'T', 'U', jb, &sn_columns_[sn][SnCol_ind],
+                          &x[x_start], 1, DC_);
         SnCol_ind += diag_entries;
 
         // temporary space for gemv
         const int gemv_space = ldSn - nb * j - jb;
         std::vector<double> y(gemv_space);
 
-        dgemv_(&c_T, &jb, &gemv_space, &d_one, &sn_columns_[sn][SnCol_ind], &jb,
-               &x[x_start], &i_one, &d_zero, y.data(), &i_one);
+        callAndTime_dgemv('T', jb, gemv_space, 1.0, &sn_columns_[sn][SnCol_ind],
+                          jb, &x[x_start], 1, 0.0, y.data(), 1, DC_);
         SnCol_ind += jb * gemv_space;
 
         // scatter solution of gemv
@@ -104,15 +108,16 @@ void Numeric::forwardSolve(std::vector<double>& x) const {
         const int x_start = sn_start + nb * j;
 
         const int lda = ldSn - j * nb;
-        dtrsv_(&c_L, &c_N, &c_U, &jb, &sn_columns_[sn][SnCol_ind], &lda,
-               &x[x_start], &i_one);
+        callAndTime_dtrsv('L', 'N', 'U', jb, &sn_columns_[sn][SnCol_ind], lda,
+                          &x[x_start], 1, DC_);
 
         // temporary space for gemv
         const int gemv_space = ldSn - nb * j - jb;
         std::vector<double> y(gemv_space);
 
-        dgemv_(&c_N, &gemv_space, &jb, &d_one, &sn_columns_[sn][SnCol_ind + jb],
-               &lda, &x[x_start], &i_one, &d_zero, y.data(), &i_one);
+        callAndTime_dgemv('N', gemv_space, jb, 1.0,
+                          &sn_columns_[sn][SnCol_ind + jb], lda, &x[x_start], 1,
+                          0.0, y.data(), 1, DC_);
 
         SnCol_ind += jb * jb + jb * gemv_space;
 
@@ -142,14 +147,15 @@ void Numeric::forwardSolve(std::vector<double>& x) const {
       // index to access S->rows for this supernode
       const int start_row = S_.ptr(sn);
 
-      dtrsv_(&c_L, &c_N, &c_U, &sn_size, sn_columns_[sn].data(), &ldSn,
-             &x[sn_start], &i_one);
+      callAndTime_dtrsv('L', 'N', 'U', sn_size, sn_columns_[sn].data(), ldSn,
+                        &x[sn_start], 1, DC_);
 
       // temporary space for gemv
       std::vector<double> y(clique_size);
 
-      dgemv_(&c_N, &clique_size, &sn_size, &d_one, &sn_columns_[sn][sn_size],
-             &ldSn, &x[sn_start], &i_one, &d_zero, y.data(), &i_one);
+      callAndTime_dgemv('N', clique_size, sn_size, 1.0,
+                        &sn_columns_[sn][sn_size], ldSn, &x[sn_start], 1, 0.0,
+                        y.data(), 1, DC_);
 
       // scatter solution of gemv
       for (int i = 0; i < clique_size; ++i) {
@@ -223,12 +229,13 @@ void Numeric::backwardSolve(std::vector<double>& x) const {
         }
 
         SnCol_ind -= jb * gemv_space;
-        dgemv_(&c_N, &jb, &gemv_space, &d_m_one, &sn_columns_[sn][SnCol_ind],
-               &jb, y.data(), &i_one, &d_one, &x[x_start], &i_one);
+        callAndTime_dgemv('N', jb, gemv_space, -1.0,
+                          &sn_columns_[sn][SnCol_ind], jb, y.data(), 1, 1.0,
+                          &x[x_start], 1, DC_);
 
         SnCol_ind -= diag_entries;
-        dtpsv_(&c_U, &c_N, &c_U, &jb, &sn_columns_[sn][SnCol_ind], &x[x_start],
-               &i_one);
+        callAndTime_dtpsv('U', 'N', 'U', jb, &sn_columns_[sn][SnCol_ind],
+                          &x[x_start], 1, DC_);
       }
     }
   } else if (S_.formatType() == FormatType::PackedPacked) {
@@ -280,12 +287,12 @@ void Numeric::backwardSolve(std::vector<double>& x) const {
         }
 
         const int lda = ldSn - nb * j;
-        dgemv_(&c_T, &gemv_space, &jb, &d_m_one,
-               &sn_columns_[sn][diag_start[j] + jb], &lda, y.data(), &i_one,
-               &d_one, &x[x_start], &i_one);
+        callAndTime_dgemv('T', gemv_space, jb, -1.0,
+                          &sn_columns_[sn][diag_start[j] + jb], lda, y.data(),
+                          1, 1.0, &x[x_start], 1, DC_);
 
-        dtrsv_(&c_L, &c_T, &c_U, &jb, &sn_columns_[sn][diag_start[j]], &lda,
-               &x[x_start], &i_one);
+        callAndTime_dtrsv('L', 'T', 'U', jb, &sn_columns_[sn][diag_start[j]],
+                          lda, &x[x_start], 1, DC_);
       }
     }
   } else {
@@ -317,11 +324,12 @@ void Numeric::backwardSolve(std::vector<double>& x) const {
         y[i] = x[row];
       }
 
-      dgemv_(&c_T, &clique_size, &sn_size, &d_m_one, &sn_columns_[sn][sn_size],
-             &ldSn, y.data(), &i_one, &d_one, &x[sn_start], &i_one);
+      callAndTime_dgemv('T', clique_size, sn_size, -1.0,
+                        &sn_columns_[sn][sn_size], ldSn, y.data(), 1, 1.0,
+                        &x[sn_start], 1, DC_);
 
-      dtrsv_(&c_L, &c_T, &c_U, &sn_size, sn_columns_[sn].data(), &ldSn,
-             &x[sn_start], &i_one);
+      callAndTime_dtrsv('L', 'T', 'U', sn_size, sn_columns_[sn].data(), ldSn,
+                        &x[sn_start], 1, DC_);
     }
   }
 }

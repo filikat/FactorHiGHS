@@ -123,29 +123,23 @@ void PackedPackedFormatHandler::extremeEntries() {
     const int jb = std::min(nb_, sn_size_ - nb_ * j);
 
     for (int k = 0; k < jb; ++k) {
-      // off diagonal entries
-      for (int i = 0; i < k; ++i) {
-        if (frontal_[index] != 0.0) {
-          minoffD = std::min(minoffD, std::abs(frontal_[index]));
-          maxoffD = std::max(maxoffD, std::abs(frontal_[index]));
-        }
-        index++;
-      }
+      // skip zeros at the beginning of the column
+      index += k;
 
       // diagonal entry
       minD = std::min(minD, std::abs(frontal_[index]));
       maxD = std::max(maxD, std::abs(frontal_[index]));
-      index++;
-    }
+      ++index;
 
-    const int entries_left = (ldf_ - nb_ * j - jb) * jb;
-
-    for (int i = 0; i < entries_left; ++i) {
-      if (frontal_[index] != 0.0) {
-        minoffD = std::min(minoffD, std::abs(frontal_[index]));
-        maxoffD = std::max(maxoffD, std::abs(frontal_[index]));
+      // off diagonal entries
+      int entries_left = ldf_ - nb_ * j - k - 1;
+      for (int i = 0; i < entries_left; ++i) {
+        if (frontal_[index] != 0.0) {
+          minoffD = std::min(minoffD, std::abs(frontal_[index]));
+          maxoffD = std::max(maxoffD, std::abs(frontal_[index]));
+        }
+        ++index;
       }
-      index++;
     }
   }
 

@@ -11,6 +11,7 @@ class DataCollector {
 
   // ==== Times ====
   std::vector<double> times_{};
+  std::vector<int> blas_calls_{};
 
   void sumTime(TimeItems i, double t);
   void printTimes() const;

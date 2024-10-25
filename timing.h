@@ -5,7 +5,7 @@
 // - TIMING_0: no timing
 // - TIMING_1: basic timing
 // - TIMING_2: advanced timing
-// - TIMING_3: extreme timing (it slows down considerably)
+// - TIMING_3: extreme timing (timing of each BLAS call, considerably slower)
 #define TIMING_2
 
 // define for timing
@@ -18,13 +18,12 @@
 #endif
 
 #if (defined(TIMING_3))
-#define FINEST_TIMING
+#define BLAS_TIMING
 #endif
 
 enum TimeItems {
   // Analyse timer
-  kTimeAnalyse,  // TIMING_1
-  // Analyse items
+  kTimeAnalyse,         // TIMING_1
   kTimeAnalyseMetis,    // TIMING_2
   kTimeAnalyseTree,     // TIMING_2
   kTimeAnalyseCount,    // TIMING_2
@@ -33,26 +32,29 @@ enum TimeItems {
   kTimeAnalyseReorder,  // TIMING_2
   kTimeAnalyseRelInd,   // TIMING_2
   // Factorise timer
-  kTimeFactorise,  // TIMING_1
-  // Factorise items
+  kTimeFactorise,                         // TIMING_1
   kTimeFactorisePrepare,                  // TIMING_2
   kTimeFactoriseAssembleOriginal,         // TIMING_2
   kTimeFactoriseAssembleChildren,         // TIMING_2
-  kTimeFactoriseAssembleChildrenFrontal,  // TIMING_3
-  kTimeFactoriseAssembleChildrenClique,   // TIMING_3
+  kTimeFactoriseAssembleChildrenFrontal,  // TIMING_2
+  kTimeFactoriseAssembleChildrenClique,   // TIMING_2
   kTimeFactoriseDenseFact,                // TIMING_2
-  // DenseFact items
-  kTimeDenseFact_copy,     // TIMING_3
-  kTimeDenseFact_axpy,     // TIMING_3
-  kTimeDenseFact_scal,     // TIMING_3
-  kTimeDenseFact_gemv,     // TIMING_3
-  kTimeDenseFact_trsm,     // TIMING_3
-  kTimeDenseFact_syrk,     // TIMING_3
-  kTimeDenseFact_gemm,     // TIMING_3
-  kTimeDenseFact_fact,     // TIMING_3
-  kTimeDenseFact_convert,  // TIMING_3
-  // Solve times
+  kTimeDenseFact_fact,                    // TIMING_2
+  kTimeDenseFact_convert,                 // TIMING_2
+  // Solve timer
   kTimeSolve,  // TIMING_1
+  // BLAS times
+  kTimeBlasStart,
+  kTimeBlas_copy = kTimeBlasStart,  // TIMING_3
+  kTimeBlas_axpy,                   // TIMING_3
+  kTimeBlas_scal,                   // TIMING_3
+  kTimeBlas_gemv,                   // TIMING_3
+  kTimeBlas_trsv,                   // TIMING_3
+  kTimeBlas_tpsv,                   // TIMING_3
+  kTimeBlas_trsm,                   // TIMING_3
+  kTimeBlas_syrk,                   // TIMING_3
+  kTimeBlas_gemm,                   // TIMING_3
+  kTimeBlasEnd = kTimeBlas_gemm,
   // enum size
   kTimeSize
 };

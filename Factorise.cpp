@@ -2,10 +2,12 @@
 
 #include <fstream>
 
+#include "Auxiliary.h"
 #include "FullFormatHandler.h"
 #include "HybridHybridFormatHandler.h"
 #include "HybridPackedFormatHandler.h"
 #include "PackedPackedFormatHandler.h"
+#include "ReturnValues.h"
 
 Factorise::Factorise(const Symbolic& S, DataCollector& DC,
                      const std::vector<int>& rowsA,
@@ -218,7 +220,7 @@ void Factorise::processSupernode(int sn) {
     const int nc = S_.ptr(child_sn + 1) - S_.ptr(child_sn) - child_size;
 
 // ASSEMBLE INTO FRONTAL
-#ifdef FINEST_TIMING
+#ifdef FINE_TIMING
     Clock clock2;
     clock2.start();
 #endif
@@ -246,16 +248,16 @@ void Factorise::processSupernode(int sn) {
         }
       }
     }
-#ifdef FINEST_TIMING
+#ifdef FINE_TIMING
     DC_.sumTime(kTimeFactoriseAssembleChildrenFrontal, clock2.stop());
 #endif
 
 // ASSEMBLE INTO CLIQUE
-#ifdef FINEST_TIMING
+#ifdef FINE_TIMING
     clock2.start();
 #endif
     FH->assembleClique(child_clique, nc, child_sn);
-#ifdef FINEST_TIMING
+#ifdef FINE_TIMING
     DC_.sumTime(kTimeFactoriseAssembleChildrenClique, clock2.stop());
 #endif
 

@@ -1,10 +1,15 @@
 #include "DataCollector.h"
 
-DataCollector::DataCollector() { times_.resize(kTimeSize); }
+DataCollector::DataCollector() {
+  times_.resize(kTimeSize);
+  blas_calls_.resize(kTimeBlasEnd - kTimeBlasStart + 1);
+}
 
 void DataCollector::sumTime(TimeItems i, double t) {
   // will need lock
   times_[i] += t;
+  if (i >= kTimeBlasStart && i <= kTimeBlasEnd)
+    ++blas_calls_[i - kTimeBlasStart];
 }
 
 void DataCollector::resetExtremeEntries() {
@@ -76,41 +81,58 @@ void DataCollector::printTimes() const {
   printf("\tAssembly children:      %8.4f (%4.1f%%)\n",
          times_[kTimeFactoriseAssembleChildren],
          times_[kTimeFactoriseAssembleChildren] / times_[kTimeFactorise] * 100);
-#ifdef FINEST_TIMING
   printf("\t\tinto frontal:   %8.4f\n",
          times_[kTimeFactoriseAssembleChildrenFrontal]);
   printf("\t\tinto clique:    %8.4f\n",
          times_[kTimeFactoriseAssembleChildrenClique]);
-#endif
   printf("\tDense factorisation:    %8.4f (%4.1f%%)\n",
          times_[kTimeFactoriseDenseFact],
          times_[kTimeFactoriseDenseFact] / times_[kTimeFactorise] * 100);
-#endif
-
-#ifdef FINEST_TIMING
-  printf("\n");
-  printf("\t\tcopy:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_copy],
-         times_[kTimeDenseFact_copy] / times_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\taxpy:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_axpy],
-         times_[kTimeDenseFact_axpy] / times_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\tscal:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_scal],
-         times_[kTimeDenseFact_scal] / times_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\tgemv:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_gemv],
-         times_[kTimeDenseFact_gemv] / times_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\ttrsm:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_trsm],
-         times_[kTimeDenseFact_trsm] / times_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\tsyrk:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_syrk],
-         times_[kTimeDenseFact_syrk] / times_[kTimeFactoriseDenseFact] * 100);
-  printf("\t\tgemm:           %8.4f (%4.1f%%)\n", times_[kTimeDenseFact_gemm],
-         times_[kTimeDenseFact_gemm] / times_[kTimeFactoriseDenseFact] * 100);
-
-  printf("\t\tfact:           %8.4f\n", times_[kTimeDenseFact_fact]);
+  printf("\t\tkernel:         %8.4f\n", times_[kTimeDenseFact_fact]);
   printf("\t\tconvert:        %8.4f\n", times_[kTimeDenseFact_convert]);
 #endif
+
   printf("----------------------------------------------------\n");
   printf("Solve time              \t%8.4f\n", times_[kTimeSolve]);
   printf("----------------------------------------------------\n");
 
+#ifdef BLAS_TIMING
+
+  double total_blas_time =
+      times_[kTimeBlas_copy] + times_[kTimeBlas_axpy] + times_[kTimeBlas_scal] +
+      times_[kTimeBlas_gemv] + times_[kTimeBlas_trsv] + times_[kTimeBlas_tpsv] +
+      times_[kTimeBlas_trsm] + times_[kTimeBlas_syrk] + times_[kTimeBlas_gemm];
+
+  printf("BLAS time               \t%8.4f\n", total_blas_time);
+  printf("\tcopy:           \t%8.4f (%4.1f%%) in %10d calls\n",
+         times_[kTimeBlas_copy], times_[kTimeBlas_copy] / total_blas_time * 100,
+         blas_calls_[kTimeBlas_copy - kTimeBlasStart]);
+  printf("\taxpy:           \t%8.4f (%4.1f%%) in %10d calls\n",
+         times_[kTimeBlas_axpy], times_[kTimeBlas_axpy] / total_blas_time * 100,
+         blas_calls_[kTimeBlas_axpy - kTimeBlasStart]);
+  printf("\tscal:           \t%8.4f (%4.1f%%) in %10d calls\n",
+         times_[kTimeBlas_scal], times_[kTimeBlas_scal] / total_blas_time * 100,
+         blas_calls_[kTimeBlas_scal - kTimeBlasStart]);
+  printf("\tgemv:           \t%8.4f (%4.1f%%) in %10d calls\n",
+         times_[kTimeBlas_gemv], times_[kTimeBlas_gemv] / total_blas_time * 100,
+         blas_calls_[kTimeBlas_gemv - kTimeBlasStart]);
+  printf("\ttrsv:           \t%8.4f (%4.1f%%) in %10d calls\n",
+         times_[kTimeBlas_trsv], times_[kTimeBlas_trsv] / total_blas_time * 100,
+         blas_calls_[kTimeBlas_trsv - kTimeBlasStart]);
+  printf("\ttpsv:           \t%8.4f (%4.1f%%) in %10d calls\n",
+         times_[kTimeBlas_tpsv], times_[kTimeBlas_tpsv] / total_blas_time * 100,
+         blas_calls_[kTimeBlas_tpsv - kTimeBlasStart]);
+  printf("\ttrsm:           \t%8.4f (%4.1f%%) in %10d calls\n",
+         times_[kTimeBlas_trsm], times_[kTimeBlas_trsm] / total_blas_time * 100,
+         blas_calls_[kTimeBlas_trsm - kTimeBlasStart]);
+  printf("\tsyrk:           \t%8.4f (%4.1f%%) in %10d calls\n",
+         times_[kTimeBlas_syrk], times_[kTimeBlas_syrk] / total_blas_time * 100,
+         blas_calls_[kTimeBlas_syrk - kTimeBlasStart]);
+  printf("\tgemm:           \t%8.4f (%4.1f%%) in %10d calls\n",
+         times_[kTimeBlas_gemm], times_[kTimeBlas_gemm] / total_blas_time * 100,
+         blas_calls_[kTimeBlas_gemm - kTimeBlasStart]);
+  printf("----------------------------------------------------\n");
+#endif
 #endif
 }
 

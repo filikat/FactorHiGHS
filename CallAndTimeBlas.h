@@ -10,6 +10,11 @@ void callAndTime_dgemm(char transa, char transb, int m, int n, int k,
                        double alpha, const double* A, int lda, const double* B,
                        int ldb, double beta, double* C, int ldc,
                        DataCollector& DC);
+void callAndTime_dtpsv(char uplo, char trans, char diag, int n,
+                       const double* ap, double* x, int incx,
+                       DataCollector& DC);
+void callAndTime_dtrsv(char uplo, char trans, char diag, int n, const double* A,
+                       int lda, double* x, int incx, DataCollector& DC);
 void callAndTime_dtrsm(char side, char uplo, char trans, char diag, int m,
                        int n, double alpha, const double* a, int lda, double* b,
                        int ldb, DataCollector& DC);

@@ -4,12 +4,8 @@
 #include <algorithm>
 #include <vector>
 
-#include "Auxiliary.h"
 #include "DataCollector.h"
-#include "GKlib.h"
-#include "ReturnValues.h"
 #include "Symbolic.h"
-#include "metis.h"
 
 // parameters for supernode amalgamation
 const int kStartThreshRelax = 256;

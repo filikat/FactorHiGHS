@@ -5,6 +5,11 @@
 #include <random>
 #include <stack>
 
+#include "Auxiliary.h"
+#include "GKlib.h"
+#include "ReturnValues.h"
+#include "metis.h"
+
 Analyse::Analyse(Symbolic& S, DataCollector& DC, const std::vector<int>& rows,
                  const std::vector<int>& ptr, int negative_pivots)
     : S_{S}, DC_{DC} {

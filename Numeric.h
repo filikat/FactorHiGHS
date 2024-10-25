@@ -3,10 +3,7 @@
 
 #include <vector>
 
-#include "Auxiliary.h"
-#include "Blas_declaration.h"
 #include "Symbolic.h"
-#include "Timing.h"
 #include "DataCollector.h"
 
 class Numeric {
