@@ -1042,14 +1042,15 @@ void Analyse::computeStorage(int fr, int sz, int& fr_entries,
 
   const int cl = fr - sz;
   switch (S_.formatType()) {
-    case FormatType::Full:
+    case FormatType::Full: {
       // full format stores a rectangle for each
       fr_entries = fr * sz;
       cl_entries = cl * cl;
       break;
+    }
 
     case FormatType::HybridPacked:
-    case FormatType::HybridHybrid:
+    case FormatType::HybridHybrid: {
       // frontal is stored as a trapezoid
       fr_entries = fr * sz - sz * (sz - 1) / 2;
 
@@ -1063,6 +1064,24 @@ void Analyse::computeStorage(int fr, int sz, int& fr_entries,
       }
       cl_entries = schur_size;
       break;
+    }
+
+    case FormatType::PackedPacked: {
+      const int nb = S_.blockSize();
+      int n_blocks = (sz - 1) / nb + 1;
+      std::vector<int> temp;
+      fr_entries = getDiagStart(fr, sz, nb, n_blocks, temp);
+
+      // clique is stored as a collection of rectangles
+      n_blocks = (cl - 1) / nb + 1;
+      int schur_size{};
+      for (int j = 0; j < n_blocks; ++j) {
+        const int jb = std::min(nb, cl - j * nb);
+        schur_size += (cl - j * nb) * jb;
+      }
+      cl_entries = schur_size;
+      break;
+    }
   }
 }
 
@@ -1312,6 +1331,7 @@ void Analyse::computeBlockStart() {
       return;
     case FormatType::HybridPacked:
     case FormatType::HybridHybrid:
+    case FormatType::PackedPacked:
       clique_block_start_.resize(sn_count_);
       // compute starting position of each block of columns in the clique, for
       // each supernode
@@ -1321,14 +1341,10 @@ void Analyse::computeBlockStart() {
         const int ldc = ldf - sn_size;
         const int nb = S_.blockSize();
         const int n_blocks = (ldc - 1) / nb + 1;
-        clique_block_start_[sn].resize(n_blocks + 1);
-        int schur_size{};
-        for (int j = 0; j < n_blocks; ++j) {
-          clique_block_start_[sn][j] = schur_size;
-          const int jb = std::min(nb, ldc - j * nb);
-          schur_size += (ldc - j * nb) * jb;
-        }
-        clique_block_start_[sn].back() = schur_size;
+
+        int schur_size =
+            getDiagStart(ldc, ldc, nb, n_blocks, clique_block_start_[sn]);
+        clique_block_start_[sn].push_back(schur_size);
       }
       break;
   }

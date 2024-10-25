@@ -37,7 +37,7 @@ void HybridHybridFormatHandler::assembleFrontalMultiple(
 int HybridHybridFormatHandler::denseFactorise(double reg_thresh) {
   int status;
 
-  status = denseFactL2H(frontal_.data(), ldf_, sn_size_, nb_, DC_);
+  status = denseFactP2H(frontal_.data(), ldf_, sn_size_, nb_, DC_);
   if (status) return status;
 
   // find the position within pivot_sign corresponding to this supernode

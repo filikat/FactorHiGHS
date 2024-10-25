@@ -1237,11 +1237,23 @@ I should implement another format, similar to Full, but that only stores the blo
 It should be quite similar to the hybrid code, but the BLAS calls change.
 ---
 
+*****
+25 Oct 2024
+Yesterday and today I worked on implementing the new format.
+Weirdly enough, it worked immediately. I just need to understand if it does what I think it does.
+It should be correct anyway.
+At the moment, clique_block_start is computed once and stored in Symbolic, while the equivalent for frontal is computed only when needed.
+I will need to decide whether to compute both before or both when needed. Not a big deal anyway.
+Numeric has become a bit of a mess, I may decide to have a separate object to handle the various formats there as well. Or not, we'll see.
+---
+There was something wrong, I was allocating way more space for the frontal matrices.
+Easy fix, I just considered only the case of square matrix, but I have to consider that the frontal matrices are not square.
+The memory estimate is now much smaller than full format and slightly larger than the hybrid formats.
+---
+
 
 *****
 To do:
 - row growth factor (and store inverse of D?)
 - parallel stuff
 - check iterative refinement
-
-- update full format

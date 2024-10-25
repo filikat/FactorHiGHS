@@ -23,6 +23,8 @@ void dfsPostorder(int node, int& start, std::vector<int>& head,
 void processEdge(int j, int i, const std::vector<int>& first,
                  std::vector<int>& maxfirst, std::vector<int>& delta,
                  std::vector<int>& prevleaf, std::vector<int>& ancestor);
+int getDiagStart(int n, int k, int nb, int n_blocks, std::vector<int>& start,
+                 bool triang = false);
 
 template <typename T>
 void permuteVector(std::vector<T>& v, const std::vector<int>& perm) {

@@ -1,6 +1,6 @@
-#include "HybridPackedFormatHandler.h"
+#include "PackedPackedFormatHandler.h"
 
-HybridPackedFormatHandler::HybridPackedFormatHandler(const Symbolic& S,
+PackedPackedFormatHandler::PackedPackedFormatHandler(const Symbolic& S,
                                                      DataCollector& DC, int sn)
     : FormatHandler(S, DC, sn) {
   // initialize frontal and clique
@@ -8,21 +8,27 @@ HybridPackedFormatHandler::HybridPackedFormatHandler(const Symbolic& S,
   initClique();
 }
 
-void HybridPackedFormatHandler::initFrontal() {
-  // frontal is initialized to zero
-  frontal_.resize(ldf_ * sn_size_ - sn_size_ * (sn_size_ - 1) / 2 + 10);
+void PackedPackedFormatHandler::initFrontal() {
+  const int n_blocks = (sn_size_ - 1) / nb_ + 1;
+  diag_start_.resize(n_blocks);
+  int frontal_size = getDiagStart(ldf_, sn_size_, nb_, n_blocks, diag_start_);
+  frontal_.resize(frontal_size + 10);
   // NB: the plus 10 is not needed, but it avoids weird problems later on.
 }
 
-void HybridPackedFormatHandler::initClique() {
+void PackedPackedFormatHandler::initClique() {
   clique_.resize(S_->cliqueSize(sn_));
 }
 
-void HybridPackedFormatHandler::assembleFrontal(int i, int j, double val) {
-  frontal_[i + j * ldf_ - j * (j + 1) / 2] = val;
+void PackedPackedFormatHandler::assembleFrontal(int i, int j, double val) {
+  int block = j / nb_;
+  int ldb = ldf_ - block * nb_;
+  int ii = i - block * nb_;
+  int jj = j - block * nb_;
+  frontal_[diag_start_[block] + ii + ldb * jj] = val;
 }
 
-void HybridPackedFormatHandler::assembleFrontalMultiple(
+void PackedPackedFormatHandler::assembleFrontalMultiple(
     int num, const std::vector<double>& child, int nc, int child_sn, int row,
     int col, int i, int j) {
   const int jblock = col / nb_;
@@ -30,27 +36,28 @@ void HybridPackedFormatHandler::assembleFrontalMultiple(
   col -= jblock * nb_;
   const int start_block = S_->cliqueBlockStart(child_sn, jblock);
   const int ld = nc - nb_ * jblock;
+
+  int block = j / nb_;
+  int ldb = ldf_ - block * nb_;
+  int ii = i - block * nb_;
+  int jj = j - block * nb_;
+
   daxpy_(&num, &d_one, &child[start_block + row + ld * col], &i_one,
-         &frontal_[i + ldf_ * j - j * (j + 1) / 2], &i_one);
+         &frontal_[diag_start_[block] + ii + ldb * jj], &i_one);
 }
 
-int HybridPackedFormatHandler::denseFactorise(double reg_thresh) {
-  int status;
-
-  status = denseFactP2H(frontal_.data(), ldf_, sn_size_, nb_, DC_);
-  if (status) return status;
-
+int PackedPackedFormatHandler::denseFactorise(double reg_thresh) {
   // find the position within pivot_sign corresponding to this supernode
   int sn_start = S_->snStart(sn_);
   const int* pivot_sign = &S_->pivotSign().data()[sn_start];
 
-  status = denseFactH('P', ldf_, sn_size_, nb_, frontal_.data(), clique_.data(),
-                      pivot_sign, reg_thresh, local_reg_.data(), DC_);
+  int status = denseFactFP(ldf_, sn_size_, nb_, frontal_.data(), clique_.data(),
+                           pivot_sign, reg_thresh, local_reg_.data(), DC_);
 
   return status;
 }
 
-void HybridPackedFormatHandler::assembleClique(const std::vector<double>& child,
+void PackedPackedFormatHandler::assembleClique(const std::vector<double>& child,
                                                int nc, int child_sn) {
   //   go through the columns of the contribution of the child
   for (int col = 0; col < nc; ++col) {
@@ -98,7 +105,7 @@ void HybridPackedFormatHandler::assembleClique(const std::vector<double>& child,
   }
 }
 
-void HybridPackedFormatHandler::extremeEntries() {
+void PackedPackedFormatHandler::extremeEntries() {
   double minD = std::numeric_limits<double>::max();
   double maxD = 0.0;
   double minoffD = std::numeric_limits<double>::max();
@@ -131,7 +138,6 @@ void HybridPackedFormatHandler::extremeEntries() {
       index++;
     }
 
-    // temporary space for gemv
     const int entries_left = (ldf_ - nb_ * j - jb) * jb;
 
     for (int i = 0; i < entries_left; ++i) {

@@ -206,6 +206,21 @@ void processEdge(int j, int i, const std::vector<int>& first,
   prevleaf[i] = j;
 }
 
+int getDiagStart(int n, int k, int nb, int n_blocks, std::vector<int>& start,
+                 bool triang) {
+  // start position of diagonal blocks for blocked dense formats
+  start.assign(n_blocks, 0);
+  for (int i = 1; i < n_blocks; ++i) {
+    start[i] = start[i - 1] + nb * (n - (i - 1) * nb);
+    if (triang) start[i] -= nb * (nb - 1) / 2;
+  }
+
+  int jb = std::min(nb, k - (n_blocks - 1) * nb);
+  int result = start.back() + (n - (n_blocks - 1) * nb) * jb;
+  if (triang) result -= jb * (jb - 1) / 2;
+  return result;
+}
+
 void Clock::start() { t0 = std::chrono::high_resolution_clock::now(); }
 double Clock::stop() {
   auto t1 = std::chrono::high_resolution_clock::now();

@@ -5,6 +5,7 @@
 #include "FullFormatHandler.h"
 #include "HybridHybridFormatHandler.h"
 #include "HybridPackedFormatHandler.h"
+#include "PackedPackedFormatHandler.h"
 
 Factorise::Factorise(const Symbolic& S, DataCollector& DC,
                      const std::vector<int>& rowsA,
@@ -137,6 +138,9 @@ std::unique_ptr<FormatHandler> getFormatHandler(const Symbolic& S,
       break;
     case FormatType::HybridHybrid:
       ptr.reset(new HybridHybridFormatHandler(S, DC, sn));
+      break;
+    case FormatType::PackedPacked:
+      ptr.reset(new PackedPackedFormatHandler(S, DC, sn));
       break;
   }
   return ptr;

@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "../ProtoIPM/Regularization.h"
+#include "Auxiliary.h"
 #include "Blas_declaration.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
@@ -12,12 +13,24 @@
 #include "Timing.h"
 
 /*
-Names:
-denseFact:
- - K : factorization kernel for diagonal blocks
- - F : blocked factorization in full format
- - HP: blocked factorization in hybrid-packed format
- - HH: blocked factorization in hybrid-hybrid format
+  Names:
+  denseFact:
+  - K : factorization kernel for diagonal blocks
+  - F : blocked factorization in full format
+  - H : blocked factorization in "hybrid formats"
+
+  Formats used:
+  - F : Full format
+  - P : lower Packed format
+  - FP: lower Packed format with Full diagonal blocks
+  - H : lower-blocked-Hybrid format
+  - FH: lower-blocked-Hybrid format with Full diagonal blocks
+
+  F, P do not use blocks. FP, H, FH use blocks.
+  Blocks are always blocks of columns.
+  F, P store by columns.
+  FP stores by columns within the blocks. H, FH store by rows within the blocks.
+  See report for more details.
 */
 
 double pivotCompensatedSum(double base, int k, const double* row, int ldr,
@@ -130,8 +143,9 @@ double regularizePivot(double pivot, double thresh, const int* sign,
 int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
                double thresh, double* regul, DataCollector& DC) {
   // ===========================================================================
-  // Factorization kernel.
-  // BLAS calls: dgemv_, dscal_.
+  // Factorization kernel
+  // Matrix A is in format F
+  // BLAS calls: dscal, dgemv
   // ===========================================================================
 
   // check input
@@ -279,8 +293,10 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
                const int* pivot_sign, double thresh, double* regul,
                DataCollector& DC) {
   // ===========================================================================
-  // Blocked factorization in full format.
-  // BLAS calls: dcopy_, dscal_, dgemm_, dtrsm_, dsyrk_
+  // Partial blocked factorization
+  // Matrix A is in format F
+  // Matrix B is in format F
+  // BLAS calls: dcopy, dscal, dsyrk, dgemm, dtrsm
   // ===========================================================================
 
   // check input
@@ -313,7 +329,7 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
 
     int ldt = jb;
     for (int i = 0; i < j; ++i) {
-      callAndTime_dcopy(N, &A[j + i * lda], 1, &T[i * ldt], 1, DC);
+      callAndTime_dcopy(N, &P[i * lda], 1, &T[i * ldt], 1, DC);
       callAndTime_dscal(N, A[i + i * lda], &T[i * ldt], 1, DC);
     }
 
@@ -338,8 +354,8 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
 
       // solve block of columns with D
       for (int i = 0; i < jb; ++i) {
-        const double coeff = 1.0 / A[j + i + (j + i) * lda];
-        callAndTime_dscal(M, coeff, &A[j + jb + lda * (j + i)], 1, DC);
+        const double coeff = 1.0 / D[i + i * lda];
+        callAndTime_dscal(M, coeff, &R[lda * i], 1, DC);
       }
     }
   }
@@ -399,15 +415,179 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
   return kRetOk;
 }
 
+int denseFactFP(int n, int k, int nb, double* A, double* B,
+                const int* pivot_sign, double thresh, double* regul,
+                DataCollector& DC) {
+  // ===========================================================================
+  // Partial blocked factorization
+  // Matrix A is in format FP
+  // Matrix B is in format FP
+  // BLAS calls: dcopy, dscal, dgemm, dtrsm
+  // ===========================================================================
+
+  // check input
+  if (n < 0 || k < 0 || !A || (k < n && !B)) {
+    printf("\ndenseFactDP: invalid input\n");
+    return kRetInvalidInput;
+  }
+
+  // quick return
+  if (n == 0) return kRetOk;
+
+  // number of blocks of columns
+  const int n_blocks = (k - 1) / nb + 1;
+
+  // start of diagonal blocks
+  std::vector<int> diag_start(n_blocks);
+  getDiagStart(n, k, nb, n_blocks, diag_start);
+
+  // buffer for copy of block scaled by pivots
+  std::vector<double> T(nb * nb);
+
+  // j is the index of the block column
+  for (int j = 0; j < n_blocks; ++j) {
+    // jb is the number of columns
+    const int jb = std::min(nb, k - nb * j);
+
+    // number of rows left below block j
+    const int M = n - nb * j - jb;
+
+    // diagonal block
+    double* D = &A[diag_start[j]];
+
+    // block of columns below diagonal block j
+    double* R = &A[diag_start[j] + jb];
+
+    // leading dimensions to access arrays
+    const int ldD = n - j * nb;
+    const int ldR = ldD;
+
+    // update diagonal block and block of columns
+    for (int k = 0; k < j; ++k) {
+      // starting position of block P
+      int Pk_pos = diag_start[k] + nb * (j - k);
+      const double* Pk = &A[Pk_pos];
+
+      // leading dimensions
+      const int ldP = n - k * nb;
+      const int ldQ = ldP;
+      const int ldT = jb;
+
+      // copy block Pk into temp and scale by pivots
+      const double* Dk = &A[diag_start[k]];
+      for (int col = 0; col < nb; ++col) {
+        callAndTime_dcopy(jb, &Pk[col * ldP], 1, &T[col * ldT], 1, DC);
+        callAndTime_dscal(jb, Dk[col + col * ldP], &T[col * ldT], 1, DC);
+      }
+
+      // update diagonal block with dgemm_
+      callAndTime_dgemm('N', 'T', jb, jb, nb, -1.0, T.data(), ldT, Pk, ldP, 1.0,
+                        D, ldD, DC);
+
+      // update rectangular block
+      if (M > 0) {
+        const int Qk_pos = Pk_pos + jb;
+        const double* Qk = &A[Qk_pos];
+        callAndTime_dgemm('N', 'T', M, jb, nb, -1.0, Qk, ldQ, T.data(), ldT,
+                          1.0, R, ldR, DC);
+      }
+    }
+
+    // factorize diagonal block
+    double* regul_current = &regul[j * nb];
+    const int* pivot_sign_current = &pivot_sign[j * nb];
+    int info = callAndTime_denseFactK('L', jb, D, ldD, pivot_sign_current,
+                                      thresh, regul_current, DC);
+    if (info != 0) return info;
+
+    if (M > 0) {
+      // solve block of columns with diagonal block
+      callAndTime_dtrsm('R', 'L', 'T', 'U', M, jb, 1.0, D, ldD, R, ldR, DC);
+
+      // scale columns by pivots
+      for (int col = 0; col < jb; ++col) {
+        const double coeff = 1.0 / D[col + col * ldD];
+        callAndTime_dscal(M, coeff, &R[col * ldR], 1, DC);
+      }
+    }
+  }
+
+  // compute Schur complement if partial factorization is required
+  if (k < n) {
+    // number of rows/columns in the Schur complement
+    const int ns = n - k;
+
+    // size of last full block
+    const int ncol_last = (k % nb == 0 ? nb : k % nb);
+
+    // number of blocks in Schur complement
+    const int s_blocks = (ns - 1) / nb + 1;
+
+    int B_start = 0;
+
+    // Go through block of columns of Schur complement
+    for (int sb = 0; sb < s_blocks; ++sb) {
+      // number of rows of the block
+      const int nrow = ns - nb * sb;
+
+      // number of columns of the block
+      const int ncol = std::min(nb, nrow);
+
+      double* D = &B[B_start];
+      double* R = &B[B_start + ncol];
+      const int ldD = nrow;
+      const int ldR = ldD;
+
+      // each block receives contributions from the blocks of the leading part
+      // of A
+      for (int j = 0; j < n_blocks; ++j) {
+        const int jb = std::min(nb, k - nb * j);
+
+        // compute index to access block Pj
+        const int Pj_pos =
+            diag_start[j] + (n_blocks - j - 1) * jb + ncol_last + sb * nb;
+        const double* Pj = &A[Pj_pos];
+        const int ldP = n - j * nb;
+        const int ldT = ncol;
+
+        // copy block Pj into temp and scale by pivots
+        const double* Dj = &A[diag_start[j]];
+        for (int col = 0; col < jb; ++col) {
+          callAndTime_dcopy(ncol, &Pj[col * ldP], 1, &T[col * ldT], 1, DC);
+          callAndTime_dscal(ncol, Dj[col + col * ldP], &T[col * ldT], 1, DC);
+        }
+
+        const double* Qj = &A[Pj_pos + ncol];
+        const int ldQ = ldP;
+
+        // update diagonal block using dgemm_
+        callAndTime_dgemm('N', 'T', ncol, ncol, jb, -1.0, Pj, ldP, T.data(),
+                          ldT, 1.0, D, ldD, DC);
+
+        // update subdiagonal part
+        const int M = nrow - ncol;
+        if (M > 0) {
+          callAndTime_dgemm('N', 'T', M, ncol, jb, -1.0, Qj, ldQ, T.data(), ldT,
+                            1.0, R, ldR, DC);
+        }
+      }
+
+      B_start += nrow * ncol;
+    }
+  }
+
+  return kRetOk;
+}
+
 int denseFactH(char format, int n, int k, int nb, double* A, double* B,
                const int* pivot_sign, double thresh, double* regul,
                DataCollector& DC) {
   // ===========================================================================
-  // Blocked factorization in hybrid format.
-  // A should be in lower-blocked-hybrid format. Schur complement is returned
-  // in B in lower packed format (not lower-blocked-hybrid), if format=='P', or
-  // in lower-block-hybrid format with full diagonal blocks, if format=='H'.
-  // BLAS calls: dgemm_, dtrsm_, dcopy_, dscal_, daxpy_
+  // Partial blocked factorization
+  // Matrix A is in format H
+  // Matrix B is in format FP, if format == 'P'
+  //                       FH, if format == 'H'
+  // BLAS calls: dcopy, dscal, daxpy, dgemm, dtrsm
   // ===========================================================================
 
   // check input
@@ -424,12 +604,7 @@ int denseFactH(char format, int n, int k, int nb, double* A, double* B,
 
   // start of diagonal blocks
   std::vector<int> diag_start(n_blocks);
-
-  diag_start[0] = 0;
-  for (int i = 1; i < n_blocks; ++i) {
-    diag_start[i] =
-        diag_start[i - 1] + nb * (2 * n - 2 * (i - 1) * nb - nb + 1) / 2;
-  }
+  getDiagStart(n, k, nb, n_blocks, diag_start, true);
 
   // size of blocks
   const int diag_size = nb * (nb + 1) / 2;
@@ -609,7 +784,8 @@ int denseFactH(char format, int n, int k, int nb, double* A, double* B,
 
       if (format == 'P') {
         // schur_buf contains Schur complement in hybrid format (with full
-        // diagonal blocks). Sum it in lower-packed format in B.
+        // diagonal blocks). Store it by columns in B (with full diagonal
+        // blocks).
         for (int buf_row = 0; buf_row < nrow; ++buf_row) {
           const int N = ncol;
           callAndTime_daxpy(N, 1.0, &schur_buf[buf_row * ncol], 1,
@@ -624,12 +800,12 @@ int denseFactH(char format, int n, int k, int nb, double* A, double* B,
   return kRetOk;
 }
 
-int denseFactL2H(double* A, int nrow, int ncol, int nb, DataCollector& DC) {
+int denseFactP2H(double* A, int nrow, int ncol, int nb, DataCollector& DC) {
   // ===========================================================================
-  // Takes a matrix in lower-packed format, with nrow rows.
-  // Converts the first ncol columns into lower-blocked-hybrid format, with
-  // block size nb.
-  // BLAS calls: dcopy_
+  // Packed to Hybrid conversion
+  // Matrix A on  input is in format P
+  // Matrix A on output is in format H
+  // BLAS calls: dcopy
   // ===========================================================================
 
 #ifdef FINEST_TIMING

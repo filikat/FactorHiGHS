@@ -3,12 +3,10 @@
 
 #include <vector>
 
-// Storage format for dense matrices:
-// - full
-// - lower-blocked hybrid with packed Schur complement
-// - lower-blocked hybrid with hybrid Schur complement
+// Frontal and Clique can be stored in Full format, Hybrid format, of Packed
+// format (with full diagonal blocks).
 // (see report for details)
-enum class FormatType { Full, HybridPacked, HybridHybrid };
+enum class FormatType { Full, HybridPacked, HybridHybrid, PackedPacked };
 
 // Symbolic factorization object
 class Symbolic {
