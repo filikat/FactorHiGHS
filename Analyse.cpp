@@ -30,7 +30,7 @@ Analyse::Analyse(Symbolic& S, DataCollector& DC, const std::vector<int>& rows,
   transpose(ptr, rows, ptr_upper_, rows_upper_);
 
   // Permute the matrix with identical permutation, to extract upper triangular
-  // part, if the input is not upper triangular.
+  // part, if the input is not lower triangular.
   std::vector<int> id_perm(n_);
   for (int i = 0; i < n_; ++i) id_perm[i] = i;
   permute(id_perm);
@@ -52,11 +52,6 @@ Analyse::Analyse(Symbolic& S, DataCollector& DC, const std::vector<int>& rows,
 
 int Analyse::getPermutation() {
   // Use Metis to compute a nested dissection permutation of the original matrix
-
-  if (!perm_.empty()) {
-    // permutation already provided by user
-    return kRetOk;
-  }
 
   perm_.resize(n_);
   iperm_.resize(n_);
@@ -958,89 +953,6 @@ void Analyse::relativeIndClique() {
   }
 }
 
-bool Analyse::check() const {
-  // Check that the symbolic factorization is correct, by using dense linear
-  // algebra operations.
-  // Return true if check is successful, or if matrix is too large.
-  // To be used for debug.
-
-  // Check symbolic factorization
-  if (n_ > 5000) {
-    printf("\n==> Matrix is too large for dense check\n\n");
-    return true;
-  }
-
-  // initialize random number generator (to avoid numerical cancellation)
-  std::random_device rd;
-  std::mt19937 rng(rd());
-  std::uniform_real_distribution<double> distr(0.1, 10.0);
-
-  // assemble sparse matrix into dense matrix
-  std::vector<double> M(n_ * n_);
-  for (int col = 0; col < n_; ++col) {
-    for (int el = ptr_upper_[col]; el < ptr_upper_[col + 1]; ++el) {
-      int row = rows_upper_[el];
-
-      // insert random element in position (row,col)
-      M[row + col * n_] = distr(rng);
-
-      // guarantee matrix is diagonally dominant (thus positive definite)
-      if (row == col) {
-        M[row + col * n_] += n_ * 10;
-      }
-    }
-  }
-
-  // use Lapack to factorize the dense matrix
-  char uplo = 'U';
-  int N = n_;
-  int info;
-  dpotrf_(&uplo, &N, M.data(), &N, &info);
-  if (info != 0) {
-    printf("\n==> dpotrf failed\n\n");
-    return false;
-  }
-
-  // assemble expected sparsity pattern into dense matrix
-  std::vector<bool> L(n_ * n_);
-  for (int sn = 0; sn < sn_count_; ++sn) {
-    for (int col = sn_start_[sn]; col < sn_start_[sn + 1]; ++col) {
-      for (int el = ptr_sn_[sn]; el < ptr_sn_[sn + 1]; ++el) {
-        int row = rows_sn_[el];
-        if (row < col) continue;
-        L[row + n_ * col] = true;
-      }
-    }
-  }
-
-  int zeros_found{};
-  int wrong_entries{};
-
-  // check how many entries do not correspond
-  for (int j = 0; j < n_; ++j) {
-    for (int i = 0; i < n_; ++i) {
-      double val_M = M[j + n_ * i];
-      bool val_L = L[i + n_ * j];
-
-      if (val_L && val_M == 0.0) {
-        // count number of fake zeros found, to confront it with artificialNz
-        ++zeros_found;
-      } else if (!val_L && val_M != 0.0) {
-        printf("==> (%d,%d) Found nonzero, expected zero\n", i, j);
-        ++wrong_entries;
-      }
-    }
-  }
-
-  if (wrong_entries == 0 && zeros_found == artificial_nz_) {
-    printf("\n==> Analyse check successful\n\n");
-    return true;
-  } else {
-    printf("\n==> Analyse check failed\n\n");
-    return false;
-  }
-}
-
 void Analyse::computeStorage(int fr, int sz, int& fr_entries,
                              int& cl_entries) const {
   // compute storage required by frontal and clique, based on the format used
@@ -1371,8 +1283,7 @@ int Analyse::run() {
 #ifdef FINE_TIMING
   clock_items.start();
 #endif
-  int metis_status = getPermutation();
-  if (metis_status) return kRetMetisError;
+  if (int metis_status = getPermutation()) return kRetMetisError;
 #ifdef FINE_TIMING
   DC_.sumTime(kTimeAnalyseMetis, clock_items.stop());
 #endif

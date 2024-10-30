@@ -112,11 +112,11 @@ void callAndTime_dscal(int n, const double da, double* dx, int incx,
 
 int callAndTime_denseFactK(char uplo, int n, double* A, int lda,
                            const int* pivot_sign, double thresh, double* regul,
-                           DataCollector& DC) {
+                           DataCollector& DC, int sn, int bl) {
 #ifdef FINE_TIMING
   double t0 = GetTime();
 #endif
-  int info = denseFactK(uplo, n, A, lda, pivot_sign, thresh, regul, DC);
+  int info = denseFactK(uplo, n, A, lda, pivot_sign, thresh, regul, DC, sn, bl);
 #ifdef FINE_TIMING
   DC.sumTime(kTimeDenseFact_fact, GetTime() - t0);
 #endif

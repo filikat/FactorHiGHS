@@ -97,7 +97,6 @@ class Analyse {
   void snPattern();
   void relativeIndCols();
   void relativeIndClique();
-  bool check() const;
   void reorderChildren();
   void computeStorage();
   void computeStorage(int fr, int sz, int& fr_entries, int& cl_entries) const;

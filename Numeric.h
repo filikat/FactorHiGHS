@@ -16,9 +16,6 @@ class Numeric {
   // object to handle times and statistics
   DataCollector& DC_;
 
-  // scaling applied to the matrix
-  std::vector<double> colscale_{};
-
   friend class Factorise;
 
  public:

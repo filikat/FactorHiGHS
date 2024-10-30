@@ -1251,9 +1251,25 @@ Easy fix, I just considered only the case of square matrix, but I have to consid
 The memory estimate is now much smaller than full format and slightly larger than the hybrid formats.
 ---
 
+*****
+29 Oct 2024
+I made some changes to the printing of the regularization of the pivots, so that I can identify which pivot it is.
+It does look like the issues travel up through the elimination tree, as expected.
+I noticed that if I increase the static and dynamic regularization, there are fewer issues, but the convergence of IPM may be affected.
+Still, I think the best approach is to keep the regularization a bit high, so that the factorization does not fail, and deal with algorithmic issues in some other way.
+---
+
+*****
+30 Oct 2024
+I added the locks to DataCollector and changed a bit the interface, so that it should be safe to access concurrently.
+---
+
 
 *****
 To do:
 - row growth factor (and store inverse of D?)
 - parallel stuff
 - check iterative refinement
+
+- free variables
+- limit growth of x and s?

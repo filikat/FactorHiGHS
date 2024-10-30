@@ -47,8 +47,8 @@ void permuteVectorInverse(std::vector<T>& v, const std::vector<int>& iperm) {
 }
 
 template <typename T>
-void print(std::ofstream& out_file, const std::vector<T>& v,
-           const std::string s) {
+void print(const std::vector<T>& v, const std::string s) {
+  std::ofstream out_file;
   char name[80];
   snprintf(name, 80, "../FactorHiGHS/matlab/%s.txt", s.c_str());
   out_file.open(name);

@@ -447,24 +447,10 @@ void Numeric::solve(std::vector<double>& x) const {
   // permute rhs
   permuteVectorInverse(x, S_.iperm());
 
-  // scale rhs
-  if (colscale_.size() > 0) {
-    for (int i = 0; i < S_.size(); ++i) {
-      x[i] *= colscale_[i];
-    }
-  }
-
   // solve
   forwardSolve(x);
   diagSolve(x);
   backwardSolve(x);
-
-  // scale solution
-  if (colscale_.size() > 0) {
-    for (int i = 0; i < S_.size(); ++i) {
-      x[i] *= colscale_[i];
-    }
-  }
 
   // unpermute solution
   permuteVector(x, S_.iperm());

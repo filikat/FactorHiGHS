@@ -2,6 +2,7 @@
 
 #include <fstream>
 
+#include "../ProtoIPM/Regularization.h"
 #include "Auxiliary.h"
 #include "FullFormatHandler.h"
 #include "HybridHybridFormatHandler.h"
@@ -47,9 +48,6 @@ Factorise::Factorise(const Symbolic& S, DataCollector& DC,
   // create linked lists of children in supernodal elimination tree
   childrenLinkedList(S_.snParent(), first_children_, next_children_);
 
-  // scale the matrix
-  // equilibrate();
-
   // compute largest diagonal entry in absolute value
   max_diag_ = 0.0;
   min_diag_ = std::numeric_limits<double>::max();
@@ -58,7 +56,12 @@ Factorise::Factorise(const Symbolic& S, DataCollector& DC,
     max_diag_ = std::max(max_diag_, val);
     min_diag_ = std::min(min_diag_, val);
   }
-  // printf("diag in [%e,%e]\n", min_diag_, max_diag_);
+
+  /*print(S_.snParent(), "parent");
+  print(S_.snStart(), "start");
+  print(rowsA_, "rows");
+  print(ptrA_, "ptr");
+  print(valA_, "val");*/
 }
 
 void Factorise::permute(const std::vector<int>& iperm) {
@@ -198,12 +201,9 @@ void Factorise::processSupernode(int sn) {
   DC_.sumTime(kTimeFactoriseAssembleOriginal, clock.stop());
 #endif
 
-// ===================================================
-// Assemble frontal matrices of children
-// ===================================================
-#ifdef FINE_TIMING
-  clock.start();
-#endif
+  // ===================================================
+  // Assemble frontal matrices of children
+  // ===================================================
   int child_sn = first_children_[sn];
   while (child_sn != -1) {
     // Schur contribution of the current child
@@ -221,8 +221,7 @@ void Factorise::processSupernode(int sn) {
 
 // ASSEMBLE INTO FRONTAL
 #ifdef FINE_TIMING
-    Clock clock2;
-    clock2.start();
+    clock.start();
 #endif
     // go through the columns of the contribution of the child
     for (int col = 0; col < nc; ++col) {
@@ -249,16 +248,16 @@ void Factorise::processSupernode(int sn) {
       }
     }
 #ifdef FINE_TIMING
-    DC_.sumTime(kTimeFactoriseAssembleChildrenFrontal, clock2.stop());
+    DC_.sumTime(kTimeFactoriseAssembleChildrenFrontal, clock.stop());
 #endif
 
 // ASSEMBLE INTO CLIQUE
 #ifdef FINE_TIMING
-    clock2.start();
+    clock.start();
 #endif
     FH->assembleClique(child_clique, nc, child_sn);
 #ifdef FINE_TIMING
-    DC_.sumTime(kTimeFactoriseAssembleChildrenClique, clock2.stop());
+    DC_.sumTime(kTimeFactoriseAssembleChildrenClique, clock.stop());
 #endif
 
     // Schur contribution of the child is no longer needed
@@ -269,9 +268,6 @@ void Factorise::processSupernode(int sn) {
     // move on to the next child
     child_sn = next_children_[child_sn];
   }
-#ifdef FINE_TIMING
-  DC_.sumTime(kTimeFactoriseAssembleChildren, clock.stop());
-#endif
 
   // ===================================================
   // Partial factorisation
@@ -281,7 +277,7 @@ void Factorise::processSupernode(int sn) {
 #endif
 
   // threshold for regularization
-  const double reg_thresh = max_diag_ * 1e-16 * 1e-10;
+  const double reg_thresh = max_diag_ * kDynamicDiagCoeff;
 
   if (FH->denseFactorise(reg_thresh)) {
     flag_stop_ = true;
@@ -297,78 +293,6 @@ void Factorise::processSupernode(int sn) {
 
   // terminate the format handler
   FH->terminate(sn_columns_[sn], schur_contribution_[sn], total_reg_);
-}
-
-void Factorise::equilibrate() {
-  // Scale the matrix, according to:
-  // D. Ruiz, "A Scaling Algorithm to Equilibrate Both Rows and Columns Norms
-  // in Matrices", RAL-TR-2001-034. It attempts to obtain a matrix with
-  // /infty-norm of the rows and columns equal to one.
-
-  const int maxiter = 10;
-
-  // initialize equilibration factors
-  colscale_.resize(n_, 1.0);
-
-  // initialize vectors for max entry in cols
-  std::vector<double> colmax(n_);
-
-  // iterate
-  for (int iter = 0; iter < maxiter; ++iter) {
-    // compute \infty norm of cols
-    colmax.assign(n_, 0.0);
-    for (int col = 0; col < n_; ++col) {
-      for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
-        int row = rowsA_[el];
-        double val = std::abs(valA_[el]);
-        // Matrix is stored as lower triangle, so this element contributes
-        // both to columns col and row.
-        colmax[col] = std::max(colmax[col], val);
-        if (col != row) colmax[row] = std::max(colmax[row], val);
-      }
-    }
-
-    // check stopping criterion
-    double max_deviation{};
-    for (int i = 0; i < n_; ++i) {
-      double val = std::abs(1.0 - colmax[i]);
-      max_deviation = std::max(max_deviation, val);
-    }
-    if (max_deviation < .01) break;
-
-    // compute scaling factors for columns
-    for (int col = 0; col < n_; ++col) {
-      // compute scaling
-      colmax[col] = 1.0 / sqrt(colmax[col]);
-
-      // round to power of 2
-      int exp;
-      std::frexp(colmax[col], &exp);
-      colmax[col] = std::ldexp(1.0, exp);
-
-      // update overall scaling
-      colscale_[col] *= colmax[col];
-    }
-
-    // apply scaling to matrix
-    for (int col = 0; col < n_; ++col) {
-      for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
-        int row = rowsA_[el];
-        valA_[el] *= colmax[col];
-        valA_[el] *= colmax[row];
-      }
-    }
-  }
-
-  /*double max_scale = 0.0;
-  double min_scale = std::numeric_limits<double>::max();
-  for (double d : colscale_) {
-    max_scale = std::max(max_scale, d);
-    min_scale = std::min(min_scale, d);
-  }
-
-  printf("Scaling in [%e,%e]\n", min_scale, max_scale);
-  */
 }
 
 bool Factorise::run(Numeric& num) {
@@ -392,16 +316,8 @@ bool Factorise::run(Numeric& num) {
 
   if (flag_stop_) return true;
 
-  // un-scale regularization
-  if (colscale_.size() > 0) {
-    for (int i = 0; i < n_; ++i) {
-      total_reg_[i] /= (colscale_[i] * colscale_[i]);
-    }
-  }
-
   // move factorisation to numerical object
   num.sn_columns_ = std::move(sn_columns_);
-  num.colscale_ = std::move(colscale_);
   num.total_reg_ = std::move(total_reg_);
 
 #ifdef COARSE_TIMING

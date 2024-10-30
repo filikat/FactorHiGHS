@@ -35,7 +35,6 @@ enum TimeItems {
   kTimeFactorise,                         // TIMING_1
   kTimeFactorisePrepare,                  // TIMING_2
   kTimeFactoriseAssembleOriginal,         // TIMING_2
-  kTimeFactoriseAssembleChildren,         // TIMING_2
   kTimeFactoriseAssembleChildrenFrontal,  // TIMING_2
   kTimeFactoriseAssembleChildrenClique,   // TIMING_2
   kTimeFactoriseDenseFact,                // TIMING_2

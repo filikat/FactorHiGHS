@@ -37,9 +37,6 @@ class Factorise {
   double max_diag_{};
   double min_diag_{};
 
-  // symmetric scaling to apply to the original matrix
-  std::vector<double> colscale_{};
-
   // regularization
   std::vector<double> total_reg_{};
 
@@ -49,7 +46,6 @@ class Factorise {
  public:
   void permute(const std::vector<int>& iperm);
   void processSupernode(int sn);
-  void equilibrate();
 
  public:
   Factorise(const Symbolic& S, DataCollector& DC, const std::vector<int>& rowsA,

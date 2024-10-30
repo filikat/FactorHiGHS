@@ -6,10 +6,35 @@ DataCollector::DataCollector() {
 }
 
 void DataCollector::sumTime(TimeItems i, double t) {
-  // will need lock
+  // Keep track of times and blas calls.
+  std::lock_guard<std::mutex> lock(times_mutex_);
   times_[i] += t;
   if (i >= kTimeBlasStart && i <= kTimeBlasEnd)
     ++blas_calls_[i - kTimeBlasStart];
+}
+void DataCollector::extremeEntries(double minD, double maxD, double minoffD,
+                                   double maxoffD) {
+  // Store max and min entries of D and L.
+  std::lock_guard<std::mutex> lock(extreme_entries_mutex_);
+  minD_ = std::min(minD_, minD);
+  maxD_ = std::max(maxD_, maxD);
+  minL_ = std::min(minL_, minoffD);
+  maxL_ = std::max(maxL_, maxoffD);
+}
+void DataCollector::sumRegPiv() {
+  // Increase the number of dynamically regularized pivots.
+  std::lock_guard<std::mutex> lock(n_reg_piv_mutex_);
+  ++n_reg_piv_;
+}
+void DataCollector::setMaxReg(double new_reg) {
+  // Keep track of maximum regularization used.
+  std::lock_guard<std::mutex> lock(max_reg_mutex_);
+  max_reg_ = std::max(max_reg_, new_reg);
+}
+void DataCollector::setWorstRes(double res) {
+  // Keep track of worst residual
+  std::lock_guard<std::mutex> lock(worst_res_mutex_);
+  worst_res_ = std::max(worst_res_, res);
 }
 
 void DataCollector::resetExtremeEntries() {
@@ -20,24 +45,6 @@ void DataCollector::resetExtremeEntries() {
   max_reg_ = 0.0;
   worst_res_ = 0.0;
   n_reg_piv_ = 0;
-}
-
-void DataCollector::extremeEntries(double minD, double maxD, double minoffD,
-                                   double maxoffD) {
-  // will need lock
-  minD_ = std::min(minD_, minD);
-  maxD_ = std::max(maxD_, maxD);
-  minL_ = std::min(minL_, minoffD);
-  maxL_ = std::max(maxL_, maxoffD);
-}
-
-void DataCollector::sumRegPiv() {
-  // will need lock
-  ++n_reg_piv_;
-}
-void DataCollector::setMaxReg(double new_reg) {
-  // will need lock
-  max_reg_ = std::max(max_reg_, new_reg);
 }
 
 void DataCollector::printTimes() const {
@@ -78,13 +85,14 @@ void DataCollector::printTimes() const {
   printf("\tAssembly original:      %8.4f (%4.1f%%)\n",
          times_[kTimeFactoriseAssembleOriginal],
          times_[kTimeFactoriseAssembleOriginal] / times_[kTimeFactorise] * 100);
-  printf("\tAssembly children:      %8.4f (%4.1f%%)\n",
-         times_[kTimeFactoriseAssembleChildren],
-         times_[kTimeFactoriseAssembleChildren] / times_[kTimeFactorise] * 100);
-  printf("\t\tinto frontal:   %8.4f\n",
-         times_[kTimeFactoriseAssembleChildrenFrontal]);
-  printf("\t\tinto clique:    %8.4f\n",
-         times_[kTimeFactoriseAssembleChildrenClique]);
+  printf("\tAssemble children in F: %8.4f (%4.1f%%)\n",
+         times_[kTimeFactoriseAssembleChildrenFrontal],
+         times_[kTimeFactoriseAssembleChildrenFrontal] /
+             times_[kTimeFactorise] * 100);
+  printf("\tAssemble children in C: %8.4f (%4.1f%%)\n",
+         times_[kTimeFactoriseAssembleChildrenClique],
+         times_[kTimeFactoriseAssembleChildrenClique] / times_[kTimeFactorise] *
+             100);
   printf("\tDense factorisation:    %8.4f (%4.1f%%)\n",
          times_[kTimeFactoriseDenseFact],
          times_[kTimeFactoriseDenseFact] / times_[kTimeFactorise] * 100);
@@ -135,7 +143,6 @@ void DataCollector::printTimes() const {
 #endif
 #endif
 }
-
 void printMemory(double mem) {
   if (mem < 1024)
     printf("%.1f B\n", mem);
@@ -146,13 +153,13 @@ void printMemory(double mem) {
   else
     printf("%.1f GB\n", mem / 1024 / 1024 / 1024);
 }
-
 void DataCollector::printSymbolic(bool verbose) const {
   printf("\nStatistic of Factor L\n");
   printf("size            : %.2e\n", (double)n_);
   printf("nnz             : %.2e\n", nz_);
   printf("fill-in         : %.2f\n", fillin_);
-  printf("operations      : %.2e\n", dense_ops_);
+  printf("dense  ops      : %.2e\n", dense_ops_);
+  printf("sparse ops      : %.2e\n", sparse_ops_);
   printf("serial memory   : ");
   printMemory(serial_storage_);
   if (verbose) {
@@ -164,3 +171,11 @@ void DataCollector::printSymbolic(bool verbose) const {
   }
   printf("\n");
 }
+
+double DataCollector::minD() const { return minD_; }
+double DataCollector::maxD() const { return maxD_; }
+double DataCollector::minL() const { return minL_; }
+double DataCollector::maxL() const { return maxL_; }
+double DataCollector::maxReg() const { return max_reg_; }
+double DataCollector::worstRes() const { return worst_res_; }
+int DataCollector::nRegPiv() const { return n_reg_piv_; }

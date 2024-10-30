@@ -35,7 +35,7 @@ int FullFormatHandler::denseFactorise(double reg_thresh) {
 
   status =
       denseFactF(ldf_, sn_size_, nb_, frontal_.data(), ldf_, clique_.data(),
-                 ldc_, pivot_sign, reg_thresh, local_reg_.data(), DC_);
+                 ldc_, pivot_sign, reg_thresh, local_reg_.data(), DC_, sn_);
 
   return status;
 }

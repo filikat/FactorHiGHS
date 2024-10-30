@@ -11,11 +11,14 @@
 #include "ReturnValues.h"
 #include "Timing.h"
 
+// #define DEBUG
+
 /*
   Names:
   denseFact:
   - K : factorization kernel for diagonal blocks
   - F : blocked factorization in full format
+  - FP: blocked factorization in format FP
   - H : blocked factorization in "hybrid formats"
 
   Formats used:
@@ -56,7 +59,7 @@ double pivotCompensatedSum(double base, int k, const double* row, int ldr,
 
 double regularizePivot(double pivot, double thresh, const int* sign,
                        const double* A, int lda, int j, int n, char uplo,
-                       DataCollector& DC) {
+                       DataCollector& DC, int sn, int bl) {
   // add static regularization
   if (sign[j] == 1)
     pivot += kDualStaticRegularization;
@@ -69,78 +72,87 @@ double regularizePivot(double pivot, double thresh, const int* sign,
   double spivot = s * pivot;
   double K = 1e12;
 
+  bool adjust = false;
+  bool modified_pivot = false;
+
   if (spivot <= thresh && spivot >= -thresh) {
     // small pivot, lift to thresh
     pivot = s * thresh;
-    DC.sumRegPiv();
-    printf("%3d: small pivot %e, with sign %d, set to %e\n", j, old_pivot,
-           sign[j], pivot);
+    adjust = true;
+    modified_pivot = true;
+#ifdef DEBUG
+    printf("%2d, %2d, %2d: small pivot %e, with sign %d, set to %e\n", sn, bl,
+           j, old_pivot, sign[j], pivot);
+#endif
+
   } else if (spivot < -thresh && spivot >= -thresh * K) {
     // wrong sign, lift more
     pivot = s * thresh * 10;
-    DC.sumRegPiv();
-    printf("%3d: wrong pivot %e, with sign %d, set to %e\n", j, old_pivot,
-           sign[j], pivot);
+    adjust = true;
+    modified_pivot = true;
+#ifdef DEBUG
+    printf("%2d, %2d, %2d: wrong pivot %e, with sign %d, set to %e\n", sn, bl,
+           j, old_pivot, sign[j], pivot);
+#endif
+
   } else if (spivot < -thresh * K) {
     // pivot is completely lost
     pivot = s * 1e100;
-    DC.sumRegPiv();
-    printf("%3d: disaster pivot %e, with sign %d, set to %e\n", j, old_pivot,
-           sign[j], pivot);
+    modified_pivot = true;
+#ifdef DEBUG
+    printf("%2d, %2d, %2d: disaster pivot %e, with sign %d, set to %e\n", sn,
+           bl, j, old_pivot, sign[j], pivot);
+#endif
   }
 
-  // lift pivots that are too small or have wrong sign
-  /*if (s * pivot <= thresh) {
-    // if pivot is not acceptable, push it up to thresh
-    printf("%d: small pivot %e, with sign %d set to ", j, pivot, sign[j]);
+  if (adjust) {
+    // compute the minimum pivot required to keep the diagonal of the
+    // current block acceptable:
+    // b is column below pivot, d is diagonal of block, p is pivot
+    // we want d_k - b_k^2 / p \ge thresh
+    // i.e.
+    // p \ge b_k^2 / (d_k - thresh)
+    //
+    double required_pivot = pivot;
+    for (int k = j + 1; k < n; ++k) {
+      double bk = uplo == 'L' ? A[k + j * lda] : A[j + k * lda];
+      double dk = A[k + k * lda];
 
-    if (s * pivot <= -thresh * 1e12) {
-      pivot = s * max(thresh * 1e10, 1e10);
-      printf("%e\n", pivot);
-    } else {
-      pivot = thresh * s;
-      printf("%e\n", pivot);
+      // if pivot and dk have different sign, skip
+      double sk = sign[k];
+      if (s * sk < 0) continue;
 
-      // compute the minimum pivot required to keep the diagonal of the
-      // current block acceptable:
-      // b is column below pivot, d is diagonal of block, p is pivot
-      // we want d_k - b_k^2 / p \ge thresh
-      // i.e.
-      // p \ge b_k^2 / (d_k - thresh)
-      //
-      double required_pivot = pivot;
-      for (int k = j + 1; k < n; ++k) {
-        double bk = uplo == 'L' ? A[k + j * lda] : A[j + k * lda];
-        double dk = A[k + k * lda];
+      double temp = (dk - sk * thresh);
+      temp = (bk * bk) / temp;
 
-        // if pivot and dk have different sign, skip
-        if (s * (double)sign[k] < 0) continue;
-
-        double temp = (dk - s * thresh);
-        temp = (bk * bk) / temp;
-
-        if (s > 0)
-          required_pivot = max(required_pivot, temp);
-        else
-          required_pivot = min(required_pivot, temp);
-      }
-
-      if (required_pivot != pivot) {
-        if (sign > 0)
-          pivot = max(pivot, required_pivot);
-        else
-          pivot = min(pivot, required_pivot);
-
-        printf("%d: pivot %e set to %e\n", j, old_pivot, pivot);
-      }
+      if (s > 0)
+        required_pivot = std::max(required_pivot, temp);
+      else
+        required_pivot = std::min(required_pivot, temp);
     }
-  }*/
+
+    if (required_pivot != pivot) {
+      modified_pivot = true;
+
+      if (s > 0)
+        pivot = std::max(pivot, required_pivot);
+      else
+        pivot = std::min(pivot, required_pivot);
+
+#ifdef DEBUG
+      printf("\t%2d, %2d, %2d: adjust %e to %e\n", sn, bl, j, old_pivot, pivot);
+#endif
+    }
+  }
+
+  if (modified_pivot) DC.sumRegPiv();
 
   return pivot;
 }
 
 int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
-               double thresh, double* regul, DataCollector& DC) {
+               double thresh, double* regul, DataCollector& DC, int sn,
+               int bl) {
   // ===========================================================================
   // Factorization kernel
   // Matrix A is in format F
@@ -188,7 +200,8 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
 
       // add regularization
       double old_pivot = Ajj;
-      Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, DC);
+      Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, DC, sn,
+                            bl);
       regul[j] = fabs(Ajj - old_pivot);
       DC.setMaxReg(regul[j]);
 
@@ -232,7 +245,8 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
 
       // add regularization
       double old_pivot = Ajj;
-      Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, DC);
+      Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, DC, sn,
+                            bl);
       regul[j] = fabs(Ajj - old_pivot);
       DC.setMaxReg(regul[j]);
 
@@ -250,47 +264,9 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
   return kRetOk;
 }
 
-// ===========================================================================
-// Functions to compute dense partial Cholesky or LDL factorizations with
-// left-looking approach, with blocking.
-//
-// A is used to access the first k columns, i.e., M(0:n-1,0:k-1).
-// B is used to access the remaining lower triangle, i.e., M(k:n-1,k:n-1).
-//
-// No pivoting is performed. Regularization is used to deal with small pivots.
-//
-// These functions are similar to Lapack dpotrf("L", n, A, lda, info).
-//
-// Arguments:
-// - n      : Dimension of matrix M.
-// - k      : Number of columns to factorize.
-//            If k < n, a partial factorization is computed.
-//            If k >= n, a full factorization is computed and B is not used.
-// - nb     : size of the blocks.
-// - A      : Array of size (lda * k). To be accessed by columns.
-//            On input, it contains the first k columns/rows of M.
-//            On output, it contains the trapezoidal factor of the first k
-//            columns of M.
-// - lda    : Leading dimension of A. It must be at least n. It can be larger
-//            if A is stored as a block of a larger matrix.
-// - B      : Array of size (ldb * (n-k)). To be accessed by columns.
-//            On input, any data is discarded.
-//            On output, it contains the Schur complement.
-//            It can be null if k >= n.
-// - ldb    : Leading dimension of B. It must be at least (n-k), if k < n. It
-//            can be larger if B is stored as a block of a larger martix.
-//            Not used if k >= n.
-//
-// ===========================================================================
-// In the following, block D represents the current diagonal block, in the block
-// of columns that is being factorized. Block R is the rectangular block below
-// D. Block P is the square or rectangular block to the left of D. Block Q is
-// the rectangular block below P. See the report for a full explanation.
-// ===========================================================================
-
 int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
                const int* pivot_sign, double thresh, double* regul,
-               DataCollector& DC) {
+               DataCollector& DC, int sn) {
   // ===========================================================================
   // Partial blocked factorization
   // Matrix A is in format F
@@ -306,6 +282,9 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
 
   // quick return
   if (n == 0) return kRetOk;
+
+  // create temporary copy of block of rows, multiplied by pivots
+  std::vector<double> T(k * nb);
 
   // j is the starting col of the block of columns
   for (int j = 0; j < k; j += nb) {
@@ -323,9 +302,6 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
     const double* Q = &A[j + N];
     double* R = &A[j + N + lda * j];
 
-    // create temporary copy of block of rows, multiplied by pivots
-    std::vector<double> T(j * jb);
-
     int ldt = jb;
     for (int i = 0; i < j; ++i) {
       callAndTime_dcopy(N, &P[i * lda], 1, &T[i * ldt], 1, DC);
@@ -339,8 +315,9 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
     // factorize diagonal block
     const int* pivot_sign_current = &pivot_sign[j];
     double* regul_current = &regul[j];
+    int bl = j / nb;
     int info = callAndTime_denseFactK('L', N, D, lda, pivot_sign_current,
-                                      thresh, regul_current, DC);
+                                      thresh, regul_current, DC, sn, bl);
     if (info != 0) return info;
 
     if (j + jb < n) {
@@ -416,7 +393,7 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
 
 int denseFactFP(int n, int k, int nb, double* A, double* B,
                 const int* pivot_sign, double thresh, double* regul,
-                DataCollector& DC) {
+                DataCollector& DC, int sn) {
   // ===========================================================================
   // Partial blocked factorization
   // Matrix A is in format FP
@@ -496,7 +473,7 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
     double* regul_current = &regul[j * nb];
     const int* pivot_sign_current = &pivot_sign[j * nb];
     int info = callAndTime_denseFactK('L', jb, D, ldD, pivot_sign_current,
-                                      thresh, regul_current, DC);
+                                      thresh, regul_current, DC, sn, j);
     if (info != 0) return info;
 
     if (M > 0) {
@@ -580,7 +557,7 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
 
 int denseFactH(char format, int n, int k, int nb, double* A, double* B,
                const int* pivot_sign, double thresh, double* regul,
-               DataCollector& DC) {
+               DataCollector& DC, int sn) {
   // ===========================================================================
   // Partial blocked factorization
   // Matrix A is in format H
@@ -673,7 +650,7 @@ int denseFactH(char format, int n, int k, int nb, double* A, double* B,
     double* regul_current = &regul[j * nb];
     const int* pivot_sign_current = &pivot_sign[j * nb];
     int info = callAndTime_denseFactK('U', jb, D.data(), jb, pivot_sign_current,
-                                      thresh, regul_current, DC);
+                                      thresh, regul_current, DC, sn, j);
     if (info != 0) return info;
 
     if (M > 0) {
