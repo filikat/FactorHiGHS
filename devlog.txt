@@ -1264,11 +1264,24 @@ Still, I think the best approach is to keep the regularization a bit high, so th
 I added the locks to DataCollector and changed a bit the interface, so that it should be safe to access concurrently.
 ---
 
+*****
+31 Oct 2024
+I added the spawn and sync instructions to use the scheduler.
+I made a mistake at the beginning. The lambda that I use to define the task should take the supernode number as a copy, not a reference, obviously.
+It finds the correct solution and takes a bit less time.
+I added the calculation of the critical path along the elimination tree, to estimate the maximum speed up possible.
+For some problems, there is a noticeable difference. fit2d has a 2x speedup.
+There may be some contention of the locks of DataCollector. I should try to use atomic for some things.
+---
+I wonder if it makes sense to reoder the children rather than based on memory (since I am not using the stack approach), based on the amount of work needed for them.
+Would it make sense to sync first with large or small fronts? Not sure yet.
+It may also depend on which supernodes are on the critical path.
+---
+
 
 *****
 To do:
 - row growth factor (and store inverse of D?)
-- parallel stuff
 - check iterative refinement
 
 - free variables

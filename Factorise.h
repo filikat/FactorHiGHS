@@ -8,6 +8,8 @@
 #include "Numeric.h"
 #include "Symbolic.h"
 
+#define PARALLEL_FACTORISE
+
 class Factorise {
  public:
   // matrix to factorise
@@ -24,8 +26,16 @@ class Factorise {
   DataCollector& DC_;
 
   // children in supernodal elimination tree
-  std::vector<int> first_children_{};
-  std::vector<int> next_children_{};
+  std::vector<int> first_child_{};
+  std::vector<int> next_child_{};
+
+#ifdef PARALLEL_FACTORISE
+  // reverse linked lists of chidlren
+  std::vector<int> first_child_reverse_{};
+  std::vector<int> next_child_reverse_{};
+
+  //std::vector<int> thr_per_sn{};
+#endif
 
   // generated elements, aka Schur complements.
   std::vector<std::vector<double>> schur_contribution_{};

@@ -1,6 +1,7 @@
 #ifndef DATA_COLLECTOR_H
 #define DATA_COLLECTOR_H
 
+#include <atomic>
 #include <mutex>
 #include <vector>
 
@@ -14,9 +15,11 @@ class DataCollector {
   // Symbolic factorization statistics
   int n_{};
   double nz_{};
+  int sn_{};
   double fillin_{};
   double dense_ops_{};
   double sparse_ops_{};
+  double critical_ops_{};
   int artificial_nz_{};
   double artificial_ops_{};
   int largest_front_{};

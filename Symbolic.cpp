@@ -11,6 +11,7 @@ int Symbolic::sn() const { return sn_; }
 int Symbolic::rows(int i) const { return rows_[i]; }
 int Symbolic::ptr(int i) const { return ptr_[i]; }
 int Symbolic::snStart(int i) const { return sn_start_[i]; }
+int Symbolic::snParent(int i) const { return sn_parent_[i]; }
 int Symbolic::relindCols(int i) const { return relind_cols_[i]; }
 int Symbolic::relindClique(int i, int j) const { return relind_clique_[i][j]; }
 int Symbolic::consecutiveSums(int i, int j) const {

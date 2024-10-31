@@ -1073,9 +1073,61 @@ void Analyse::computeStorage() {
       child = next[child];
     }
     storage[sn] = std::max(storage_1, storage_2);
+  }
 
+  for (int sn = 0; sn < sn_count_; ++sn) {
     // save max storage needed, multiply by 8 because double needs 8 bytes
     serial_storage_ = std::max(serial_storage_, 8 * storage[sn]);
+  }
+}
+
+void Analyse::computeCriticalOps() {
+  // Compute the critical path within the supernodal elimination tree, and the
+  // number of operations along the path. This is the number of operations that
+  // need to be done sequentially while doing tree parallelism.
+
+  std::vector<double> critical_ops(sn_count_);
+
+  // linked lists of children
+  std::vector<int> head, next;
+  childrenLinkedList(sn_parent_, head, next);
+
+  for (int sn = 0; sn < sn_count_; ++sn) {
+    // supernode size
+    const int sz = sn_start_[sn + 1] - sn_start_[sn];
+
+    // frontal size
+    const int fr = ptr_sn_[sn + 1] - ptr_sn_[sn];
+
+    // dense ops of this supernode
+    critical_ops[sn] = (double)fr * fr * sz +
+                       (double)sz * (sz + 1) * (2 * sz + 1) / 6 -
+                       (double)fr * sz * (sz + 1);
+
+    // sparse ops of this supernode, passed to parent
+    /*if (sn_parent_[sn] != -1) {
+      const int ldc = fr - sz;
+      critical_ops[sn_parent_[sn]] += (double)ldc * (ldc + 1) / 2 * 100;
+    }*/
+  }
+
+  for (int sn = 0; sn < sn_count_; ++sn) {
+    // leaf nodes
+    if (head[sn] == -1) continue;
+
+    double max_ops{};
+    int child = head[sn];
+    while (child != -1) {
+      // critical_ops of this supernode is max over children of
+      // (ops_of_this_sn + critical_ops_of_child)
+      max_ops = std::max(max_ops, critical_ops[sn] + critical_ops[child]);
+      child = next[child];
+    }
+    critical_ops[sn] = max_ops;
+  }
+
+  for (int sn = 0; sn < sn_count_; ++sn) {
+    critical_ops_ = std::max(critical_ops_, critical_ops[sn]);
   }
 }
 
@@ -1343,17 +1395,20 @@ int Analyse::run() {
 
   computeStorage();
   computeBlockStart();
+  computeCriticalOps();
 
   // move relevant stuff into S and DC
   S_.n_ = n_;
   S_.sn_ = sn_count_;
 
+  DC_.sn_ = sn_count_;
   DC_.n_ = n_;
   DC_.nz_ = nz_factor_;
   DC_.fillin_ = (double)nz_factor_ / nz_;
   DC_.artificial_nz_ = artificial_nz_;
   DC_.artificial_ops_ = (double)dense_ops_ - dense_ops_norelax_;
   DC_.sparse_ops_ = sparse_ops_;
+  DC_.critical_ops_ = critical_ops_;
   DC_.largest_front_ =
       *std::max_element(sn_indices_.begin(), sn_indices_.end());
   DC_.serial_storage_ = serial_storage_;

@@ -31,6 +31,7 @@ class Analyse {
   double dense_ops_{};
   double dense_ops_norelax_{};
   double sparse_ops_{};
+  double critical_ops_{};
   int negative_pivots_{};
 
   // Permutation and inverse permutation from Metis
@@ -100,6 +101,7 @@ class Analyse {
   void reorderChildren();
   void computeStorage();
   void computeStorage(int fr, int sz, int& fr_entries, int& cl_entries) const;
+  void computeCriticalOps();
   void computeBlockStart();
 
  public:

@@ -95,6 +95,7 @@ class Symbolic {
   int rows(int i) const;
   int ptr(int i) const;
   int snStart(int i) const;
+  int snParent(int i) const;
   int relindCols(int i) const;
   int relindClique(int i, int j) const;
   int consecutiveSums(int i, int j) const;

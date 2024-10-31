@@ -9,6 +9,7 @@
 #include "HybridPackedFormatHandler.h"
 #include "PackedPackedFormatHandler.h"
 #include "ReturnValues.h"
+#include "parallel/HighsParallel.h"
 
 Factorise::Factorise(const Symbolic& S, DataCollector& DC,
                      const std::vector<int>& rowsA,
@@ -46,7 +47,14 @@ Factorise::Factorise(const Symbolic& S, DataCollector& DC,
   transpose(temp_ptr, temp_rows, temp_val, ptrA_, rowsA_, valA_);
 
   // create linked lists of children in supernodal elimination tree
-  childrenLinkedList(S_.snParent(), first_children_, next_children_);
+  childrenLinkedList(S_.snParent(), first_child_, next_child_);
+
+#ifdef PARALLEL_FACTORISE
+  // create reverse linked lists of children
+  first_child_reverse_ = first_child_;
+  next_child_reverse_ = next_child_;
+  reverseLinkedList(first_child_reverse_, next_child_reverse_);
+#endif
 
   // compute largest diagonal entry in absolute value
   max_diag_ = 0.0;
@@ -157,6 +165,17 @@ void Factorise::processSupernode(int sn) {
 
   if (flag_stop_) return;
 
+#ifdef PARALLEL_FACTORISE
+  // thr_per_sn[sn] = highs::parallel::thread_num();
+
+  // spawn children of this supernode in reverse order
+  int child_to_spawn = first_child_reverse_[sn];
+  while (child_to_spawn != -1) {
+    highs::parallel::spawn([=]() { processSupernode(child_to_spawn); });
+    child_to_spawn = next_child_reverse_[child_to_spawn];
+  }
+#endif
+
   Clock clock;
 
 #ifdef FINE_TIMING
@@ -204,10 +223,22 @@ void Factorise::processSupernode(int sn) {
   // ===================================================
   // Assemble frontal matrices of children
   // ===================================================
-  int child_sn = first_children_[sn];
+  int child_sn = first_child_[sn];
   while (child_sn != -1) {
     // Schur contribution of the current child
     std::vector<double>& child_clique = schur_contribution_[child_sn];
+
+#ifdef PARALLEL_FACTORISE
+    // sync with spawned child
+    highs::parallel::sync();
+    if (flag_stop_) return;
+
+    if (child_clique.size() == 0) {
+      printf("Missing child supernode contribution\n");
+      flag_stop_ = true;
+      return;
+    }
+#endif
 
     // determine size of clique of child
     const int child_begin = S_.snStart(child_sn);
@@ -266,12 +297,14 @@ void Factorise::processSupernode(int sn) {
     schur_contribution_[child_sn].swap(temp_empty);
 
     // move on to the next child
-    child_sn = next_children_[child_sn];
+    child_sn = next_child_[child_sn];
   }
 
-  // ===================================================
-  // Partial factorisation
-  // ===================================================
+  if (flag_stop_) return;
+
+    // ===================================================
+    // Partial factorisation
+    // ===================================================
 #ifdef FINE_TIMING
   clock.start();
 #endif
@@ -282,7 +315,7 @@ void Factorise::processSupernode(int sn) {
   if (FH->denseFactorise(reg_thresh)) {
     flag_stop_ = true;
     return;
-  };
+  }
 
 #ifdef FINE_TIMING
   DC_.sumTime(kTimeFactoriseDenseFact, clock.stop());
@@ -310,9 +343,32 @@ bool Factorise::run(Numeric& num) {
 
   DC_.resetExtremeEntries();
 
+#ifdef PARALLEL_FACTORISE
+  // thr_per_sn.resize(S_.sn());
+
+  int spawned_roots{};
+  // spawn tasks for root supernodes
+  for (int sn = 0; sn < S_.sn(); ++sn) {
+    if (S_.snParent(sn) == -1) {
+      highs::parallel::spawn([=]() { processSupernode(sn); });
+      ++spawned_roots;
+    }
+  }
+
+  // sync tasks for root supernodes
+  for (int root = 0; root < spawned_roots; ++root) {
+    highs::parallel::sync();
+  }
+
+  // print(S_.snParent(), "parent");
+  // print(thr_per_sn, "thr_per_sn");
+
+#else
+  // go through each supernode serially
   for (int sn = 0; sn < S_.sn(); ++sn) {
     processSupernode(sn);
   }
+#endif
 
   if (flag_stop_) return true;
 
