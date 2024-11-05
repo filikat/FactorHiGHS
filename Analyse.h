@@ -101,7 +101,7 @@ class Analyse {
   void reorderChildren();
   void computeStorage();
   void computeStorage(int fr, int sz, int& fr_entries, int& cl_entries) const;
-  void computeCriticalOps();
+  void computeCriticalPath();
   void computeBlockStart();
 
  public:

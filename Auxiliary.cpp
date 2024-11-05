@@ -221,8 +221,9 @@ int getDiagStart(int n, int k, int nb, int n_blocks, std::vector<int>& start,
   return result;
 }
 
+Clock::Clock() { start(); }
 void Clock::start() { t0 = std::chrono::high_resolution_clock::now(); }
-double Clock::stop() {
+double Clock::stop() const{
   auto t1 = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> d = t1 - t0;
   return d.count();

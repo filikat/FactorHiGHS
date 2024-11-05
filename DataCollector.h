@@ -33,12 +33,11 @@ class DataCollector {
   double maxL_{};
   double max_reg_{};
   double worst_res_{};
-  int n_reg_piv_{};
+  std::atomic<int> n_reg_piv_{};
 
   // Mutexes for concurrent access
   std::mutex times_mutex_;
   std::mutex extreme_entries_mutex_;
-  std::mutex n_reg_piv_mutex_;
   std::mutex max_reg_mutex_;
   std::mutex worst_res_mutex_;
 

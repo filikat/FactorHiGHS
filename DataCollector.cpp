@@ -9,8 +9,10 @@ void DataCollector::sumTime(TimeItems i, double t) {
   // Keep track of times and blas calls.
   std::lock_guard<std::mutex> lock(times_mutex_);
   times_[i] += t;
+#ifdef BLAS_TIMING
   if (i >= kTimeBlasStart && i <= kTimeBlasEnd)
     ++blas_calls_[i - kTimeBlasStart];
+#endif
 }
 void DataCollector::extremeEntries(double minD, double maxD, double minoffD,
                                    double maxoffD) {
@@ -23,7 +25,6 @@ void DataCollector::extremeEntries(double minD, double maxD, double minoffD,
 }
 void DataCollector::sumRegPiv() {
   // Increase the number of dynamically regularized pivots.
-  std::lock_guard<std::mutex> lock(n_reg_piv_mutex_);
   ++n_reg_piv_;
 }
 void DataCollector::setMaxReg(double new_reg) {
@@ -98,6 +99,9 @@ void DataCollector::printTimes() const {
          times_[kTimeFactoriseDenseFact] / times_[kTimeFactorise] * 100);
   printf("\t\tkernel:         %8.4f\n", times_[kTimeDenseFact_fact]);
   printf("\t\tconvert:        %8.4f\n", times_[kTimeDenseFact_convert]);
+  printf("\tTerminate:              %8.4f (%4.1f%%)\n",
+         times_[kTimeFactoriseTerminate],
+         times_[kTimeFactoriseTerminate] / times_[kTimeFactorise] * 100);
 #endif
 
   printf("----------------------------------------------------\n");

@@ -1278,6 +1278,34 @@ Would it make sense to sync first with large or small fronts? Not sure yet.
 It may also depend on which supernodes are on the critical path.
 ---
 
+*****
+1 Nov 2024
+I checked the critical path for some problems and it seems correct.
+It is not surprising that for many problems the critical path takes a large portion of the total operations.
+Most of these are in 1 or 2 very large supernodes.
+Proper parallelism will only be achieved with node parallelism.
+---
+I made some slight changes to the timing.
+I also confirmed that the contention of the lock of the timer in DataCollector is significant, especially with TMING_3 enabled.
+This is not an issue, since timing is only used for development and will disappear almost completely later on.
+Also measuring some statistics, like max reg or number of reg pivots, uses locks. I can use an atomic operation for the number of reg pivots, but I don't know if it's worth it for the max regularization.
+Anyway, this should not make much of a difference.
+---
+
+*****
+5 Nov 2024
+After speaking with Jennifer, I realized that I was doing the parallelization slightly wrong.
+I should wait until the first child is finished before allocating the parent, otherwise there is extra memory required.
+I changed the code and the performance seems unaffected.
+---
+I should also try to spawn the leaves, and spawn the parent as soon as the first child is finished.
+However, doing so means that I don't have an easy way to check when the whole tree is finished.
+If I spawn the roots, when they finish the whole thing finished.
+If I spawn the leaves, I need some way of knowing when the whole tree finished. 
+I am not sure how to do that. If I use a flag, I should constantly be checking on the main thread, which means that the main thread would not be doing much work.
+For now I will leave the spawning of the roots. Jennifer seems to think that the two ways of doing it are exactly equivalent.
+---
+
 
 *****
 To do:

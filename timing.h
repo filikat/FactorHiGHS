@@ -40,6 +40,7 @@ enum TimeItems {
   kTimeFactoriseDenseFact,                // TIMING_2
   kTimeDenseFact_fact,                    // TIMING_2
   kTimeDenseFact_convert,                 // TIMING_2
+  kTimeFactoriseTerminate,                // TIMING_2
   // Solve timer
   kTimeSolve,  // TIMING_1
   // BLAS times
@@ -57,7 +58,5 @@ enum TimeItems {
   // enum size
   kTimeSize
 };
-
-double GetTime();
 
 #endif

@@ -174,12 +174,14 @@ void Factorise::processSupernode(int sn) {
     highs::parallel::spawn([=]() { processSupernode(child_to_spawn); });
     child_to_spawn = next_child_reverse_[child_to_spawn];
   }
+
+  // wait for first child to finish, before starting the parent (if there is a
+  // first child)
+  if (first_child_reverse_[sn] != -1) highs::parallel::sync();
 #endif
 
-  Clock clock;
-
 #ifdef FINE_TIMING
-  clock.start();
+  Clock clock;
 #endif
   // ===================================================
   // Supernode information
@@ -229,8 +231,9 @@ void Factorise::processSupernode(int sn) {
     std::vector<double>& child_clique = schur_contribution_[child_sn];
 
 #ifdef PARALLEL_FACTORISE
-    // sync with spawned child
-    highs::parallel::sync();
+    // sync with spawned child, apart from the first one
+    if (child_sn != first_child_[sn]) highs::parallel::sync();
+
     if (flag_stop_) return;
 
     if (child_clique.size() == 0) {
@@ -324,15 +327,19 @@ void Factorise::processSupernode(int sn) {
   // compute largest elements in factorization
   FH->extremeEntries();
 
+#ifdef FINE_TIMING
+  clock.start();
+#endif
   // terminate the format handler
   FH->terminate(sn_columns_[sn], schur_contribution_[sn], total_reg_);
+#ifdef FINE_TIMING
+  DC_.sumTime(kTimeFactoriseTerminate, clock.stop());
+#endif
 }
 
 bool Factorise::run(Numeric& num) {
-  Clock clock;
-
 #ifdef COARSE_TIMING
-  clock.start();
+  Clock clock;
 #endif
 
   total_reg_.assign(n_, 0.0);

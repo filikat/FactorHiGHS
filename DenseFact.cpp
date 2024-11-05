@@ -403,7 +403,7 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
 
   // check input
   if (n < 0 || k < 0 || !A || (k < n && !B)) {
-    printf("\ndenseFactDP: invalid input\n");
+    printf("\ndenseFactFP: invalid input\n");
     return kRetInvalidInput;
   }
 
@@ -785,7 +785,7 @@ int denseFactP2H(double* A, int nrow, int ncol, int nb, DataCollector& DC) {
   // ===========================================================================
 
 #ifdef FINE_TIMING
-  double t0 = GetTime();
+  Clock clock;
 #endif
 
   std::vector<double> buf(nrow * nb);
@@ -826,7 +826,7 @@ int denseFactP2H(double* A, int nrow, int ncol, int nb, DataCollector& DC) {
   }
 
 #ifdef FINE_TIMING
-  DC.sumTime(kTimeDenseFact_convert, GetTime() - t0);
+  DC.sumTime(kTimeDenseFact_convert, clock.stop());
 #endif
 
   return kRetOk;

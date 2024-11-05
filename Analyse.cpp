@@ -1081,7 +1081,7 @@ void Analyse::computeStorage() {
   }
 }
 
-void Analyse::computeCriticalOps() {
+void Analyse::computeCriticalPath() {
   // Compute the critical path within the supernodal elimination tree, and the
   // number of operations along the path. This is the number of operations that
   // need to be done sequentially while doing tree parallelism.
@@ -1103,12 +1103,6 @@ void Analyse::computeCriticalOps() {
     critical_ops[sn] = (double)fr * fr * sz +
                        (double)sz * (sz + 1) * (2 * sz + 1) / 6 -
                        (double)fr * sz * (sz + 1);
-
-    // sparse ops of this supernode, passed to parent
-    /*if (sn_parent_[sn] != -1) {
-      const int ldc = fr - sz;
-      critical_ops[sn_parent_[sn]] += (double)ldc * (ldc + 1) / 2 * 100;
-    }*/
   }
 
   for (int sn = 0; sn < sn_count_; ++sn) {
@@ -1325,15 +1319,12 @@ int Analyse::run() {
 
   if (!ready_) return kRetGeneric;
 
-  Clock clock_total{};
-  Clock clock_items{};
-
 #ifdef COARSE_TIMING
-  clock_total.start();
+  Clock clock_total;
 #endif
 
 #ifdef FINE_TIMING
-  clock_items.start();
+  Clock clock_items;
 #endif
   if (int metis_status = getPermutation()) return kRetMetisError;
 #ifdef FINE_TIMING
@@ -1395,7 +1386,11 @@ int Analyse::run() {
 
   computeStorage();
   computeBlockStart();
-  computeCriticalOps();
+  computeCriticalPath();
+
+  //print(sn_start_, "sn_start");
+  //print(ptr_sn_, "sn_ptr");
+  //print(sn_parent_, "parent");
 
   // move relevant stuff into S and DC
   S_.n_ = n_;

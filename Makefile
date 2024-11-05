@@ -17,8 +17,7 @@ cpp_sources = \
 	HybridPackedFormatHandler.cpp \
 	HybridHybridFormatHandler.cpp \
 	DenseFact.cpp \
-	CallAndTimeBlas.cpp \
-	Timing.cpp
+	CallAndTimeBlas.cpp
 
 # binary file name
 binary_name = fact

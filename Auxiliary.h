@@ -62,11 +62,9 @@ class Clock {
   std::chrono::high_resolution_clock::time_point t0;
 
  public:
+  Clock();
   void start();
-  double stop();
+  double stop() const;
 };
-
-// declaration for Lapack dpotrf
-extern "C" void dpotrf_(char* uplo, int* n, double* A, int* ldA, int* info);
 
 #endif
