@@ -97,6 +97,8 @@ void DataCollector::printTimes() const {
   printf("\tDense factorisation:    %8.4f (%4.1f%%)\n",
          times_[kTimeFactoriseDenseFact],
          times_[kTimeFactoriseDenseFact] / times_[kTimeFactorise] * 100);
+  printf("\t\tmain:           %8.4f\n", times_[kTimeDenseFact_main]);
+  printf("\t\tSchur:          %8.4f\n", times_[kTimeDenseFact_schur]);
   printf("\t\tkernel:         %8.4f\n", times_[kTimeDenseFact_fact]);
   printf("\t\tconvert:        %8.4f\n", times_[kTimeDenseFact_convert]);
   printf("\tTerminate:              %8.4f (%4.1f%%)\n",
@@ -168,7 +170,7 @@ void DataCollector::printSymbolic(bool verbose) const {
   printf("dense  ops      : %.2e\n", dense_ops_);
   printf("sparse ops      : %.2e\n", sparse_ops_);
   printf("critical ops    : %.2e\n", critical_ops_);
-  printf("max speedup     : %.2f\n", dense_ops_ / critical_ops_);
+  printf("max tree speedup: %.2f\n", dense_ops_ / critical_ops_);
 
   if (verbose) {
     printf("supernodes      : %d\n", sn_);

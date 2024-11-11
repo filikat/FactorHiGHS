@@ -49,7 +49,7 @@ Factorise::Factorise(const Symbolic& S, DataCollector& DC,
   // create linked lists of children in supernodal elimination tree
   childrenLinkedList(S_.snParent(), first_child_, next_child_);
 
-#ifdef PARALLEL_FACTORISE
+#ifdef PARALLEL_TREE
   // create reverse linked lists of children
   first_child_reverse_ = first_child_;
   next_child_reverse_ = next_child_;
@@ -165,7 +165,7 @@ void Factorise::processSupernode(int sn) {
 
   if (flag_stop_) return;
 
-#ifdef PARALLEL_FACTORISE
+#ifdef PARALLEL_TREE
   // thr_per_sn[sn] = highs::parallel::thread_num();
 
   // spawn children of this supernode in reverse order
@@ -230,7 +230,7 @@ void Factorise::processSupernode(int sn) {
     // Schur contribution of the current child
     std::vector<double>& child_clique = schur_contribution_[child_sn];
 
-#ifdef PARALLEL_FACTORISE
+#ifdef PARALLEL_TREE
     // sync with spawned child, apart from the first one
     if (child_sn != first_child_[sn]) highs::parallel::sync();
 
@@ -311,7 +311,6 @@ void Factorise::processSupernode(int sn) {
 #ifdef FINE_TIMING
   clock.start();
 #endif
-
   // threshold for regularization
   const double reg_thresh = max_diag_ * kDynamicDiagCoeff;
 
@@ -319,17 +318,16 @@ void Factorise::processSupernode(int sn) {
     flag_stop_ = true;
     return;
   }
-
 #ifdef FINE_TIMING
   DC_.sumTime(kTimeFactoriseDenseFact, clock.stop());
 #endif
 
-  // compute largest elements in factorization
-  FH->extremeEntries();
-
 #ifdef FINE_TIMING
   clock.start();
 #endif
+  // compute largest elements in factorization
+  FH->extremeEntries();
+
   // terminate the format handler
   FH->terminate(sn_columns_[sn], schur_contribution_[sn], total_reg_);
 #ifdef FINE_TIMING
@@ -350,7 +348,7 @@ bool Factorise::run(Numeric& num) {
 
   DC_.resetExtremeEntries();
 
-#ifdef PARALLEL_FACTORISE
+#ifdef PARALLEL_TREE
   // thr_per_sn.resize(S_.sn());
 
   int spawned_roots{};

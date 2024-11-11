@@ -12,6 +12,7 @@ const int kStartThreshRelax = 256;
 const double kUpperRatioRelax = 0.02;
 const double kLowerRatioRelax = 0.01;
 const int kMaxIterRelax = 10;
+const int kSnSizeRelax = 8;
 
 // Class to perform the analyse phase of the factorization.
 // The final symbolic factorization is stored in an object of type Symbolic.
@@ -93,7 +94,7 @@ class Analyse {
   void colCount();
   void fundamentalSupernodes();
   void relaxSupernodes();
-  void relaxSupernodes2();
+  void relaxSupernodesSize();
   void afterRelaxSn();
   void snPattern();
   void relativeIndCols();

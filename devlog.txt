@@ -1306,6 +1306,32 @@ I am not sure how to do that. If I use a flag, I should constantly be checking o
 For now I will leave the spawning of the roots. Jennifer seems to think that the two ways of doing it are exactly equivalent.
 ---
 
+*****
+6 Nov 2024
+I think that I need to implement delayed pivots within a certain block.
+This would help a lot for stability. It does require rows/columns swap within a certain supernode, but some of this may be done in parallel.
+It also requires storing a local permutation of the indices of the columns of the supernode, to be used during the solve phase. I still need to figure out the details.
+---
+
+*****
+7 Nov 2024
+I'm making progress in understanding how to implement rows and cols swaps.
+I also refined the timing, so that it shows the time for the main columns and for the Schur complement separately.
+---
+
+*****
+11 Nov 2024
+I have implemented node parallelism, parallelizing the calls to gemm and trsm, when computing the main part of the factor and the Schur complement.
+It does not seem to bring a large benefit though. Maybe there is too much contention on the cache lines when writing the result? Can I do anything about that? Maybe store the blocks with some cache alignment.
+To use the scheduler, I could not pass directly a lambda that calls CallAndTime_xxxx, because the task object wat too large (not sure what is happening, I guess too many parameters to capture).
+So I created a separate object only to call gemm and trsm. The lambda only captures the pointer to the object and it works.
+It may be possible to play a bit with when the tasks are synced, but this depends on which pivoting strategy we go for.
+---
+I checked the times for nug08 on the Mittelman benchmark. Last time I checked, my mac was taking a comparable time to solve. ipx takes 166s on Mittelman, it takes 18s with my code. Good progress.
+For copt, it takes 0.3s, but it does a very aggressive presolve and folding. My code does ~50 times more flops and takes ~60 times longer. We are not that far in terms of performance of the linear solver.
+It may be worth starting to think if we can improve the presolve or implement folding.
+---
+
 
 *****
 To do:

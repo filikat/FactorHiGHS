@@ -38,6 +38,8 @@ enum TimeItems {
   kTimeFactoriseAssembleChildrenFrontal,  // TIMING_2
   kTimeFactoriseAssembleChildrenClique,   // TIMING_2
   kTimeFactoriseDenseFact,                // TIMING_2
+  kTimeDenseFact_main,                    // TIMING_2
+  kTimeDenseFact_schur,                   // TIMING_2
   kTimeDenseFact_fact,                    // TIMING_2
   kTimeDenseFact_convert,                 // TIMING_2
   kTimeFactoriseTerminate,                // TIMING_2

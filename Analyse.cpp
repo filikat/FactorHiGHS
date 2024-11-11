@@ -495,7 +495,6 @@ void Analyse::relaxSupernodes() {
     temp_art_ops -= dense_ops_norelax_;
 
     // if enough fake nz or ops have been added, stop.
-    // double ratio_fake = temp_art_nz / (nzL + temp_art_nz);
     const double ratio_fake =
         temp_art_ops / (temp_art_ops + dense_ops_norelax_);
 
@@ -523,7 +522,7 @@ void Analyse::relaxSupernodes() {
   }
 }
 
-void Analyse::relaxSupernodes2() {
+void Analyse::relaxSupernodesSize() {
   // Smallest child is merged with parent, if child is small enough.
 
   // =================================================
@@ -580,7 +579,7 @@ void Analyse::relaxSupernodes2() {
         child = next_child[child];
       }
 
-      if (size_smallest < 8 && sn_size[sn] < 8) {
+      if (size_smallest < kSnSizeRelax && sn_size[sn] < kSnSizeRelax) {
         // smallest supernode is small enough to be merged with parent
 
         // update information of parent
@@ -1388,9 +1387,9 @@ int Analyse::run() {
   computeBlockStart();
   computeCriticalPath();
 
-  //print(sn_start_, "sn_start");
-  //print(ptr_sn_, "sn_ptr");
-  //print(sn_parent_, "parent");
+  // print(sn_start_, "sn_start");
+  // print(ptr_sn_, "sn_ptr");
+  // print(sn_parent_, "parent");
 
   // move relevant stuff into S and DC
   S_.n_ = n_;

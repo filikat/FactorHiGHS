@@ -8,7 +8,7 @@
 #include "Numeric.h"
 #include "Symbolic.h"
 
-#define PARALLEL_FACTORISE
+#define PARALLEL_TREE
 
 class Factorise {
  public:
@@ -29,7 +29,7 @@ class Factorise {
   std::vector<int> first_child_{};
   std::vector<int> next_child_{};
 
-#ifdef PARALLEL_FACTORISE
+#ifdef PARALLEL_TREE
   // reverse linked lists of chidlren
   std::vector<int> first_child_reverse_{};
   std::vector<int> next_child_reverse_{};
