@@ -1,3 +1,5 @@
+#include "DenseFact.h"
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,7 +10,6 @@
 #include "Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
-#include "DenseFact.h"
 #include "ReturnValues.h"
 #include "Timing.h"
 #include "parallel/HighsParallel.h"
@@ -671,12 +672,12 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
   return kRetOk;
 }
 
-int denseFactH(char format, int n, int k, int nb, double* A, double* B,
-               const int* pivot_sign, double thresh, double* regul,
-               DataCollector& DC, int sn) {
+int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
+                const int* pivot_sign, double thresh, double* regul,
+                DataCollector& DC, int sn) {
   // ===========================================================================
   // Partial blocked factorization
-  // Matrix A is in format H
+  // Matrix A is in format FH
   // Matrix B is in format FP, if format == 'P'
   //                       FH, if format == 'H'
   // BLAS calls: dcopy, dscal, daxpy, dgemm, dtrsm
@@ -700,14 +701,11 @@ int denseFactH(char format, int n, int k, int nb, double* A, double* B,
 
   // start of diagonal blocks
   std::vector<int> diag_start(n_blocks);
-  getDiagStart(n, k, nb, n_blocks, diag_start, true);
+  getDiagStart(n, k, nb, n_blocks, diag_start);
 
   // size of blocks
-  const int diag_size = nb * (nb + 1) / 2;
+  const int diag_size = nb * nb;
   const int full_size = nb * nb;
-
-  // buffer for full-format diagonal blocks
-  std::vector<double> D(nb * nb);
 
   // buffer for copy of block scaled by pivots
   std::vector<double> T(nb * nb);
@@ -718,16 +716,10 @@ int denseFactH(char format, int n, int k, int nb, double* A, double* B,
     const int jb = std::min(nb, k - nb * j);
 
     // size of current block could be smaller than diag_size and full_size
-    const int this_diag_size = jb * (jb + 1) / 2;
+    const int this_diag_size = jb * jb;
     const int this_full_size = nb * jb;
 
-    // full copy of diagonal block by rows, in D
-    int offset = 0;
-    for (int Drow = 0; Drow < jb; ++Drow) {
-      const int N = Drow + 1;
-      callAndTime_dcopy(N, &A[diag_start[j] + offset], 1, &D[Drow * jb], 1, DC);
-      offset += N;
-    }
+    double* D = &A[diag_start[j]];
 
     // number of rows left below block j
     const int M = n - nb * j - jb;
@@ -750,17 +742,17 @@ int denseFactH(char format, int n, int k, int nb, double* A, double* B,
       int pivot_pos = diag_start[k];
       for (int col = 0; col < nb; ++col) {
         callAndTime_dscal(jb, A[pivot_pos], &T[col], nb, DC);
-        pivot_pos += col + 2;
+        pivot_pos += nb + 1;
       }
 
       // update diagonal block
 #ifdef PARALLEL_NODE
       GemmCaller gemm_diag('T', 'N', jb, jb, nb, -1.0, T.data(), nb, Pk, nb,
-                           1.0, D.data(), jb, DC);
+                           1.0, D, jb, DC);
       highs::parallel::spawn([&]() { gemm_diag.run(); });
 #else
       callAndTime_dgemm('T', 'N', jb, jb, nb, -1.0, T.data(), nb, Pk, nb, 1.0,
-                        D.data(), jb, DC);
+                        D, jb, DC);
 #endif
 
       // update rectangular block
@@ -814,7 +806,7 @@ int denseFactH(char format, int n, int k, int nb, double* A, double* B,
     // factorize diagonal block
     double* regul_current = &regul[j * nb];
     const int* pivot_sign_current = &pivot_sign[j * nb];
-    int info = callAndTime_denseFactK('U', jb, D.data(), jb, pivot_sign_current,
+    int info = callAndTime_denseFactK('U', jb, D, jb, pivot_sign_current,
                                       thresh, regul_current, DC, sn, j);
     if (info != 0) return info;
 
@@ -835,8 +827,8 @@ int denseFactH(char format, int n, int k, int nb, double* A, double* B,
           const int jjb = std::min(nb, M - jj * nb);
           double* Rjj = &R[nb * jb * jj];
 
-          trsm_callers.push_back(TrsmCaller('L', 'U', 'T', 'U', jb, jjb, 1.0,
-                                            D.data(), jb, Rjj, jb, DC));
+          trsm_callers.push_back(
+              TrsmCaller('L', 'U', 'T', 'U', jb, jjb, 1.0, D, jb, Rjj, jb, DC));
 
           highs::parallel::spawn([&, jj]() { trsm_callers[jj].run(); });
         }
@@ -845,12 +837,10 @@ int denseFactH(char format, int n, int k, int nb, double* A, double* B,
 
       } else {
         // execute trsm in serial
-        callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D.data(), jb, R, jb,
-                          DC);
+        callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D, jb, R, jb, DC);
       }
 #else
-      callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D.data(), jb, R, jb,
-                        DC);
+      callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D, jb, R, jb, DC);
 #endif
 
       // scale columns by pivots
@@ -860,14 +850,6 @@ int denseFactH(char format, int n, int k, int nb, double* A, double* B,
         callAndTime_dscal(M, coeff, &A[R_pos + col], jb, DC);
         pivot_pos += jb + 1;
       }
-    }
-
-    // put D back into packed format
-    offset = 0;
-    for (int Drow = 0; Drow < jb; ++Drow) {
-      const int N = Drow + 1;
-      callAndTime_dcopy(N, &D[Drow * jb], 1, &A[diag_start[j] + offset], 1, DC);
-      offset += N;
     }
   }
 
@@ -921,7 +903,7 @@ int denseFactH(char format, int n, int k, int nb, double* A, double* B,
       // of A
       for (int j = 0; j < n_blocks; ++j) {
         const int jb = std::min(nb, k - nb * j);
-        const int this_diag_size = jb * (jb + 1) / 2;
+        const int this_diag_size = jb * jb;
         const int this_full_size = nb * jb;
 
         // compute index to access diagonal block in A
@@ -942,7 +924,7 @@ int denseFactH(char format, int n, int k, int nb, double* A, double* B,
         int pivot_pos = diag_start[j];
         for (int col = 0; col < jb; ++col) {
           callAndTime_dscal(ncol, A[pivot_pos], &T[col], jb, DC);
-          pivot_pos += col + 2;
+          pivot_pos += jb + 1;
         }
 
         // update diagonal block
@@ -1029,11 +1011,11 @@ int denseFactH(char format, int n, int k, int nb, double* A, double* B,
   return kRetOk;
 }
 
-int denseFactP2H(double* A, int nrow, int ncol, int nb, DataCollector& DC) {
+int denseFactFP2FH(double* A, int nrow, int ncol, int nb, DataCollector& DC) {
   // ===========================================================================
   // Packed to Hybrid conversion
-  // Matrix A on  input is in format P
-  // Matrix A on output is in format H
+  // Matrix A on  input is in format FP
+  // Matrix A on output is in format FH
   // BLAS calls: dcopy
   // ===========================================================================
 
@@ -1047,32 +1029,21 @@ int denseFactP2H(double* A, int nrow, int ncol, int nb, DataCollector& DC) {
   int startBuftoA = 0;
 
   for (int k = 0; k <= (ncol - 1) / nb; ++k) {
-    // Each block of columns is copied into the buffer, leaving space in
-    // between columns, to align rows. This "empty space" contains elements
-    // from the previous use of buffer, but they are ignored when copying
-    // back.
-
     // Number of columns in the block. Can be smaller than nb for last block.
     const int block_size = std::min(nb, ncol - k * nb);
 
     // Number of rows in the block
     const int row_size = nrow - k * nb;
 
-    int startBuf = 0;
-    for (int j = 0; j < block_size; ++j) {
-      // Copy each column in the block
-      const int N = row_size - j;
-      callAndTime_dcopy(N, &A[startAtoBuf], 1, &buf[startBuf], 1, DC);
-      startAtoBuf += N;
-
-      // +1 to align rows
-      startBuf += row_size + 1;
-    }
+    // Copy block into buf
+    callAndTime_dcopy(row_size * block_size, &A[startAtoBuf], 1, buf.data(), 1,
+                      DC);
+    startAtoBuf += row_size * block_size;
 
     // Copy columns back into A, row by row.
     // One call of dcopy_ for each row of the block of columns.
     for (int i = 0; i < row_size; ++i) {
-      const int N = std::min(i + 1, block_size);
+      const int N = block_size;
       callAndTime_dcopy(N, &buf[i], row_size, &A[startBuftoA], 1, DC);
       startBuftoA += N;
     }

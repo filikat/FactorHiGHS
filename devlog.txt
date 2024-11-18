@@ -1342,6 +1342,11 @@ I tried to use dger, but for some reason it gives segfault.
 There is a slight time increase, negligible compared to the rest. I may decide to go back on this in the future though.
 I also don't need the compensated sum anymore, because the pivots are computed in a different way.
 ---
+I have changed the hybrid format storage of the frontal matrix. Now, it explicitly stored the full diagonal blocks.
+It doesn't require to make a copy in full format anymore and the memory accesses are a little different.
+Also the solve phase chagnes, it uses trsv instead of tpsv.
+This is needed to change the order of updates of the blocks later.
+---
 
 
 *****

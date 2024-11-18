@@ -9,8 +9,10 @@ HybridPackedFormatHandler::HybridPackedFormatHandler(const Symbolic& S,
 }
 
 void HybridPackedFormatHandler::initFrontal() {
-  // frontal is initialized to zero
-  frontal_.resize(ldf_ * sn_size_ - sn_size_ * (sn_size_ - 1) / 2 + 10);
+  const int n_blocks = (sn_size_ - 1) / nb_ + 1;
+  diag_start_.resize(n_blocks);
+  int frontal_size = getDiagStart(ldf_, sn_size_, nb_, n_blocks, diag_start_);
+  frontal_.resize(frontal_size + extra_space);
   // NB: the plus 10 is not needed, but it avoids weird problems later on.
 }
 
@@ -19,7 +21,11 @@ void HybridPackedFormatHandler::initClique() {
 }
 
 void HybridPackedFormatHandler::assembleFrontal(int i, int j, double val) {
-  frontal_[i + j * ldf_ - j * (j + 1) / 2] = val;
+  int block = j / nb_;
+  int ldb = ldf_ - block * nb_;
+  int ii = i - block * nb_;
+  int jj = j - block * nb_;
+  frontal_[diag_start_[block] + ii + ldb * jj] = val;
 }
 
 void HybridPackedFormatHandler::assembleFrontalMultiple(
@@ -30,21 +36,27 @@ void HybridPackedFormatHandler::assembleFrontalMultiple(
   col -= jblock * nb_;
   const int start_block = S_->cliqueBlockStart(child_sn, jblock);
   const int ld = nc - nb_ * jblock;
+
+  int block = j / nb_;
+  int ldb = ldf_ - block * nb_;
+  int ii = i - block * nb_;
+  int jj = j - block * nb_;
+
   daxpy_(&num, &d_one, &child[start_block + row + ld * col], &i_one,
-         &frontal_[i + ldf_ * j - j * (j + 1) / 2], &i_one);
+         &frontal_[diag_start_[block] + ii + ldb * jj], &i_one);
 }
 
 int HybridPackedFormatHandler::denseFactorise(double reg_thresh) {
   int status;
 
-  status = denseFactP2H(frontal_.data(), ldf_, sn_size_, nb_, DC_);
+  status = denseFactFP2FH(frontal_.data(), ldf_, sn_size_, nb_, DC_);
   if (status) return status;
 
   // find the position within pivot_sign corresponding to this supernode
   int sn_start = S_->snStart(sn_);
   const int* pivot_sign = &S_->pivotSign().data()[sn_start];
 
-  status = denseFactH('P', ldf_, sn_size_, nb_, frontal_.data(), clique_.data(),
+  status = denseFactFH('P', ldf_, sn_size_, nb_, frontal_.data(), clique_.data(),
                       pivot_sign, reg_thresh, local_reg_.data(), DC_, sn_);
 
   return status;
@@ -128,10 +140,10 @@ void HybridPackedFormatHandler::extremeEntries() {
       // diagonal entry
       minD = std::min(minD, std::abs(frontal_[index]));
       maxD = std::max(maxD, std::abs(frontal_[index]));
-      index++;
+
+      index += jb - k;
     }
 
-    // temporary space for gemv
     const int entries_left = (ldf_ - nb_ * j - jb) * jb;
 
     for (int i = 0; i < entries_left; ++i) {

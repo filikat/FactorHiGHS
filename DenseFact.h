@@ -18,12 +18,12 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
                 DataCollector& DC, int sn);
 
 // dense partial factorization, in "hybrid formats"
-int denseFactH(char format, int n, int k, int nb, double* A, double* B,
+int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
                const int* pivot_sign, double thresh, double* regul,
                DataCollector& DC, int sn);
 
 // function to convert A from lower packed, to lower-blocked-hybrid format
-int denseFactP2H(double* A, int nrow, int ncol, int nb, DataCollector& DC);
+int denseFactFP2FH(double* A, int nrow, int ncol, int nb, DataCollector& DC);
 
 // objects to call blas in parallel
 // they are needed, otherwise the lambda is too large to fit into a task

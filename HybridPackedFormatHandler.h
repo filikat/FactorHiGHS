@@ -4,6 +4,8 @@
 #include "FormatHandler.h"
 
 class HybridPackedFormatHandler : public FormatHandler {
+  std::vector<int> diag_start_;
+
   void initFrontal() override;
   void initClique() override;
   void assembleFrontal(int i, int j, double val) override;
@@ -16,7 +18,7 @@ class HybridPackedFormatHandler : public FormatHandler {
   void extremeEntries() override;
 
  public:
-  HybridPackedFormatHandler(const Symbolic& S,DataCollector& DC, int sn);
+  HybridPackedFormatHandler(const Symbolic& S, DataCollector& DC, int sn);
 };
 
 #endif

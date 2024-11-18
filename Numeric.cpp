@@ -3,6 +3,7 @@
 #include "Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "Timing.h"
+#include "FormatHandler.h"
 
 Numeric::Numeric(const Symbolic& S, DataCollector& DC) : S_{S}, DC_{DC} {}
 
@@ -21,7 +22,7 @@ void Numeric::forwardSolve(std::vector<double>& x) const {
 
   if (S_.formatType() == FormatType::HybridPacked ||
       S_.formatType() == FormatType::HybridHybrid) {
-    // supernode columns in format H
+    // supernode columns in format FH
 
     const int nb = S_.blockSize();
 
@@ -50,13 +51,14 @@ void Numeric::forwardSolve(std::vector<double>& x) const {
         const int jb = std::min(nb, sn_size - nb * j);
 
         // number of entries in diagonal part
-        const int diag_entries = jb * (jb + 1) / 2;
+        const int diag_entries = jb * jb;
 
         // index to access vector x
         const int x_start = sn_start + nb * j;
 
-        callAndTime_dtpsv('U', 'T', 'U', jb, &sn_columns_[sn][SnCol_ind],
+        callAndTime_dtrsv('U', 'T', 'U', jb, &sn_columns_[sn][SnCol_ind], jb,
                           &x[x_start], 1, DC_);
+
         SnCol_ind += diag_entries;
 
         // temporary space for gemv
@@ -182,7 +184,7 @@ void Numeric::backwardSolve(std::vector<double>& x) const {
 
   if (S_.formatType() == FormatType::HybridPacked ||
       S_.formatType() == FormatType::HybridHybrid) {
-    // supernode columns in format H
+    // supernode columns in format FH
 
     const int nb = S_.blockSize();
 
@@ -205,7 +207,7 @@ void Numeric::backwardSolve(std::vector<double>& x) const {
 
       // index to access snColumns[sn]
       // initialized with the total number of entries of snColumns[sn]
-      int SnCol_ind = ldSn * sn_size - sn_size * (sn_size - 1) / 2;
+      int SnCol_ind = sn_columns_[sn].size() - extra_space;
 
       // go through blocks of columns for this supernode in reverse order
       for (int j = n_blocks - 1; j >= 0; --j) {
@@ -213,7 +215,7 @@ void Numeric::backwardSolve(std::vector<double>& x) const {
         const int jb = std::min(nb, sn_size - nb * j);
 
         // number of entries in diagonal part
-        const int diag_entries = jb * (jb + 1) / 2;
+        const int diag_entries = jb * jb;
 
         // index to access vector x
         const int x_start = sn_start + nb * j;
@@ -234,7 +236,7 @@ void Numeric::backwardSolve(std::vector<double>& x) const {
                           &x[x_start], 1, DC_);
 
         SnCol_ind -= diag_entries;
-        callAndTime_dtpsv('U', 'N', 'U', jb, &sn_columns_[sn][SnCol_ind],
+        callAndTime_dtrsv('U', 'N', 'U', jb, &sn_columns_[sn][SnCol_ind], jb,
                           &x[x_start], 1, DC_);
       }
     }
@@ -339,7 +341,7 @@ void Numeric::diagSolve(std::vector<double>& x) const {
 
   if (S_.formatType() == FormatType::HybridPacked ||
       S_.formatType() == FormatType::HybridHybrid) {
-    // supernode columns in format H
+    // supernode columns in format FH
 
     const int nb = S_.blockSize();
 
@@ -366,13 +368,12 @@ void Numeric::diagSolve(std::vector<double>& x) const {
 
         // go through columns of block
         for (int col = 0; col < jb; ++col) {
-          const double d =
-              sn_columns_[sn][diag_start + (col + 1) * (col + 2) / 2 - 1];
+          const double d = sn_columns_[sn][diag_start + (jb + 1) * col];
           x[sn_start + nb * j + col] /= d;
         }
 
         // move diag_start forward by number of diagonal entries in block
-        diag_start += jb * (jb + 1) / 2;
+        diag_start += jb * jb;
 
         // move diag_start forward by number of sub-diagonal entries in block
         diag_start += (ldSn - nb * j - jb) * jb;

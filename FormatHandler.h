@@ -90,4 +90,6 @@ class FormatHandler {
 const int i_one = 1;
 const double d_one = 1.0;
 
+const int extra_space = 10;
+
 #endif
