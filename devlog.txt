@@ -1347,6 +1347,13 @@ It doesn't require to make a copy in full format anymore and the memory accesses
 Also the solve phase chagnes, it uses trsv instead of tpsv.
 This is needed to change the order of updates of the blocks later.
 ---
+The new kernel seems to give some errors sometimes. Some of the pivots become NaN. I'm not sure why.
+It looks like the pivot regularization sometimes produces pivots that are infinite. It should happen when I adjust them with the lookahead strategy.
+For now, I have put an upper bound on the pivot. When I implement pivoting, this should not be a problem.
+---
+I implemented the different update, but it doesn't seem to improve the parallel performance.
+There are a large number of tasks spawned, but the scheduler is not affected much. Weird.
+---
 
 
 *****
@@ -1359,4 +1366,3 @@ To do:
 
 - Bunch-Kauffman within a block (Schenk-Gardner paper)
 - other variations from Ashcraft-Grimes-Lewis, for dense or sparse
-- change order of updates, from Kaufman paper

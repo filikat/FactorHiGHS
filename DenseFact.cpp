@@ -24,7 +24,7 @@
   - K : factorization kernel for diagonal blocks
   - F : blocked factorization in full format
   - FP: blocked factorization in format FP
-  - H : blocked factorization in "hybrid formats"
+  - FH : blocked factorization in "hybrid formats"
 
   Formats used:
   - F : Full format
@@ -108,10 +108,13 @@ double regularizePivot(double pivot, double thresh, const int* sign,
       double temp = (dk - sk * thresh);
       temp = (bk * bk) / temp;
 
-      if (s > 0)
+      if (s > 0) {
         required_pivot = std::max(required_pivot, temp);
-      else
+        required_pivot = std::min(required_pivot, 1e100);
+      } else {
         required_pivot = std::min(required_pivot, temp);
+        required_pivot = std::max(required_pivot, -1e100);
+      }
     }
 
     if (required_pivot != pivot) {
@@ -213,7 +216,6 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
 
       // save diagonal element
       A[j + lda * j] = Ajj;
-      const double coeff = 1.0 / Ajj;
 
       const int M = n - j - 1;
       if (M > 0) {
@@ -221,7 +223,7 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
         callAndTime_dcopy(M, &A[j + (j + 1) * lda], lda, temp.data(), 1, DC);
 
         // scale row j
-        callAndTime_dscal(M, coeff, &A[j + (j + 1) * lda], lda, DC);
+        callAndTime_dscal(M, 1.0 / Ajj, &A[j + (j + 1) * lda], lda, DC);
 
         // update rest of the matrix
         for (int i = 0; i < M; ++i) {
@@ -1011,6 +1013,308 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
   return kRetOk;
 }
 
+int denseFactFH_2(char format, int n, int k, int nb, double* A, double* B,
+                  const int* pivot_sign, double thresh, double* regul,
+                  DataCollector& DC, int sn) {
+  // ===========================================================================
+  // Partial blocked factorization
+  // Matrix A is in format FH
+  // Matrix B is in format FP, if format == 'P'
+  //                       FH, if format == 'H'
+  // BLAS calls: dcopy, dscal, daxpy, dgemm, dtrsm
+  // ===========================================================================
+
+#ifdef FINE_TIMING
+  Clock clock;
+#endif
+
+  // check input
+  if (n < 0 || k < 0 || !A || (k < n && !B)) {
+    printf("\ndenseFactH: invalid input\n");
+    return kRetInvalidInput;
+  }
+
+  // quick return
+  if (n == 0) return kRetOk;
+
+  // number of blocks of columns
+  const int n_blocks = (k - 1) / nb + 1;
+
+  // start of diagonal blocks
+  std::vector<int> diag_start(n_blocks);
+  getDiagStart(n, k, nb, n_blocks, diag_start);
+
+  // size of blocks
+  const int diag_size = nb * nb;
+  const int full_size = nb * nb;
+
+  // buffer for copy of block column
+  std::vector<double> T(n * nb);
+
+  // j is the index of the block column
+  for (int j = 0; j < n_blocks; ++j) {
+    // jb is the number of columns
+    const int jb = std::min(nb, k - nb * j);
+
+    // size of current block could be smaller than diag_size and full_size
+    const int this_diag_size = jb * jb;
+    const int this_full_size = nb * jb;
+
+    double* D = &A[diag_start[j]];
+
+    // number of rows left below block j
+    const int M = n - nb * j - jb;
+
+    // block of columns below diagonal block j
+    const int R_pos = diag_start[j] + this_diag_size;
+    double* R = &A[R_pos];
+
+    // factorize diagonal block
+    double* regul_current = &regul[j * nb];
+    const int* pivot_sign_current = &pivot_sign[j * nb];
+    int info = callAndTime_denseFactK('U', jb, D, jb, pivot_sign_current,
+                                      thresh, regul_current, DC, sn, j);
+    if (info != 0) return info;
+
+    if (M > 0) {
+      // solve block R with D
+      callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D, jb, R, jb, DC);
+
+      // make copy of partially solved columns
+      callAndTime_dcopy(jb * M, R, 1, T.data(), 1, DC);
+
+      // scale columns by pivots
+      int pivot_pos = 0;
+      for (int col = 0; col < jb; ++col) {
+        const double coeff = 1.0 / D[pivot_pos];
+        callAndTime_dscal(M, coeff, &R[col], jb, DC);
+        pivot_pos += jb + 1;
+      }
+
+#ifdef PARALLEL_NODE
+      if (j < n_blocks - 1) {
+        GemmCaller_2 gemm_caller(n, k, nb, A, T.data(), R, diag_start.data(),
+                                 DC);
+
+        int spawned{};
+
+        // go through remaining blocks of columns
+        for (int jj = j + 1; jj < n_blocks; ++jj) {
+          // number of rows in block jj
+          const int row_jj = n - nb * jj;
+
+          // vertical blocks
+          const int qr_blocks = (row_jj - 1) / nb + 1;
+
+          // go through vertical blocks
+          for (int v = 0; v < qr_blocks; ++v) {
+            highs::parallel::spawn(
+                [&, jj, j, v]() { gemm_caller.run(jj, j, v); });
+            ++spawned;
+          }
+        }
+        for (int i = 0; i < spawned; ++i) highs::parallel::sync();
+      } else {
+        // go through remaining blocks of columns
+        for (int jj = j + 1; jj < n_blocks; ++jj) {
+          int ind = jj - j - 1;
+
+          // number of columns in block jj
+          const int col_jj = std::min(nb, k - nb * jj);
+
+          // number of rows in block jj
+          const int row_jj = n - nb * jj;
+
+          const double* P = &T[ind * nb * jb];
+          double* Q = &A[diag_start[jj]];
+          const double* Rjj = &R[ind * nb * jb];
+
+          callAndTime_dgemm('T', 'N', col_jj, row_jj, jb, -1.0, P, jb, Rjj, jb,
+                            1.0, Q, col_jj, DC);
+        }
+      }
+
+#else
+      // go through remaining blocks of columns
+      for (int jj = j + 1; jj < n_blocks; ++jj) {
+        int ind = jj - j - 1;
+
+        // number of columns in block jj
+        const int col_jj = std::min(nb, k - nb * jj);
+
+        // number of rows in block jj
+        const int row_jj = n - nb * jj;
+
+        const double* P = &T[ind * nb * jb];
+        double* Q = &A[diag_start[jj]];
+        const double* Rjj = &R[ind * nb * jb];
+
+        callAndTime_dgemm('T', 'N', col_jj, row_jj, jb, -1.0, P, jb, Rjj, jb,
+                          1.0, Q, col_jj, DC);
+      }
+
+#endif
+    }
+  }
+
+#ifdef FINE_TIMING
+  DC.sumTime(kTimeDenseFact_main, clock.stop());
+  clock.start();
+#endif
+
+  // compute Schur complement if partial factorization is required
+  if (k < n) {
+    // number of rows/columns in the Schur complement
+    const int ns = n - k;
+
+    // size of last full block (may be smaller than full_size)
+    const int ncol_last = k % nb;
+    const int last_full_size = ncol_last == 0 ? full_size : ncol_last * nb;
+
+    double beta = 1.0;
+
+    // buffer for full-format of block of columns of Schur complement
+    std::vector<double> temp_buf;
+    if (format == 'P') temp_buf.resize(ns * nb);
+
+    // number of blocks in Schur complement
+    const int s_blocks = (ns - 1) / nb + 1;
+
+    // index to write into B
+    int B_start = 0;
+
+    // pointer to access either temp_buf or B
+    double* schur_buf;
+
+    // Go through block of columns of Schur complement.
+    // Each block will have a full-format copy made in schur_buf
+    for (int sb = 0; sb < s_blocks; ++sb) {
+      // select where to write the Schur complement based on format
+      if (format == 'P')
+        schur_buf = temp_buf.data();
+      else
+        schur_buf = &B[B_start];
+
+      // number of rows of the block
+      const int nrow = ns - nb * sb;
+
+      // number of columns of the block
+      const int ncol = std::min(nb, nrow);
+
+      if (format == 'P') beta = 0.0;
+
+      // each block receives contributions from the blocks of the leading part
+      // of A
+      for (int j = 0; j < n_blocks; ++j) {
+        const int jb = std::min(nb, k - nb * j);
+        const int this_diag_size = jb * jb;
+        const int this_full_size = nb * jb;
+
+        // compute index to access diagonal block in A
+        int diag_pos = diag_start[j] + this_diag_size;
+        if (j < n_blocks - 1) {
+          diag_pos += (n_blocks - j - 2) * full_size + last_full_size;
+        }
+        diag_pos += sb * this_full_size;
+
+        const double* Pj = &A[diag_pos];
+        double* D = schur_buf;
+        double* R = &schur_buf[ncol * ncol];
+
+        // create copy of block, multiplied by pivots
+        const int N = ncol * jb;
+        callAndTime_dcopy(N, Pj, 1, T.data(), 1, DC);
+
+        int pivot_pos = diag_start[j];
+        for (int col = 0; col < jb; ++col) {
+          callAndTime_dscal(ncol, A[pivot_pos], &T[col], jb, DC);
+          pivot_pos += jb + 1;
+        }
+
+        // update diagonal block
+#ifdef PARALLEL_NODE
+        GemmCaller gemm_diag('T', 'N', ncol, ncol, jb, -1.0, Pj, jb, T.data(),
+                             jb, beta, D, ncol, DC);
+        highs::parallel::spawn([&]() { gemm_diag.run(); });
+#else
+        callAndTime_dgemm('T', 'N', ncol, ncol, jb, -1.0, Pj, jb, T.data(), jb,
+                          beta, D, ncol, DC);
+#endif
+
+        // update subdiagonal part
+        const int M = nrow - nb;
+        if (M > 0) {
+          const double* Qj = &Pj[this_full_size];
+
+#ifdef PARALLEL_NODE
+          // number of vertical blocks in Q and R
+          const int qr_blocks = (M - 1) / nb + 1;
+
+          if (qr_blocks > 3) {
+            // execute gemm in parallel
+
+            // vector of GemmCallers, to guarantee that the object exists when
+            // the scheduler calls it.
+            std::vector<GemmCaller> gemm_callers;
+            gemm_callers.reserve(qr_blocks);
+
+            for (int jj = 0; jj < qr_blocks; ++jj) {
+              const int jjb = std::min(nb, M - jj * nb);
+              const double* Qjj = &Qj[nb * jb * jj];
+              double* Rjj = &R[nb * ncol * jj];
+
+              gemm_callers.push_back(GemmCaller('T', 'N', ncol, jjb, jb, -1.0,
+                                                T.data(), jb, Qjj, jb, beta,
+                                                Rjj, ncol, DC));
+
+              highs::parallel::spawn([&, jj]() { gemm_callers[jj].run(); });
+            }
+
+            for (int jj = 0; jj < qr_blocks; ++jj) highs::parallel::sync();
+
+          } else {
+            // execute gemm in serial
+            callAndTime_dgemm('T', 'N', ncol, M, jb, -1.0, T.data(), jb, Qj, jb,
+                              beta, R, ncol, DC);
+          }
+#else
+          callAndTime_dgemm('T', 'N', ncol, M, jb, -1.0, T.data(), jb, Qj, jb,
+                            beta, R, ncol, DC);
+#endif
+        }
+
+#ifdef PARALLEL_NODE
+        // sync diagonal block
+        highs::parallel::sync();
+#endif
+
+        // beta is 0 for the first time (to avoid initializing schur_buf) and
+        // 1 for the next calls (if format=='P')
+        beta = 1.0;
+      }
+
+      if (format == 'P') {
+        // schur_buf contains Schur complement in hybrid format (with full
+        // diagonal blocks). Store it by columns in B (with full diagonal
+        // blocks).
+        for (int buf_row = 0; buf_row < nrow; ++buf_row) {
+          const int N = ncol;
+          callAndTime_daxpy(N, 1.0, &schur_buf[buf_row * ncol], 1,
+                            &B[B_start + buf_row], nrow, DC);
+        }
+      }
+
+      B_start += nrow * ncol;
+    }
+  }
+
+#ifdef FINE_TIMING
+  DC.sumTime(kTimeDenseFact_schur, clock.stop());
+#endif
+
+  return kRetOk;
+}
+
 int denseFactFP2FH(double* A, int nrow, int ncol, int nb, DataCollector& DC) {
   // ===========================================================================
   // Packed to Hybrid conversion
@@ -1099,4 +1403,38 @@ TrsmCaller::TrsmCaller(char side, char uplo, char trans, char diag, int m,
 void TrsmCaller::run() {
   callAndTime_dtrsm(side_, uplo_, trans_, diag_, m_, n_, alpha_, A_, lda_, B_,
                     ldb_, DC_);
+}
+
+GemmCaller_2::GemmCaller_2(int n, int k, int nb, double* A, double* T,
+                           double* R, int* diag_start, DataCollector& DC)
+    : n_{n},
+      k_{k},
+      nb_{nb},
+      A_{A},
+      T_{T},
+      R_{R},
+      diag_start_{diag_start},
+      DC_{DC} {}
+
+void GemmCaller_2::run(int jj, int j, int v) {
+  const int jb = std::min(nb_, k_ - nb_ * j);
+  const int ind = jj - j - 1;
+
+  // number of columns in block jj
+  const int col_jj = std::min(nb_, k_ - nb_ * jj);
+
+  // number of rows in block jj
+  const int row_jj = n_ - nb_ * jj;
+
+  const double* P = &T_[ind * nb_ * jb];
+  double* Q = &A_[diag_start_[jj]];
+  const double* Rjj = &R_[ind * nb_ * jb];
+
+  const int row_v = std::min(nb_, row_jj - v * nb_);
+
+  double* Qv = &Q[v * nb_ * col_jj];
+  const double* Rv = &Rjj[v * nb_ * jb];
+
+  callAndTime_dgemm('T', 'N', col_jj, row_v, jb, -1.0, P, jb, Rv, jb, 1.0, Qv,
+                    col_jj, DC_);
 }

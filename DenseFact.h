@@ -19,8 +19,11 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
 
 // dense partial factorization, in "hybrid formats"
 int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
-               const int* pivot_sign, double thresh, double* regul,
-               DataCollector& DC, int sn);
+                const int* pivot_sign, double thresh, double* regul,
+                DataCollector& DC, int sn);
+int denseFactFH_2(char format, int n, int k, int nb, double* A, double* B,
+                  const int* pivot_sign, double thresh, double* regul,
+                  DataCollector& DC, int sn);
 
 // function to convert A from lower packed, to lower-blocked-hybrid format
 int denseFactFP2FH(double* A, int nrow, int ncol, int nb, DataCollector& DC);
@@ -70,6 +73,22 @@ class TrsmCaller {
              double alpha, const double* A, int lda, double* B, int ldb,
              DataCollector& DC);
   void run();
+};
+
+class GemmCaller_2 {
+  int n_;
+  int k_;
+  int nb_;
+  double* A_;
+  double* T_;
+  double* R_;
+  int* diag_start_;
+  DataCollector& DC_;
+
+ public:
+  GemmCaller_2(int n, int k, int nb, double* A, double* T, double* R,
+               int* diag_start, DataCollector& DC);
+  void run(int jj, int j, int v);
 };
 
 #endif
