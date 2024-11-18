@@ -1,5 +1,3 @@
-#include "DenseFact.h"
-
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +8,7 @@
 #include "Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
+#include "DenseFact.h"
 #include "ReturnValues.h"
 #include "Timing.h"
 #include "parallel/HighsParallel.h"
@@ -39,28 +38,6 @@
   FP stores by columns within the blocks. H, FH store by rows within the blocks.
   See report for more details.
 */
-
-double pivotCompensatedSum(double base, int k, const double* row, int ldr,
-                           const double* piv, int ldp) {
-  // Use Kahan-Babushka compensated summation to compute the pivot.
-  // Compute base + \sum_0^k row[i*ldr]^2*piv[i*ldp]
-
-  double sum = base;
-  volatile double c = 0.0;
-
-  for (int i = 0; i < k; ++i) {
-    double value = -row[ldr * i] * piv[ldp * i] * row[ldr * i];
-    double y = value - c;
-    // use volatile or compiler optimization might use associativity to
-    // eliminate operations
-    volatile double t = sum + y;
-    volatile double z = t - sum;
-    c = z - y;
-    sum = t;
-  }
-
-  return sum;
-}
 
 double regularizePivot(double pivot, double thresh, const int* sign,
                        const double* A, int lda, int j, int n, char uplo,
@@ -161,7 +138,7 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
   // ===========================================================================
   // Factorization kernel
   // Matrix A is in format F
-  // BLAS calls: dscal, dgemv
+  // BLAS calls: dscal, dcopy, daxpy
   // ===========================================================================
 
   // check input
@@ -175,32 +152,16 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
 
   // main operations
   if (uplo == 'L') {
-    // allocate space for copy of col multiplied by pivots
+    // allocate space for copy of col
     std::vector<double> temp(n - 1);
 
     for (int j = 0; j < n; ++j) {
-      const int N = j;
-      const int M = n - j - 1;
-
-      // create temporary copy of row j, multiplied by pivots
-      for (int i = 0; i < j; ++i) {
-        temp[i] = A[j + i * lda] * A[i + i * lda];
-      }
-
-      // update diagonal element
-      double Ajj =
-          pivotCompensatedSum(A[j + lda * j], N, &A[j], lda, A, lda + 1);
+      // diagonal element
+      double Ajj = A[j + lda * j];
 
       if (isnan(Ajj)) {
-        A[j + lda * j] = Ajj;
         printf("\ndenseFactK: invalid pivot %e\n", Ajj);
         return kRetInvalidPivot;
-      }
-
-      // update column j
-      if (j < n - 1) {
-        callAndTime_dgemv('N', M, N, -1.0, &A[j + 1], lda, temp.data(), 1, 1.0,
-                          &A[j + 1 + j * lda], 1, DC);
       }
 
       // add regularization
@@ -212,40 +173,34 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
 
       // save diagonal element
       A[j + lda * j] = Ajj;
-      const double coeff = 1.0 / Ajj;
 
-      // scale column j
-      if (j < n - 1) {
-        callAndTime_dscal(M, coeff, &A[j + 1 + j * lda], 1, DC);
+      const int M = n - j - 1;
+      if (M > 0) {
+        // make copy of column
+        callAndTime_dcopy(M, &A[j + 1 + j * lda], 1, temp.data(), 1, DC);
+
+        // scale column j
+        callAndTime_dscal(M, 1.0 / Ajj, &A[j + 1 + j * lda], 1, DC);
+
+        // update rest of the matrix
+        for (int i = 0; i < M; ++i) {
+          callAndTime_daxpy(M - i, -temp[i], &A[j + 1 + i + j * lda], 1,
+                            &A[j + 1 + i + (j + 1 + i) * lda], 1, DC);
+        }
       }
     }
   } else {
-    // allocate space for copy of col multiplied by pivots
+    // allocate space for copy of col
     std::vector<double> temp(n - 1);
 
     for (int j = 0; j < n; ++j) {
-      const int N = j;
-      const int M = n - j - 1;
-
-      // create temporary copy of col j, multiplied by pivots
-      for (int i = 0; i < j; ++i) {
-        temp[i] = A[i + j * lda] * A[i + i * lda];
-      }
-
-      // update diagonal element
-      double Ajj =
-          pivotCompensatedSum(A[j + lda * j], N, &A[lda * j], 1, A, lda + 1);
+      // diagonal element
+      double Ajj = A[j + lda * j];
 
       if (isnan(Ajj)) {
         A[j + lda * j] = Ajj;
         printf("\ndenseFactK: invalid pivot %e\n", Ajj);
         return kRetInvalidPivot;
-      }
-
-      // update column j
-      if (j < n - 1) {
-        callAndTime_dgemv('T', N, M, -1.0, &A[(j + 1) * lda], lda, temp.data(),
-                          1, 1.0, &A[j + (j + 1) * lda], lda, DC);
       }
 
       // add regularization
@@ -259,9 +214,19 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
       A[j + lda * j] = Ajj;
       const double coeff = 1.0 / Ajj;
 
-      // scale column j
-      if (j < n - 1) {
+      const int M = n - j - 1;
+      if (M > 0) {
+        // make copy of row
+        callAndTime_dcopy(M, &A[j + (j + 1) * lda], lda, temp.data(), 1, DC);
+
+        // scale row j
         callAndTime_dscal(M, coeff, &A[j + (j + 1) * lda], lda, DC);
+
+        // update rest of the matrix
+        for (int i = 0; i < M; ++i) {
+          callAndTime_daxpy(M - i, -temp[i], &A[j + (j + 1 + i) * lda], lda,
+                            &A[j + 1 + i + (j + 1 + i) * lda], lda, DC);
+        }
       }
     }
   }

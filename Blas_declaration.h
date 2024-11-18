@@ -24,6 +24,8 @@ void dtpsv_(const char* uplo, const char* trans, const char* diag, const int* n,
             const double* ap, double* x, const int* incx);
 void dtrsv_(const char* uplo, const char* trans, const char* diag, const int* n,
             const double* A, const int* lda, double* x, const int* incx);
+void dger_(int m, int n, double alpha, const double* x, int incx,
+           const double* y, int incy, double* A, int lda);
 
 // level 3
 void dgemm_(const char* transa, const char* transb, const int* m, const int* n,

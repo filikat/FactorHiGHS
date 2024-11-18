@@ -21,6 +21,9 @@ void callAndTime_dtrsm(char side, char uplo, char trans, char diag, int m,
 void callAndTime_dgemv(char trans, int m, int n, double alpha, const double* A,
                        int lda, const double* x, int incx, double beta,
                        double* y, int incy, DataCollector& DC);
+void callAndTime_dger(int m, int n, double alpha, const double* x, int incx,
+                      const double* y, int incy, double* A, int lda,
+                      DataCollector& DC);
 void callAndTime_dcopy(int n, const double* dx, int incx, double* dy, int incy,
                        DataCollector& DC);
 void callAndTime_daxpy(int n, double da, const double* dx, int incx, double* dy,

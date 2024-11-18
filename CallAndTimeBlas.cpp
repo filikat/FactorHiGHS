@@ -78,6 +78,12 @@ void callAndTime_dgemv(char trans, int m, int n, double alpha, const double* A,
 #endif
 }
 
+void callAndTime_dger(int m, int n, double alpha, const double* x, int incx,
+                      const double* y, int incy, double* A, int lda,
+                      DataCollector& DC) {
+  dger_(m, n, alpha, x, incx, y, incy, A, lda);
+}
+
 void callAndTime_dcopy(int n, const double* dx, int incx, double* dy, int incy,
                        DataCollector& DC) {
 #ifdef BLAS_TIMING

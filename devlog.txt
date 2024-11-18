@@ -1332,6 +1332,17 @@ For copt, it takes 0.3s, but it does a very aggressive presolve and folding. My 
 It may be worth starting to think if we can improve the presolve or implement folding.
 ---
 
+*****
+18 Nov 2024
+After talking with people at RAL, and reading some papers they suggested, I realized I have to make some changes to the dense factorization, to make it slightly better.
+I start with changing the kernel to be right looking.
+This is in preparation to change the whole order for the updates of the blocks, based on the Kauffman paper about LAPACK.
+In this way, I don't need to make a copy of the row multiplied by pivots, I simply save the column before scaling down and do all the products. Slightly more efficient memory accesses, but I use axpy instead of gemv.
+I tried to use dger, but for some reason it gives segfault.
+There is a slight time increase, negligible compared to the rest. I may decide to go back on this in the future though.
+I also don't need the compensated sum anymore, because the pivots are computed in a different way.
+---
+
 
 *****
 To do:
@@ -1340,3 +1351,7 @@ To do:
 
 - free variables
 - limit growth of x and s?
+
+- Bunch-Kauffman within a block (Schenk-Gardner paper)
+- other variations from Ashcraft-Grimes-Lewis, for dense or sparse
+- change order of updates, from Kaufman paper
