@@ -16,8 +16,6 @@
 
 // #define DEBUG
 
-#define PARALLEL_NODE
-
 /*
   Names:
   denseFact:
@@ -446,63 +444,17 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
         callAndTime_dscal(jb, Dk[col + col * ldP], &T[col * ldT], 1, DC);
       }
 
-// update diagonal block
-#ifdef PARALLEL_NODE
-      GemmCaller gemm_diag('N', 'T', jb, jb, nb, -1.0, T.data(), ldT, Pk, ldP,
-                           1.0, D, ldD, DC);
-      highs::parallel::spawn([&]() { gemm_diag.run(); });
-#else
+      // update diagonal block
       callAndTime_dgemm('N', 'T', jb, jb, nb, -1.0, T.data(), ldT, Pk, ldP, 1.0,
                         D, ldD, DC);
-#endif
 
       // update rectangular block
       if (M > 0) {
         const int Qk_pos = Pk_pos + jb;
         const double* Qk = &A[Qk_pos];
-
-#ifdef PARALLEL_NODE
-        // number of vertical blocks in Q and R
-        const int qr_blocks = (M - 1) / nb + 1;
-
-        if (qr_blocks > 3) {
-          // execute gemm in parallel
-
-          // vector of GemmCallers, to guarantee that the object exists when the
-          // scheduler calls it.
-          std::vector<GemmCaller> gemm_callers;
-          gemm_callers.reserve(qr_blocks);
-
-          for (int jj = 0; jj < qr_blocks; ++jj) {
-            const int jjb = std::min(nb, M - jj * nb);
-            const double* Qjj = &Qk[nb * jj];
-            double* Rjj = &R[nb * jj];
-
-            gemm_callers.push_back(GemmCaller('N', 'T', jjb, jb, nb, -1.0, Qjj,
-                                              ldQ, T.data(), ldT, 1.0, Rjj, ldR,
-                                              DC));
-
-            highs::parallel::spawn([&, jj]() { gemm_callers[jj].run(); });
-          }
-
-          for (int jj = 0; jj < qr_blocks; ++jj) highs::parallel::sync();
-
-        } else {
-          // execute gemm in serial
-          callAndTime_dgemm('N', 'T', M, jb, nb, -1.0, Qk, ldQ, T.data(), ldT,
-                            1.0, R, ldR, DC);
-        }
-
-#else
         callAndTime_dgemm('N', 'T', M, jb, nb, -1.0, Qk, ldQ, T.data(), ldT,
                           1.0, R, ldR, DC);
-#endif
       }
-
-#ifdef PARALLEL_NODE
-      // sync diagonal block
-      highs::parallel::sync();
-#endif
     }
 
     // factorize diagonal block
@@ -514,37 +466,7 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
 
     // solve block of columns with diagonal block
     if (M > 0) {
-#ifdef PARALLEL_NODE
-      // number of vertical blocks in Q and R
-      const int r_blocks = (M - 1) / nb + 1;
-
-      if (r_blocks > 3) {
-        // execute trsm in parallel
-
-        // vector of TrsmCallers, to guarantee that the object exists when the
-        // scheduler calls it.
-        std::vector<TrsmCaller> trsm_callers;
-        trsm_callers.reserve(r_blocks);
-
-        for (int jj = 0; jj < r_blocks; ++jj) {
-          const int jjb = std::min(nb, M - jj * nb);
-          double* Rjj = &R[nb * jj];
-
-          trsm_callers.push_back(TrsmCaller('R', 'L', 'T', 'U', jjb, jb, 1.0, D,
-                                            ldD, Rjj, ldR, DC));
-
-          highs::parallel::spawn([&, jj]() { trsm_callers[jj].run(); });
-        }
-
-        for (int jj = 0; jj < r_blocks; ++jj) highs::parallel::sync();
-
-      } else {
-        // execute trsm in serial
-        callAndTime_dtrsm('R', 'L', 'T', 'U', M, jb, 1.0, D, ldD, R, ldR, DC);
-      }
-#else
       callAndTime_dtrsm('R', 'L', 'T', 'U', M, jb, 1.0, D, ldD, R, ldR, DC);
-#endif
 
       // scale columns by pivots
       for (int col = 0; col < jb; ++col) {
@@ -607,60 +529,16 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
         const double* Qj = &A[Pj_pos + ncol];
         const int ldQ = ldP;
 
-// update diagonal block
-#ifdef PARALLEL_NODE
-        GemmCaller gemm_diag('N', 'T', ncol, ncol, jb, -1.0, Pj, ldP, T.data(),
-                             ldT, 1.0, D, ldD, DC);
-        highs::parallel::spawn([&]() { gemm_diag.run(); });
-#else
+        // update diagonal block
         callAndTime_dgemm('N', 'T', ncol, ncol, jb, -1.0, Pj, ldP, T.data(),
                           ldT, 1.0, D, ldD, DC);
-#endif
 
         // update subdiagonal part
         const int M = nrow - ncol;
         if (M > 0) {
-#ifdef PARALLEL_NODE
-          // number of vertical blocks in Q and R
-          const int qr_blocks = (M - 1) / nb + 1;
-
-          if (qr_blocks > 3) {
-            // execute gemm in parallel
-
-            // vector of GemmCallers, to guarantee that the object exists when
-            // the scheduler calls it.
-            std::vector<GemmCaller> gemm_callers;
-            gemm_callers.reserve(qr_blocks);
-
-            for (int jj = 0; jj < qr_blocks; ++jj) {
-              const int jjb = std::min(nb, M - jj * nb);
-              const double* Qjj = &Qj[nb * jj];
-              double* Rjj = &R[nb * jj];
-
-              gemm_callers.push_back(GemmCaller('N', 'T', jjb, ncol, jb, -1.0,
-                                                Qjj, ldQ, T.data(), ldT, 1.0,
-                                                Rjj, ldR, DC));
-
-              highs::parallel::spawn([&, jj]() { gemm_callers[jj].run(); });
-            }
-
-            for (int jj = 0; jj < qr_blocks; ++jj) highs::parallel::sync();
-
-          } else {
-            // execute gemm in serial
-            callAndTime_dgemm('N', 'T', M, ncol, jb, -1.0, Qj, ldQ, T.data(),
-                              ldT, 1.0, R, ldR, DC);
-          }
-#else
           callAndTime_dgemm('N', 'T', M, ncol, jb, -1.0, Qj, ldQ, T.data(), ldT,
                             1.0, R, ldR, DC);
-#endif
         }
-
-#ifdef PARALLEL_NODE
-        // sync diagonal block
-        highs::parallel::sync();
-#endif
       }
 
       B_start += nrow * ncol;
@@ -748,61 +626,16 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
       }
 
       // update diagonal block
-#ifdef PARALLEL_NODE
-      GemmCaller gemm_diag('T', 'N', jb, jb, nb, -1.0, T.data(), nb, Pk, nb,
-                           1.0, D, jb, DC);
-      highs::parallel::spawn([&]() { gemm_diag.run(); });
-#else
       callAndTime_dgemm('T', 'N', jb, jb, nb, -1.0, T.data(), nb, Pk, nb, 1.0,
                         D, jb, DC);
-#endif
 
       // update rectangular block
       if (M > 0) {
         const int Qk_pos = Pk_pos + this_full_size;
         const double* Qk = &A[Qk_pos];
-
-#ifdef PARALLEL_NODE
-        // number of vertical blocks in Q and R
-        const int qr_blocks = (M - 1) / nb + 1;
-
-        if (qr_blocks > 3) {
-          // execute gemm in parallel
-
-          // vector of GemmCallers, to guarantee that the object exists when the
-          // scheduler calls it.
-          std::vector<GemmCaller> gemm_callers;
-          gemm_callers.reserve(qr_blocks);
-
-          for (int jj = 0; jj < qr_blocks; ++jj) {
-            const int jjb = std::min(nb, M - jj * nb);
-            const double* Qjj = &Qk[nb * nb * jj];
-            double* Rjj = &R[nb * jb * jj];
-
-            gemm_callers.push_back(GemmCaller('T', 'N', jb, jjb, nb, -1.0,
-                                              T.data(), nb, Qjj, nb, 1.0, Rjj,
-                                              jb, DC));
-
-            highs::parallel::spawn([&, jj]() { gemm_callers[jj].run(); });
-          }
-
-          for (int jj = 0; jj < qr_blocks; ++jj) highs::parallel::sync();
-
-        } else {
-          // execute gemm in serial
-          callAndTime_dgemm('T', 'N', jb, M, nb, -1.0, T.data(), nb, Qk, nb,
-                            1.0, R, jb, DC);
-        }
-#else
         callAndTime_dgemm('T', 'N', jb, M, nb, -1.0, T.data(), nb, Qk, nb, 1.0,
                           R, jb, DC);
-#endif
       }
-
-#ifdef PARALLEL_NODE
-      // sync diagonal block
-      highs::parallel::sync();
-#endif
     }
 
     // factorize diagonal block
@@ -813,37 +646,7 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
     if (info != 0) return info;
 
     if (M > 0) {
-#ifdef PARALLEL_NODE
-      // number of vertical blocks in R
-      const int r_blocks = (M - 1) / nb + 1;
-
-      if (r_blocks > 3) {
-        // execute trsm in parallel
-
-        // vector of TrsmCallers, to guarantee that the object exists when the
-        // scheduler calls it.
-        std::vector<TrsmCaller> trsm_callers;
-        trsm_callers.reserve(r_blocks);
-
-        for (int jj = 0; jj < r_blocks; ++jj) {
-          const int jjb = std::min(nb, M - jj * nb);
-          double* Rjj = &R[nb * jb * jj];
-
-          trsm_callers.push_back(
-              TrsmCaller('L', 'U', 'T', 'U', jb, jjb, 1.0, D, jb, Rjj, jb, DC));
-
-          highs::parallel::spawn([&, jj]() { trsm_callers[jj].run(); });
-        }
-
-        for (int jj = 0; jj < r_blocks; ++jj) highs::parallel::sync();
-
-      } else {
-        // execute trsm in serial
-        callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D, jb, R, jb, DC);
-      }
-#else
       callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D, jb, R, jb, DC);
-#endif
 
       // scale columns by pivots
       int pivot_pos = 0;
@@ -930,61 +733,16 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
         }
 
         // update diagonal block
-#ifdef PARALLEL_NODE
-        GemmCaller gemm_diag('T', 'N', ncol, ncol, jb, -1.0, Pj, jb, T.data(),
-                             jb, beta, D, ncol, DC);
-        highs::parallel::spawn([&]() { gemm_diag.run(); });
-#else
         callAndTime_dgemm('T', 'N', ncol, ncol, jb, -1.0, Pj, jb, T.data(), jb,
                           beta, D, ncol, DC);
-#endif
 
         // update subdiagonal part
         const int M = nrow - nb;
         if (M > 0) {
           const double* Qj = &Pj[this_full_size];
-
-#ifdef PARALLEL_NODE
-          // number of vertical blocks in Q and R
-          const int qr_blocks = (M - 1) / nb + 1;
-
-          if (qr_blocks > 3) {
-            // execute gemm in parallel
-
-            // vector of GemmCallers, to guarantee that the object exists when
-            // the scheduler calls it.
-            std::vector<GemmCaller> gemm_callers;
-            gemm_callers.reserve(qr_blocks);
-
-            for (int jj = 0; jj < qr_blocks; ++jj) {
-              const int jjb = std::min(nb, M - jj * nb);
-              const double* Qjj = &Qj[nb * jb * jj];
-              double* Rjj = &R[nb * ncol * jj];
-
-              gemm_callers.push_back(GemmCaller('T', 'N', ncol, jjb, jb, -1.0,
-                                                T.data(), jb, Qjj, jb, beta,
-                                                Rjj, ncol, DC));
-
-              highs::parallel::spawn([&, jj]() { gemm_callers[jj].run(); });
-            }
-
-            for (int jj = 0; jj < qr_blocks; ++jj) highs::parallel::sync();
-
-          } else {
-            // execute gemm in serial
-            callAndTime_dgemm('T', 'N', ncol, M, jb, -1.0, T.data(), jb, Qj, jb,
-                              beta, R, ncol, DC);
-          }
-#else
           callAndTime_dgemm('T', 'N', ncol, M, jb, -1.0, T.data(), jb, Qj, jb,
                             beta, R, ncol, DC);
-#endif
         }
-
-#ifdef PARALLEL_NODE
-        // sync diagonal block
-        highs::parallel::sync();
-#endif
 
         // beta is 0 for the first time (to avoid initializing schur_buf) and
         // 1 for the next calls (if format=='P')
@@ -1091,50 +849,6 @@ int denseFactFH_2(char format, int n, int k, int nb, double* A, double* B,
         pivot_pos += jb + 1;
       }
 
-#ifdef PARALLEL_NODE
-      if (j < n_blocks - 1) {
-        GemmCaller_2 gemm_caller(n, k, nb, A, T.data(), R, diag_start.data(),
-                                 DC);
-
-        int spawned{};
-
-        // go through remaining blocks of columns
-        for (int jj = j + 1; jj < n_blocks; ++jj) {
-          // number of rows in block jj
-          const int row_jj = n - nb * jj;
-
-          // vertical blocks
-          const int qr_blocks = (row_jj - 1) / nb + 1;
-
-          // go through vertical blocks
-          for (int v = 0; v < qr_blocks; ++v) {
-            highs::parallel::spawn(
-                [&, jj, j, v]() { gemm_caller.run(jj, j, v); });
-            ++spawned;
-          }
-        }
-        for (int i = 0; i < spawned; ++i) highs::parallel::sync();
-      } else {
-        // go through remaining blocks of columns
-        for (int jj = j + 1; jj < n_blocks; ++jj) {
-          int ind = jj - j - 1;
-
-          // number of columns in block jj
-          const int col_jj = std::min(nb, k - nb * jj);
-
-          // number of rows in block jj
-          const int row_jj = n - nb * jj;
-
-          const double* P = &T[ind * nb * jb];
-          double* Q = &A[diag_start[jj]];
-          const double* Rjj = &R[ind * nb * jb];
-
-          callAndTime_dgemm('T', 'N', col_jj, row_jj, jb, -1.0, P, jb, Rjj, jb,
-                            1.0, Q, col_jj, DC);
-        }
-      }
-
-#else
       // go through remaining blocks of columns
       for (int jj = j + 1; jj < n_blocks; ++jj) {
         int ind = jj - j - 1;
@@ -1152,8 +866,6 @@ int denseFactFH_2(char format, int n, int k, int nb, double* A, double* B,
         callAndTime_dgemm('T', 'N', col_jj, row_jj, jb, -1.0, P, jb, Rjj, jb,
                           1.0, Q, col_jj, DC);
       }
-
-#endif
     }
   }
 
@@ -1232,61 +944,16 @@ int denseFactFH_2(char format, int n, int k, int nb, double* A, double* B,
         }
 
         // update diagonal block
-#ifdef PARALLEL_NODE
-        GemmCaller gemm_diag('T', 'N', ncol, ncol, jb, -1.0, Pj, jb, T.data(),
-                             jb, beta, D, ncol, DC);
-        highs::parallel::spawn([&]() { gemm_diag.run(); });
-#else
         callAndTime_dgemm('T', 'N', ncol, ncol, jb, -1.0, Pj, jb, T.data(), jb,
                           beta, D, ncol, DC);
-#endif
 
         // update subdiagonal part
         const int M = nrow - nb;
         if (M > 0) {
           const double* Qj = &Pj[this_full_size];
-
-#ifdef PARALLEL_NODE
-          // number of vertical blocks in Q and R
-          const int qr_blocks = (M - 1) / nb + 1;
-
-          if (qr_blocks > 3) {
-            // execute gemm in parallel
-
-            // vector of GemmCallers, to guarantee that the object exists when
-            // the scheduler calls it.
-            std::vector<GemmCaller> gemm_callers;
-            gemm_callers.reserve(qr_blocks);
-
-            for (int jj = 0; jj < qr_blocks; ++jj) {
-              const int jjb = std::min(nb, M - jj * nb);
-              const double* Qjj = &Qj[nb * jb * jj];
-              double* Rjj = &R[nb * ncol * jj];
-
-              gemm_callers.push_back(GemmCaller('T', 'N', ncol, jjb, jb, -1.0,
-                                                T.data(), jb, Qjj, jb, beta,
-                                                Rjj, ncol, DC));
-
-              highs::parallel::spawn([&, jj]() { gemm_callers[jj].run(); });
-            }
-
-            for (int jj = 0; jj < qr_blocks; ++jj) highs::parallel::sync();
-
-          } else {
-            // execute gemm in serial
-            callAndTime_dgemm('T', 'N', ncol, M, jb, -1.0, T.data(), jb, Qj, jb,
-                              beta, R, ncol, DC);
-          }
-#else
           callAndTime_dgemm('T', 'N', ncol, M, jb, -1.0, T.data(), jb, Qj, jb,
                             beta, R, ncol, DC);
-#endif
         }
-
-#ifdef PARALLEL_NODE
-        // sync diagonal block
-        highs::parallel::sync();
-#endif
 
         // beta is 0 for the first time (to avoid initializing schur_buf) and
         // 1 for the next calls (if format=='P')
@@ -1358,83 +1025,4 @@ int denseFactFP2FH(double* A, int nrow, int ncol, int nb, DataCollector& DC) {
 #endif
 
   return kRetOk;
-}
-
-GemmCaller::GemmCaller(char transa, char transb, int m, int n, int k,
-                       double alpha, const double* A, int lda, const double* B,
-                       int ldb, double beta, double* C, int ldc,
-                       DataCollector& DC)
-    : transa_{transa},
-      transb_{transb},
-      m_{m},
-      n_{n},
-      k_{k},
-      alpha_{alpha},
-      A_{A},
-      lda_{lda},
-      B_{B},
-      ldb_{ldb},
-      beta_{beta},
-      C_{C},
-      ldc_{ldc},
-      DC_{DC} {}
-
-void GemmCaller::run() {
-  callAndTime_dgemm(transa_, transb_, m_, n_, k_, alpha_, A_, lda_, B_, ldb_,
-                    beta_, C_, ldc_, DC_);
-}
-
-TrsmCaller::TrsmCaller(char side, char uplo, char trans, char diag, int m,
-                       int n, double alpha, const double* A, int lda, double* B,
-                       int ldb, DataCollector& DC)
-    : side_{side},
-      uplo_{uplo},
-      trans_{trans},
-      diag_{diag},
-      m_{m},
-      n_{n},
-      alpha_{alpha},
-      A_{A},
-      lda_{lda},
-      B_{B},
-      ldb_{ldb},
-      DC_{DC} {}
-
-void TrsmCaller::run() {
-  callAndTime_dtrsm(side_, uplo_, trans_, diag_, m_, n_, alpha_, A_, lda_, B_,
-                    ldb_, DC_);
-}
-
-GemmCaller_2::GemmCaller_2(int n, int k, int nb, double* A, double* T,
-                           double* R, int* diag_start, DataCollector& DC)
-    : n_{n},
-      k_{k},
-      nb_{nb},
-      A_{A},
-      T_{T},
-      R_{R},
-      diag_start_{diag_start},
-      DC_{DC} {}
-
-void GemmCaller_2::run(int jj, int j, int v) {
-  const int jb = std::min(nb_, k_ - nb_ * j);
-  const int ind = jj - j - 1;
-
-  // number of columns in block jj
-  const int col_jj = std::min(nb_, k_ - nb_ * jj);
-
-  // number of rows in block jj
-  const int row_jj = n_ - nb_ * jj;
-
-  const double* P = &T_[ind * nb_ * jb];
-  double* Q = &A_[diag_start_[jj]];
-  const double* Rjj = &R_[ind * nb_ * jb];
-
-  const int row_v = std::min(nb_, row_jj - v * nb_);
-
-  double* Qv = &Q[v * nb_ * col_jj];
-  const double* Rv = &Rjj[v * nb_ * jb];
-
-  callAndTime_dgemm('T', 'N', col_jj, row_v, jb, -1.0, P, jb, Rv, jb, 1.0, Qv,
-                    col_jj, DC_);
 }

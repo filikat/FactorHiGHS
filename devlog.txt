@@ -1354,6 +1354,9 @@ For now, I have put an upper bound on the pivot. When I implement pivoting, this
 I implemented the different update, but it doesn't seem to improve the parallel performance.
 There are a large number of tasks spawned, but the scheduler is not affected much. Weird.
 ---
+Since the node parallelism is not having much effect for now, I remove it to keep the code cleaner.
+It's easier to implement the pivoting this way.
+---
 
 
 *****

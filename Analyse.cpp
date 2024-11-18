@@ -966,22 +966,7 @@ void Analyse::computeStorage(int fr, int sz, int& fr_entries,
     }
 
     case FormatType::HybridPacked:
-    case FormatType::HybridHybrid: {
-      // frontal is stored as a trapezoid
-      fr_entries = fr * sz - sz * (sz - 1) / 2;
-
-      // clique is stored as a collection of rectangles
-      const int nb = S_.blockSize();
-      const int n_blocks = (cl - 1) / nb + 1;
-      int schur_size{};
-      for (int j = 0; j < n_blocks; ++j) {
-        const int jb = std::min(nb, cl - j * nb);
-        schur_size += (cl - j * nb) * jb;
-      }
-      cl_entries = schur_size;
-      break;
-    }
-
+    case FormatType::HybridHybrid:
     case FormatType::PackedPacked: {
       const int nb = S_.blockSize();
       int n_blocks = (sz - 1) / nb + 1;
