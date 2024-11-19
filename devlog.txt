@@ -1358,6 +1358,20 @@ Since the node parallelism is not having much effect for now, I remove it to kee
 It's easier to implement the pivoting this way.
 ---
 
+*****
+19 Nov 2024
+I split DenseFact into multiple files. It is a bit less messy and easier to find things.
+I started to implement the swaps of rows and cols in the kernel.
+I made a function to perform a single swap.
+I though a while about how to keep track of swaps and how to apply them later.
+Looking at the LAPACK function dsytrf and dsytrs, I realized that I don't need to swap rows in previously computed blocks. I only need to swap columns in the blocks below.
+I then need to keep track of the swaps of each block and apply them to the rhs before solving with the respective block.
+I do need to swap previously computed rows within the dense diagonal blocks though, otherwise the block is not consistent and I cannot use BLAS level 3.
+---
+I realized why the blas call to dger was not working, I forgot that the arguments should be pointers...
+I changed the kernel to use dger instead of daxpy. It should now be slightly more efficient.
+---
+
 
 *****
 To do:

@@ -109,7 +109,7 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
   // ===========================================================================
   // Factorization kernel
   // Matrix A is in format F
-  // BLAS calls: dscal, dcopy, daxpy
+  // BLAS calls: dscal, dcopy, dger
   // ===========================================================================
 
   // check input
@@ -156,10 +156,8 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
         callAndTime_dscal(M, 1.0 / Ajj, &A[j + 1 + j * lda], 1, DC);
 
         // update rest of the matrix
-        for (int i = 0; i < M; ++i) {
-          callAndTime_daxpy(M - i, -temp[i], &A[j + 1 + i + j * lda], 1,
-                            &A[j + 1 + i + (j + 1 + i) * lda], 1, DC);
-        }
+        callAndTime_dger(M, M, -1.0, temp.data(), 1, &A[j + 1 + j * lda], 1,
+                         &A[j + 1 + (j + 1) * lda], lda, DC);
       }
     }
   }
@@ -200,10 +198,8 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
         callAndTime_dscal(M, 1.0 / Ajj, &A[j + (j + 1) * lda], lda, DC);
 
         // update rest of the matrix
-        for (int i = 0; i < M; ++i) {
-          callAndTime_daxpy(M - i, -temp[i], &A[j + (j + 1 + i) * lda], lda,
-                            &A[j + 1 + i + (j + 1 + i) * lda], lda, DC);
-        }
+        callAndTime_dger(M, M, -1.0, temp.data(), 1, &A[j + (j + 1) * lda], lda,
+                         &A[j + 1 + (j + 1) * lda], lda, DC);
       }
     }
   }
