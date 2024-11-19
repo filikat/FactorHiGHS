@@ -284,7 +284,6 @@ int main(int argc, char** argv) {
   DataCollector DC;
   Analyse An(S, DC, rowsLower, ptrLower, negative_pivots);
   An.run();
-  S.print();
 
   // ===========================================================================
   // Numerical factorisation
@@ -568,14 +567,13 @@ int main(int argc, char** argv) {
   // Write to file
   // ===========================================================================
   if (atoi(argv[5]) == 1) {
-    std::ofstream out_file;
-    print(out_file, ptrLower, "ptr");
-    print(out_file, rowsLower, "rows");
-    print(out_file, valLower, "vals");
-    print(out_file, S.iperm(), "iperm");
-    print(out_file, S.snStart(), "sn_start");
-    print(out_file, S.snParent(), "sn_parent");
-    print(out_file, S.ptr(), "ptrsn");
+    print(ptrLower, "ptr");
+    print(rowsLower, "rows");
+    print(valLower, "vals");
+    print(S.iperm(), "iperm");
+    print(S.snStart(), "sn_start");
+    print(S.snParent(), "sn_parent");
+    print(S.ptr(), "ptrsn");
 
     // extract problem name witout mps from path
     std::string pb_name{};

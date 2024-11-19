@@ -3,8 +3,9 @@
 
 #include <vector>
 
-#include "Symbolic.h"
 #include "DataCollector.h"
+#include "SolveHandler.h"
+#include "Symbolic.h"
 
 class Numeric {
   // columns of factorization, stored by supernode
@@ -16,6 +17,9 @@ class Numeric {
   // object to handle times and statistics
   DataCollector& DC_;
 
+  // object to handle solve phase in different formats
+  std::unique_ptr<SolveHandler> SH_;
+
   friend class Factorise;
 
  public:
@@ -23,15 +27,6 @@ class Numeric {
   std::vector<double> total_reg_{};
 
   Numeric(const Symbolic& S, DataCollector& DC);
-
-  // Forward solve with single right hand side
-  void forwardSolve(std::vector<double>& x) const;
-
-  // Backward solve with single right hand side
-  void backwardSolve(std::vector<double>& x) const;
-
-  // Diagonal solve for LDL
-  void diagSolve(std::vector<double>& x) const;
 
   // Full solve
   void solve(std::vector<double>& x) const;
