@@ -4,10 +4,10 @@
 #include <vector>
 
 #include "Auxiliary.h"
-#include "Blas_declaration.h"
 #include "DataCollector.h"
 #include "DenseFact.h"
 #include "Symbolic.h"
+#include "CallAndTimeBlas.h"
 
 // Interface class to handle different formats of dense matrices during the
 // factorise phase.
@@ -86,9 +86,6 @@ class FormatHandler {
   virtual void extremeEntries() {}
 };
 
-// Constants for BLAS calls
-const int i_one = 1;
-const double d_one = 1.0;
 
 const int extra_space = 10;
 

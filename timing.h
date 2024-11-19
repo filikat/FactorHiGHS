@@ -50,9 +50,11 @@ enum TimeItems {
   kTimeBlas_copy = kTimeBlasStart,  // TIMING_3
   kTimeBlas_axpy,                   // TIMING_3
   kTimeBlas_scal,                   // TIMING_3
+  kTimeBlas_swap,                   // TIMING_3
   kTimeBlas_gemv,                   // TIMING_3
   kTimeBlas_trsv,                   // TIMING_3
   kTimeBlas_tpsv,                   // TIMING_3
+  kTimeBlas_ger,                    // TIMING_3
   kTimeBlas_trsm,                   // TIMING_3
   kTimeBlas_syrk,                   // TIMING_3
   kTimeBlas_gemm,                   // TIMING_3

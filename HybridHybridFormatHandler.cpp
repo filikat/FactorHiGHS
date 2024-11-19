@@ -42,8 +42,8 @@ void HybridHybridFormatHandler::assembleFrontalMultiple(
   int ii = i - block * nb_;
   int jj = j - block * nb_;
 
-  daxpy_(&num, &d_one, &child[start_block + col_ + jb * row_], &jb,
-         &frontal_[diag_start_[block] + ii + ldb * jj], &i_one);
+  callAndTime_daxpy(num, 1.0, &child[start_block + col_ + jb * row_], jb,
+                    &frontal_[diag_start_[block] + ii + ldb * jj], 1, DC_);
 }
 
 int HybridHybridFormatHandler::denseFactorise(double reg_thresh) {
@@ -128,8 +128,9 @@ void HybridHybridFormatHandler::assembleClique(const std::vector<double>& child,
 
         const double d_one = 1.0;
         const int i_one = 1;
-        daxpy_(&consecutive, &d_one, &child[start_block_c + col_ + jb_c * row_],
-               &i_one, &clique_[start_block + j_ + jb * i_], &i_one);
+        callAndTime_daxpy(consecutive, 1.0,
+                          &child[start_block_c + col_ + jb_c * row_], 1,
+                          &clique_[start_block + j_ + jb * i_], 1, DC_);
 
         col += consecutive;
       }

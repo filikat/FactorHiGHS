@@ -22,8 +22,8 @@ void FullFormatHandler::assembleFrontal(int i, int j, double val) {
 void FullFormatHandler::assembleFrontalMultiple(
     int num, const std::vector<double>& child, int nc, int child_sn, int row,
     int col, int i, int j) {
-  daxpy_(&num, &d_one, &child[row + nc * col], &i_one, &frontal_[i + ldf_ * j],
-         &i_one);
+  callAndTime_daxpy(num, 1.0, &child[row + nc * col], 1,
+                    &frontal_[i + ldf_ * j], 1, DC_);
 }
 
 int FullFormatHandler::denseFactorise(double reg_thresh) {
@@ -63,8 +63,8 @@ void FullFormatHandler::assembleClique(const std::vector<double>& child, int nc,
         const int consecutive = S_->consecutiveSums(child_sn, row);
 
         // use daxpy_ for summing consecutive entries
-        daxpy_(&consecutive, &d_one, &child[row + nc * col], &i_one,
-               &clique_[i + ldc_ * j], &i_one);
+        callAndTime_daxpy(consecutive, 1.0, &child[row + nc * col], 1,
+                          &clique_[i + ldc_ * j], 1, DC_);
 
         row += consecutive;
       }

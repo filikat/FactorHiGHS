@@ -114,8 +114,9 @@ void DataCollector::printTimes() const {
 
   double total_blas_time =
       times_[kTimeBlas_copy] + times_[kTimeBlas_axpy] + times_[kTimeBlas_scal] +
-      times_[kTimeBlas_gemv] + times_[kTimeBlas_trsv] + times_[kTimeBlas_tpsv] +
-      times_[kTimeBlas_trsm] + times_[kTimeBlas_syrk] + times_[kTimeBlas_gemm];
+      times_[kTimeBlas_swap] + times_[kTimeBlas_gemv] + times_[kTimeBlas_trsv] +
+      times_[kTimeBlas_tpsv] + times_[kTimeBlas_ger] + times_[kTimeBlas_trsm] +
+      times_[kTimeBlas_syrk] + times_[kTimeBlas_gemm];
 
   printf("BLAS time               \t%8.4f\n", total_blas_time);
   printf("\tcopy:           \t%8.4f (%4.1f%%) in %10d calls\n",
@@ -127,6 +128,9 @@ void DataCollector::printTimes() const {
   printf("\tscal:           \t%8.4f (%4.1f%%) in %10d calls\n",
          times_[kTimeBlas_scal], times_[kTimeBlas_scal] / total_blas_time * 100,
          blas_calls_[kTimeBlas_scal - kTimeBlasStart]);
+  printf("\tswap:           \t%8.4f (%4.1f%%) in %10d calls\n",
+         times_[kTimeBlas_swap], times_[kTimeBlas_swap] / total_blas_time * 100,
+         blas_calls_[kTimeBlas_swap - kTimeBlasStart]);
   printf("\tgemv:           \t%8.4f (%4.1f%%) in %10d calls\n",
          times_[kTimeBlas_gemv], times_[kTimeBlas_gemv] / total_blas_time * 100,
          blas_calls_[kTimeBlas_gemv - kTimeBlasStart]);
@@ -136,6 +140,9 @@ void DataCollector::printTimes() const {
   printf("\ttpsv:           \t%8.4f (%4.1f%%) in %10d calls\n",
          times_[kTimeBlas_tpsv], times_[kTimeBlas_tpsv] / total_blas_time * 100,
          blas_calls_[kTimeBlas_tpsv - kTimeBlasStart]);
+  printf("\tger:            \t%8.4f (%4.1f%%) in %10d calls\n",
+         times_[kTimeBlas_ger], times_[kTimeBlas_ger] / total_blas_time * 100,
+         blas_calls_[kTimeBlas_ger - kTimeBlasStart]);
   printf("\ttrsm:           \t%8.4f (%4.1f%%) in %10d calls\n",
          times_[kTimeBlas_trsm], times_[kTimeBlas_trsm] / total_blas_time * 100,
          blas_calls_[kTimeBlas_trsm - kTimeBlasStart]);

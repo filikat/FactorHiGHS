@@ -1371,6 +1371,13 @@ I do need to swap previously computed rows within the dense diagonal blocks thou
 I realized why the blas call to dger was not working, I forgot that the arguments should be pointers...
 I changed the kernel to use dger instead of daxpy. It should now be slightly more efficient.
 ---
+I changed the solve phase, so that it also uses an interface class to the various formats.
+The various implementations of the solves are now in different files and the Numeric file is much cleaner.
+---
+I switched all the BLAS calls to cblas. It changes basically nothing, but it should be more portable.
+I removed Blad_declaration and incnluded the path to cblas in the makefile.
+I had to add some macros to convert from char to the specific values defined by cblas.
+---
 
 
 *****

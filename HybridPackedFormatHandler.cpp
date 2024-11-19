@@ -42,8 +42,8 @@ void HybridPackedFormatHandler::assembleFrontalMultiple(
   int ii = i - block * nb_;
   int jj = j - block * nb_;
 
-  daxpy_(&num, &d_one, &child[start_block + row + ld * col], &i_one,
-         &frontal_[diag_start_[block] + ii + ldb * jj], &i_one);
+  callAndTime_daxpy(num, 1.0, &child[start_block + row + ld * col], 1,
+                    &frontal_[diag_start_[block] + ii + ldb * jj], 1, DC_);
 }
 
 int HybridPackedFormatHandler::denseFactorise(double reg_thresh) {
@@ -56,8 +56,9 @@ int HybridPackedFormatHandler::denseFactorise(double reg_thresh) {
   int sn_start = S_->snStart(sn_);
   const int* pivot_sign = &S_->pivotSign().data()[sn_start];
 
-  status = denseFactFH('P', ldf_, sn_size_, nb_, frontal_.data(), clique_.data(),
-                      pivot_sign, reg_thresh, local_reg_.data(), DC_, sn_);
+  status =
+      denseFactFH('P', ldf_, sn_size_, nb_, frontal_.data(), clique_.data(),
+                  pivot_sign, reg_thresh, local_reg_.data(), DC_, sn_);
 
   return status;
 }
@@ -100,9 +101,9 @@ void HybridPackedFormatHandler::assembleClique(const std::vector<double>& child,
         const int start_block = S_->cliqueBlockStart(sn_, jblock);
         const int ld = ldc_ - nb_ * jblock;
 
-        daxpy_(&consecutive, &d_one,
-               &child[start_block_c + row_c + ld_c * col_c], &i_one,
-               &clique_[start_block + ii + ld * jj], &i_one);
+        callAndTime_daxpy(consecutive, 1.0,
+                          &child[start_block_c + row_c + ld_c * col_c], 1,
+                          &clique_[start_block + ii + ld * jj], 1, DC_);
 
         row += consecutive;
       }
