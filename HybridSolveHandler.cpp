@@ -1,6 +1,22 @@
 #include "HybridSolveHandler.h"
 
+#include "FactorHiGHSSettings.h"
 #include "FormatHandler.h"
+
+void permuteWithSwaps(double* x, const int* swaps, int n,
+                      bool reverse = false) {
+  if (!reverse) {
+    // apply the swaps in forward order
+    for (int i = 0; i < n; ++i) {
+      if (swaps[i] != i) std::swap(x[i], x[swaps[i]]);
+    }
+  } else {
+    // apply the swaps in backward order
+    for (int i = n - 1; i >= 0; --i) {
+      if (swaps[i] != i) std::swap(x[i], x[swaps[i]]);
+    }
+  }
+}
 
 HybridSolveHandler::HybridSolveHandler(
     const Symbolic& S, DataCollector& DC,
@@ -46,6 +62,12 @@ void HybridSolveHandler::forwardSolve(std::vector<double>& x) const {
       // index to access vector x
       const int x_start = sn_start + nb * j;
 
+#ifdef PIVOTING
+      // apply swaps to portion of rhs that is affected
+      const int* current_swaps = &swaps_[sn][nb * j];
+      permuteWithSwaps(&x[x_start], current_swaps, jb);
+#endif
+
       callAndTime_dtrsv('U', 'T', 'U', jb, &sn_columns_[sn][SnCol_ind], jb,
                         &x[x_start], 1, DC_);
 
@@ -64,6 +86,11 @@ void HybridSolveHandler::forwardSolve(std::vector<double>& x) const {
         const int row = S_.rows(start_row + nb * j + jb + i);
         x[row] -= y[i];
       }
+
+#ifdef PIVOTING
+      // apply inverse swaps
+      permuteWithSwaps(&x[x_start], current_swaps, jb, true);
+#endif
     }
   }
 }
@@ -108,6 +135,12 @@ void HybridSolveHandler::backwardSolve(std::vector<double>& x) const {
       // index to access vector x
       const int x_start = sn_start + nb * j;
 
+#ifdef PIVOTING
+      // apply swaps to portion of rhs that is affected
+      const int* current_swaps = &swaps_[sn][nb * j];
+      permuteWithSwaps(&x[x_start], current_swaps, jb);
+#endif
+
       // temporary space for gemv
       const int gemv_space = ldSn - nb * j - jb;
       std::vector<double> y(gemv_space);
@@ -125,6 +158,11 @@ void HybridSolveHandler::backwardSolve(std::vector<double>& x) const {
       SnCol_ind -= diag_entries;
       callAndTime_dtrsv('U', 'N', 'U', jb, &sn_columns_[sn][SnCol_ind], jb,
                         &x[x_start], 1, DC_);
+
+#ifdef PIVOTING
+      // apply inverse swaps
+      permuteWithSwaps(&x[x_start], current_swaps, jb, true);
+#endif
     }
   }
 }
@@ -157,11 +195,22 @@ void HybridSolveHandler::diagSolve(std::vector<double>& x) const {
       // number of columns in the block
       const int jb = std::min(nb, sn_size - nb * j);
 
+#ifdef PIVOTING
+      // apply swaps to portion of rhs that is affected
+      const int* current_swaps = &swaps_[sn][nb * j];
+      permuteWithSwaps(&x[sn_start + nb * j], current_swaps, jb);
+#endif
+
       // go through columns of block
       for (int col = 0; col < jb; ++col) {
         const double d = sn_columns_[sn][diag_start + (jb + 1) * col];
         x[sn_start + nb * j + col] /= d;
       }
+
+#ifdef PIVOTING
+      // apply inverse swaps
+      permuteWithSwaps(&x[sn_start + nb * j], current_swaps, jb, true);
+#endif
 
       // move diag_start forward by number of diagonal entries in block
       diag_start += jb * jb;

@@ -6,6 +6,7 @@
 #include <stack>
 
 #include "Auxiliary.h"
+#include "FactorHiGHSSettings.h"
 #include "GKlib.h"
 #include "ReturnValues.h"
 #include "metis.h"

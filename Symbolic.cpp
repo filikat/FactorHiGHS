@@ -2,7 +2,10 @@
 
 #include <iostream>
 
-Symbolic::Symbolic(FormatType format_type) : format_type_{format_type} {}
+#include "FactorHiGHSSettings.h"
+
+Symbolic::Symbolic(FormatType format_type)
+    : format_type_{format_type}, block_size_{kBlockSize} {}
 
 FormatType Symbolic::formatType() const { return format_type_; }
 int Symbolic::blockSize() const { return block_size_; }

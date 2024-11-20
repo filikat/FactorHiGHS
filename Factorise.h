@@ -7,8 +7,7 @@
 #include "FormatHandler.h"
 #include "Numeric.h"
 #include "Symbolic.h"
-
-#define PARALLEL_TREE
+#include "FactorHiGHSSettings.h"
 
 class Factorise {
  public:

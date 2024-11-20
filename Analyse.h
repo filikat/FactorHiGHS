@@ -7,13 +7,6 @@
 #include "DataCollector.h"
 #include "Symbolic.h"
 
-// parameters for supernode amalgamation
-const int kStartThreshRelax = 256;
-const double kUpperRatioRelax = 0.02;
-const double kLowerRatioRelax = 0.01;
-const int kMaxIterRelax = 10;
-const int kSnSizeRelax = 8;
-
 // Class to perform the analyse phase of the factorization.
 // The final symbolic factorization is stored in an object of type Symbolic.
 class Analyse {

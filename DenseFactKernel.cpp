@@ -1,11 +1,43 @@
 #include "../ProtoIPM/Regularization.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
+#include "FactorHiGHSSettings.h"
 #include "ReturnValues.h"
+#include "util/HighsRandom.h"
 
 // Dense Factorization kernel
 
 // #define DEBUG
+
+void swapCols(char uplo, int n, double* A, int lda, int i, int j, int* swaps,
+              DataCollector& DC) {
+  // Exchange rows/cols i and j of symmetric matrix A
+
+  // make sure that i < j
+  if (i == j) return;
+  if (i > j) std::swap(i, j);
+
+  // swap diagonal elements
+  std::swap(A[i + i * lda], A[j + j * lda]);
+
+  // swap rest of rows/cols
+  if (uplo == 'L') {
+    callAndTime_dswap(i, &A[i], lda, &A[j], lda, DC);
+    callAndTime_dswap(n - j - 1, &A[j + 1 + i * lda], 1, &A[j + 1 + j * lda], 1,
+                      DC);
+    callAndTime_dswap(j - i - 1, &A[i + 1 + i * lda], 1, &A[j + (i + 1) * lda],
+                      lda, DC);
+  } else {
+    callAndTime_dswap(i, &A[i * lda], 1, &A[j * lda], 1, DC);
+    callAndTime_dswap(n - j - 1, &A[i + (j + 1) * lda], lda,
+                      &A[j + (j + 1) * lda], lda, DC);
+    callAndTime_dswap(j - i - 1, &A[i + (i + 1) * lda], lda,
+                      &A[i + 1 + j * lda], 1, DC);
+  }
+
+  // keep track of order of swaps
+  swaps[i] = j;
+}
 
 double regularizePivot(double pivot, double thresh, const int* sign,
                        const double* A, int lda, int j, int n, char uplo,
@@ -178,6 +210,18 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
     std::vector<double> temp(n - 1);
 
     for (int j = 0; j < n; ++j) {
+#ifdef PIVOTING
+      // some random pivoting to test
+      if (n > 20) {
+        HighsRandom hr;
+        hr.initialise(j);
+        int col = hr.integer(n);
+        if (col > j) {
+          swapCols('U', n, A, lda, j, col, swaps, DC);
+        }
+      }
+#endif
+
       // diagonal element
       double Ajj = A[j + lda * j];
 
@@ -213,34 +257,4 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
   }
 
   return kRetOk;
-}
-
-void swapCols(char uplo, int n, double* A, int lda, int i, int j,
-              std::vector<int>& swaps, DataCollector& DC) {
-  // Exchange rows/cols i and j of symmetric matrix A
-
-  // make sure that i < j
-  if (i == j) return;
-  if (i > j) std::swap(i, j);
-
-  // swap diagonal elements
-  std::swap(A[i + i * lda], A[j + j * lda]);
-
-  // swap rest of rows/cols
-  if (uplo == 'L') {
-    callAndTime_dswap(i, &A[i], lda, &A[j], lda, DC);
-    callAndTime_dswap(n - j - 1, &A[j + 1 + i * lda], 1, &A[j + 1 + j * lda], 1,
-                      DC);
-    callAndTime_dswap(j - i - 1, &A[i + 1 + i * lda], 1, &A[j + (i + 1) * lda],
-                      lda, DC);
-  } else {
-    callAndTime_dswap(i, &A[i * lda], 1, &A[j * lda], 1, DC);
-    callAndTime_dswap(n - j - 1, &A[i + (j + 1) * lda], lda,
-                      &A[j + (j + 1) * lda], lda, DC);
-    callAndTime_dswap(j - i - 1, &A[i + (i + 1) * lda], lda,
-                      &A[i + 1 + j * lda], 1, DC);
-  }
-
-  // keep track of order of swaps
-  swaps[i] = j;
 }

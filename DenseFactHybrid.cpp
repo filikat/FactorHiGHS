@@ -2,19 +2,18 @@
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
 #include "ReturnValues.h"
+#include "FactorHiGHSSettings.h"
 
 // Factorization with "hybrid formats".
 
 void applySwaps(const int* swaps, int nrow, int ncol, double* R,
                 DataCollector& DC) {
   // apply the column swaps to block R
-
   for (int i = 0; i < ncol; ++i) {
-    // current pivot has been accepted, don't swap
-    if (swaps[i] == i) continue;
-
-    // swap col i and col swaps[i]
-    callAndTime_dswap(nrow, &R[i], ncol, &R[swaps[i]], ncol, DC);
+    if (swaps[i] != i) {
+      // swap col i and col swaps[i]
+      callAndTime_dswap(nrow, &R[i], ncol, &R[swaps[i]], ncol, DC);
+    }
   }
 }
 
@@ -90,8 +89,10 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
                                regul_current, swaps_current, DC, sn, j);
     if (info != 0) return info;
 
+#ifdef PIVOTING
     // swap columns in R
     applySwaps(swaps_current, M, jb, R, DC);
+#endif
 
     // ===========================================================================
     // SOLVE COLUMNS
