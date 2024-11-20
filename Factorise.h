@@ -34,7 +34,7 @@ class Factorise {
   std::vector<int> first_child_reverse_{};
   std::vector<int> next_child_reverse_{};
 
-  //std::vector<int> thr_per_sn{};
+  // std::vector<int> thr_per_sn{};
 #endif
 
   // generated elements, aka Schur complements.
@@ -42,6 +42,9 @@ class Factorise {
 
   // columns of L, stored as dense supernodes
   std::vector<std::vector<double>> sn_columns_{};
+
+  // swaps of columns for each supernode, ordered locally within a block
+  std::vector<std::vector<int>> swaps_{};
 
   // largest diagonal element in the original matrix
   double max_diag_{};

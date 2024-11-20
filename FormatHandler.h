@@ -4,10 +4,10 @@
 #include <vector>
 
 #include "Auxiliary.h"
+#include "CallAndTimeBlas.h"
 #include "DataCollector.h"
 #include "DenseFact.h"
 #include "Symbolic.h"
-#include "CallAndTimeBlas.h"
 
 // Interface class to handle different formats of dense matrices during the
 // factorise phase.
@@ -51,11 +51,12 @@ class FormatHandler {
   std::vector<double> frontal_{};
   std::vector<double> clique_{};
   std::vector<double> local_reg_{};
+  std::vector<int> swaps_{};
 
  public:
   FormatHandler(const Symbolic& S, DataCollector& DC, int sn);
   void terminate(std::vector<double>& frontal, std::vector<double>& clique,
-                 std::vector<double>& total_reg);
+                 std::vector<double>& total_reg, std::vector<int>& swaps);
 
   // avoid copies
   FormatHandler(const FormatHandler&) = delete;
@@ -85,7 +86,6 @@ class FormatHandler {
   // =================================================================
   virtual void extremeEntries() {}
 };
-
 
 const int extra_space = 10;
 

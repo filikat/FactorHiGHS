@@ -329,7 +329,8 @@ void Factorise::processSupernode(int sn) {
   FH->extremeEntries();
 
   // terminate the format handler
-  FH->terminate(sn_columns_[sn], schur_contribution_[sn], total_reg_);
+  FH->terminate(sn_columns_[sn], schur_contribution_[sn], total_reg_,
+                swaps_[sn]);
 #ifdef FINE_TIMING
   DC_.sumTime(kTimeFactoriseTerminate, clock.stop());
 #endif
@@ -345,6 +346,7 @@ bool Factorise::run(Numeric& num) {
   // allocate space for list of generated elements and columns of L
   schur_contribution_.resize(S_.sn());
   sn_columns_.resize(S_.sn());
+  swaps_.resize(S_.sn());
 
   DC_.resetExtremeEntries();
 
@@ -380,6 +382,7 @@ bool Factorise::run(Numeric& num) {
   // move factorisation to numerical object
   num.sn_columns_ = std::move(sn_columns_);
   num.total_reg_ = std::move(total_reg_);
+  num.swaps_ = std::move(swaps_);
 
 #ifdef COARSE_TIMING
   DC_.sumTime(kTimeFactorise, clock.stop());

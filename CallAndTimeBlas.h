@@ -41,6 +41,6 @@ void callAndTime_dtrsm(char side, char uplo, char trans, char diag, int m,
 // kernel
 int callAndTime_denseFactK(char uplo, int n, double* A, int lda,
                            const int* pivot_sign, double thresh, double* regul,
-                           DataCollector& DC, int sn, int bl);
+                           int* swaps, DataCollector& DC, int sn, int bl);
 
 #endif

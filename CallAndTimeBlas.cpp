@@ -156,11 +156,12 @@ void callAndTime_dtrsm(char side, char uplo, char trans, char diag, int m,
 
 int callAndTime_denseFactK(char uplo, int n, double* A, int lda,
                            const int* pivot_sign, double thresh, double* regul,
-                           DataCollector& DC, int sn, int bl) {
+                           int* swaps, DataCollector& DC, int sn, int bl) {
 #ifdef FINE_TIMING
   Clock clock;
 #endif
-  int info = denseFactK(uplo, n, A, lda, pivot_sign, thresh, regul, DC, sn, bl);
+  int info =
+      denseFactK(uplo, n, A, lda, pivot_sign, thresh, regul, swaps, DC, sn, bl);
 #ifdef FINE_TIMING
   DC.sumTime(kTimeDenseFact_fact, clock.stop());
 #endif

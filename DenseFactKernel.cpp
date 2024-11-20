@@ -104,8 +104,8 @@ double regularizePivot(double pivot, double thresh, const int* sign,
 }
 
 int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
-               double thresh, double* regul, DataCollector& DC, int sn,
-               int bl) {
+               double thresh, double* regul, int* swaps, DataCollector& DC,
+               int sn, int bl) {
   // ===========================================================================
   // Factorization kernel
   // Matrix A is in format F
@@ -166,6 +166,14 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
   // UPPER TRIANGULAR
   // ===========================================================================
   else {
+    if (!swaps) {
+      printf("\ndenseFactK: invalid input\n");
+      return kRetInvalidInput;
+    }
+
+    // initialize order of pivots
+    for (int i = 0; i < n; ++i) swaps[i] = i;
+
     // allocate space for copy of col
     std::vector<double> temp(n - 1);
 

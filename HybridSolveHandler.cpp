@@ -4,8 +4,9 @@
 
 HybridSolveHandler::HybridSolveHandler(
     const Symbolic& S, DataCollector& DC,
-    const std::vector<std::vector<double>>& sn_columns)
-    : SolveHandler(S, DC, sn_columns) {}
+    const std::vector<std::vector<double>>& sn_columns,
+    const std::vector<std::vector<int>>& swaps)
+    : SolveHandler(S, DC, sn_columns), swaps_{swaps} {}
 
 void HybridSolveHandler::forwardSolve(std::vector<double>& x) const {
   // Forward solve.

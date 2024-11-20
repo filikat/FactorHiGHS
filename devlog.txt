@@ -1379,6 +1379,15 @@ I removed Blad_declaration and incnluded the path to cblas in the makefile.
 I had to add some macros to convert from char to the specific values defined by cblas.
 ---
 
+*****
+20 Nov 2024
+I implemented the function that swaps columns in the R block.
+For now, I change only the hybrid dense factorization, so that the full formats don't use pivoting.
+This means that only the upper case of the kernel uses pivoting.
+The full formats are kept only for reference anyway, because they perform worse for large problems.
+I need to keep track of the swaps, which means that each supernode needs its own list of swaps.
+---
+
 
 *****
 To do:

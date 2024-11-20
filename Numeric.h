@@ -11,6 +11,9 @@ class Numeric {
   // columns of factorization, stored by supernode
   std::vector<std::vector<double>> sn_columns_{};
 
+  // swaps of columns for each supernode, ordered locally within a block
+  std::vector<std::vector<int>> swaps_{};
+
   // symbolic object
   const Symbolic& S_;
 

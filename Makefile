@@ -3,21 +3,29 @@
 highs_path = $(HOME)/Documents/HiGHS
 metis_path = $(HOME)/Documents/METIS
 local_path = $(HOME)/local
-openblas_path = /opt/homebrew/Cellar/openblas/0.3.26/
+blas_path  = /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/Headers
+
 
 cpp_sources = \
-	Analyse.cpp \
-	Auxiliary.cpp \
-	Factorise.cpp \
-	Numeric.cpp \
-	Symbolic.cpp \
-	main.cpp \
-	FormatHandler.cpp \
-	FullFormatHandler.cpp \
-	HybridPackedFormatHandler.cpp \
-	HybridHybridFormatHandler.cpp \
-	DenseFact.cpp \
-	CallAndTimeBlas.cpp
+		Analyse.cpp \
+		Auxiliary.cpp \
+		Factorise.cpp \
+		Numeric.cpp \
+		Symbolic.cpp \
+		FormatHandler.cpp \
+		FullFormatHandler.cpp \
+		HybridPackedFormatHandler.cpp \
+		HybridHybridFormatHandler.cpp \
+		PackedPackedFormatHandler.cpp \
+		SolveHandler.cpp \
+		FullSolveHandler.cpp \
+		PackedSolveHandler.cpp \
+		HybridSolveHandler.cpp \
+		DataCollector.cpp \
+		DenseFactKernel.cpp \
+		DenseFactFull.cpp \
+		DenseFactHybrid.cpp \
+		CallAndTimeBlas.cpp
 
 # binary file name
 binary_name = fact
@@ -32,12 +40,12 @@ CPP = /opt/homebrew/Cellar/llvm/17.0.6_1/bin/clang++
 CPPFLAGS = -std=c++11 -O3 -g3 -Wno-deprecated #-fsanitize=address
 
 # includes and libraries
-includes = -I$(highs_path)/build -I$(highs_path)/src/ -I$(metis_path)/include -I$(local_path)/include
+includes = -I$(highs_path)/build -I$(highs_path)/src/ -I$(metis_path)/include -I$(local_path)/include -I$(blas_path)
 libs_path = -L$(highs_path)/build/lib -L$(metis_path)/build/libmetis -L$(local_path)/lib
-libs = -lhighs -lmetis -lGKlib -llapack -lblas -lhsl_ma86 -lhsl_ma87 -lhsl_ma97 -lhsl_ma57 -lhsl_mc68 -lfakemetis
+libs = -lhighs -lmetis -lGKlib -lblas
 
 # mess to link openmp on mac
-OPENMP_FLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp
+# OPENMP_FLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp
 
 
 # name of objects

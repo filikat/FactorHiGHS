@@ -9,11 +9,13 @@ FormatHandler::FormatHandler(const Symbolic& S, DataCollector& DC, int sn)
       ldf_{S_->ptr(sn_ + 1) - S_->ptr(sn_)},
       ldc_{ldf_ - sn_size_} {
   local_reg_.resize(sn_size_);
+  swaps_.resize(sn_size_);
 }
 
 void FormatHandler::terminate(std::vector<double>& frontal,
                               std::vector<double>& clique,
-                              std::vector<double>& total_reg) {
+                              std::vector<double>& total_reg,
+                              std::vector<int>& swaps) {
   // Move local copies of data into their final position.
   // In this way, the shared objects sn_columns_ and schur_contribution_ are
   // accessed only here, while a local copy is used for the assembly and dense
@@ -21,6 +23,7 @@ void FormatHandler::terminate(std::vector<double>& frontal,
 
   frontal = std::move(frontal_);
   clique = std::move(clique_);
+  swaps = std::move(swaps_);
 
   // Move local regularization into total regularization.
   for (int i = 0; i < sn_size_; ++i)
