@@ -14,6 +14,9 @@ class Numeric {
   // swaps of columns for each supernode, ordered locally within a block
   std::vector<std::vector<int>> swaps_{};
 
+  // information about 2x2 pivots
+  std::vector<std::vector<double>> pivot_2x2_{};
+
   // symbolic object
   const Symbolic& S_;
 

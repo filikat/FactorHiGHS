@@ -26,9 +26,9 @@
 */
 
 // dense factorization kernel
-int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
-               double thresh, double* regul, int* swaps, DataCollector& DC,
-               int sn, int bl);
+int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
+               double thresh, double* regul, int* swaps, double* pivot_2x2,
+               DataCollector& DC, int sn, int bl);
 
 // dense partial factorization, in full format
 int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
@@ -43,7 +43,7 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
 // dense partial factorization, in "hybrid formats"
 int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
                 const int* pivot_sign, double thresh, double* regul, int* swaps,
-                DataCollector& DC, int sn);
+                double* pivot_2x2, DataCollector& DC, int sn);
 
 // function to convert A from lower packed, to lower-blocked-hybrid format
 int denseFactFP2FH(double* A, int nrow, int ncol, int nb, DataCollector& DC);

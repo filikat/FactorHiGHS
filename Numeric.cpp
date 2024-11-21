@@ -16,7 +16,8 @@ Numeric::Numeric(const Symbolic& S, DataCollector& DC) : S_{S}, DC_{DC} {
       break;
     case FormatType::HybridPacked:
     case FormatType::HybridHybrid:
-      SH_.reset(new HybridSolveHandler(S_, DC_, sn_columns_, swaps_));
+      SH_.reset(
+          new HybridSolveHandler(S_, DC_, sn_columns_, swaps_, pivot_2x2_));
       break;
     case FormatType::PackedPacked:
       SH_.reset(new PackedSolveHandler(S_, DC_, sn_columns_));

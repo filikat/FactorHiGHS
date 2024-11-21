@@ -330,7 +330,7 @@ void Factorise::processSupernode(int sn) {
 
   // terminate the format handler
   FH->terminate(sn_columns_[sn], schur_contribution_[sn], total_reg_,
-                swaps_[sn]);
+                swaps_[sn], pivot_2x2_[sn]);
 #ifdef FINE_TIMING
   DC_.sumTime(kTimeFactoriseTerminate, clock.stop());
 #endif
@@ -347,6 +347,7 @@ bool Factorise::run(Numeric& num) {
   schur_contribution_.resize(S_.sn());
   sn_columns_.resize(S_.sn());
   swaps_.resize(S_.sn());
+  pivot_2x2_.resize(S_.sn());
 
   DC_.resetExtremeEntries();
 
@@ -383,6 +384,7 @@ bool Factorise::run(Numeric& num) {
   num.sn_columns_ = std::move(sn_columns_);
   num.total_reg_ = std::move(total_reg_);
   num.swaps_ = std::move(swaps_);
+  num.pivot_2x2_ = std::move(pivot_2x2_);
 
 #ifdef COARSE_TIMING
   DC_.sumTime(kTimeFactorise, clock.stop());

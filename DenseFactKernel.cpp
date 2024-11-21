@@ -106,9 +106,9 @@ double regularizePivot(double pivot, double thresh, const int* sign,
   return pivot;
 }
 
-int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
-               double thresh, double* regul, int* swaps, DataCollector& DC,
-               int sn, int bl) {
+int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
+               double thresh, double* regul, int* swaps, double* pivot_2x2,
+               DataCollector& DC, int sn, int bl) {
   // ===========================================================================
   // Factorization kernel
   // Matrix A is in format F
@@ -169,7 +169,7 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
   // UPPER TRIANGULAR
   // ===========================================================================
   else {
-    if (!swaps) {
+    if (!swaps || !pivot_2x2) {
       printf("\ndenseFactK: invalid input\n");
       return kRetInvalidInput;
     }
@@ -179,8 +179,13 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
 
     // allocate space for copy of col
     std::vector<double> temp(n - 1);
+    std::vector<double> temp2(n - 1);
 
-    for (int j = 0; j < n; ++j) {
+    int step = 1;
+
+    for (int j = 0; j < n; j += step) {
+      bool flag_2x2 = false;
+
 #ifdef PIVOTING
       // some random pivoting to test
       if (n > 20) {
@@ -188,41 +193,97 @@ int denseFactK(char uplo, int n, double* A, int lda, const int* pivot_sign,
         hr.initialise(j);
         int col = hr.integer(n);
         if (col > j) {
-          swapCols('U', n, A, lda, j, col, swaps, DC);
+          swapCols('U', n, A, lda, j, col, swaps, pivot_sign, DC);
         }
+
+        if (j < n - 1 && col > n / 2) flag_2x2 = true;
       }
 #endif
 
-      // diagonal element
-      double Ajj = A[j + lda * j];
+      // cannot do 2x2 pivoting on last column
+      assert(j < n - 1 || flag_2x2 == false);
 
-      if (isnan(Ajj)) {
+      if (!flag_2x2) {
+        // 1x1 pivots
+        step = 1;
+
+        // diagonal element
+        double Ajj = A[j + lda * j];
+
+        if (isnan(Ajj)) {
+          printf("\ndenseFactK: invalid pivot %e\n", Ajj);
+          return kRetInvalidPivot;
+        }
+
+        // add regularization
+        double old_pivot = Ajj;
+        Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, DC,
+                              sn, bl);
+        regul[j] = std::abs(Ajj - old_pivot);
+        DC.setMaxReg(regul[j]);
+
+        // save diagonal element
         A[j + lda * j] = Ajj;
-        printf("\ndenseFactK: invalid pivot %e\n", Ajj);
-        return kRetInvalidPivot;
-      }
 
-      // add regularization
-      double old_pivot = Ajj;
-      Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, DC, sn,
-                            bl);
-      regul[j] = std::abs(Ajj - old_pivot);
-      DC.setMaxReg(regul[j]);
+        const int M = n - j - 1;
+        if (M > 0) {
+          // make copy of row
+          callAndTime_dcopy(M, &A[j + (j + 1) * lda], lda, temp.data(), 1, DC);
 
-      // save diagonal element
-      A[j + lda * j] = Ajj;
+          // scale row j
+          callAndTime_dscal(M, 1.0 / Ajj, &A[j + (j + 1) * lda], lda, DC);
 
-      const int M = n - j - 1;
-      if (M > 0) {
-        // make copy of row
-        callAndTime_dcopy(M, &A[j + (j + 1) * lda], lda, temp.data(), 1, DC);
+          // update rest of the matrix
+          callAndTime_dger(M, M, -1.0, temp.data(), 1, &A[j + (j + 1) * lda],
+                           lda, &A[j + 1 + (j + 1) * lda], lda, DC);
+        }
+      } else {
+        // 2x2 pivots
+        step = 2;
 
-        // scale row j
-        callAndTime_dscal(M, 1.0 / Ajj, &A[j + (j + 1) * lda], lda, DC);
+        // diagonal elements
+        const double d1 = A[j + lda * j];
+        const double d2 = A[j + 1 + lda * (j + 1)];
 
-        // update rest of the matrix
-        callAndTime_dger(M, M, -1.0, temp.data(), 1, &A[j + (j + 1) * lda], lda,
-                         &A[j + 1 + (j + 1) * lda], lda, DC);
+        if (isnan(d1) || isnan(d2)) {
+          printf("\ndenseFactK: invalid pivot %e %e\n", d1, d2);
+          return kRetInvalidPivot;
+        }
+
+        // save off-diagonal pivot element
+        const double offd = A[j + lda * (j + 1)];
+        pivot_2x2[j] = offd;
+        A[j + lda * (j + 1)] = 0.0;
+
+        const int M = n - j - 2;
+        if (M > 0) {
+          double* r1 = &A[j + (j + 2) * lda];
+          double* r2 = &A[j + 1 + (j + 2) * lda];
+
+          // make a copy of first row
+          callAndTime_dcopy(M, r1, lda, temp.data(), 1, DC);
+
+          // make a copy of second row
+          callAndTime_dcopy(M, r2, lda, temp2.data(), 1, DC);
+
+          // compute coefficients of 2x2 inverse
+          const double denom = d1 * d2 - offd * offd;
+          const double i_d1 = d2 / denom;
+          const double i_d2 = d1 / denom;
+          const double i_off = -offd / denom;
+
+          // solve rows j,j+1
+          callAndTime_dscal(M, i_d1, r1, lda, DC);
+          callAndTime_daxpy(M, i_off, temp2.data(), 1, r1, lda, DC);
+          callAndTime_dscal(M, i_d2, r2, lda, DC);
+          callAndTime_daxpy(M, i_off, temp.data(), 1, r2, lda, DC);
+
+          // update rest of the matrix
+          callAndTime_dger(M, M, -1.0, temp.data(), 1, r1, lda,
+                           &A[j + 2 + (j + 2) * lda], lda, DC);
+          callAndTime_dger(M, M, -1.0, temp2.data(), 1, r2, lda,
+                           &A[j + 2 + (j + 2) * lda], lda, DC);
+        }
       }
     }
   }

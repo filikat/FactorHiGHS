@@ -52,11 +52,13 @@ class FormatHandler {
   std::vector<double> clique_{};
   std::vector<double> local_reg_{};
   std::vector<int> swaps_{};
+  std::vector<double> pivot_2x2_{};
 
  public:
   FormatHandler(const Symbolic& S, DataCollector& DC, int sn);
   void terminate(std::vector<double>& frontal, std::vector<double>& clique,
-                 std::vector<double>& total_reg, std::vector<int>& swaps);
+                 std::vector<double>& total_reg, std::vector<int>& swaps,
+                 std::vector<double>& pivot_2x2);
 
   // avoid copies
   FormatHandler(const FormatHandler&) = delete;

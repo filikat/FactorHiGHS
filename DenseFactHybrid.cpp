@@ -8,7 +8,7 @@
 
 int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
                 const int* pivot_sign, double thresh, double* regul, int* swaps,
-                DataCollector& DC, int sn) {
+                double* pivot_2x2, DataCollector& DC, int sn) {
   // ===========================================================================
   // Partial blocked factorization
   // Matrix A is in format FH
@@ -44,6 +44,16 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
   // buffer for copy of block column
   std::vector<double> T(n * nb);
 
+  // number of rows/columns in the Schur complement
+  const int ns = n - k;
+
+  // number of blocks in Schur complement
+  const int s_blocks = (ns - 1) / nb + 1;
+
+  // buffer for full-format of block of columns of Schur complement
+  std::vector<double> schur_buf;
+  if (format == 'P') schur_buf.resize(ns * nb);
+
   // ===========================================================================
   // LOOP OVER BLOCKS
   // ===========================================================================
@@ -71,16 +81,21 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
     // FACTORIZE DIAGONAL BLOCK
     // ===========================================================================
     double* regul_current = &regul[j * nb];
-    const int* pivot_sign_current = &pivot_sign[j * nb];
+    std::vector<int> pivot_sign_current(&pivot_sign[j * nb],
+                                        &pivot_sign[j * nb] + jb);
     int* swaps_current = &swaps[j * nb];
-    int info =
-        callAndTime_denseFactK('U', jb, D, jb, pivot_sign_current, thresh,
-                               regul_current, swaps_current, DC, sn, j);
+    double* pivot_2x2_current = &pivot_2x2[j * nb];
+    int info = callAndTime_denseFactK('U', jb, D, jb, pivot_sign_current.data(),
+                                      thresh, regul_current, swaps_current,
+                                      pivot_2x2_current, DC, sn, j);
     if (info != 0) return info;
 
 #ifdef PIVOTING
     // swap columns in R
     applySwaps(swaps_current, M, jb, R, DC);
+
+    // unswap regularization, to keep it with original ordering
+    permuteWithSwaps(regul_current, swaps_current, jb, true);
 #endif
 
     // ===========================================================================
@@ -94,16 +109,49 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
       callAndTime_dcopy(jb * M, R, 1, T.data(), 1, DC);
 
       // solve block R with pivots
-      int pivot_pos = 0;
-      for (int col = 0; col < jb; ++col) {
-        const double coeff = 1.0 / D[pivot_pos];
-        callAndTime_dscal(M, coeff, &R[col], jb, DC);
-        pivot_pos += jb + 1;
+      int step = 1;
+      for (int col = 0; col < jb; col += step) {
+        if (pivot_2x2_current[col] == 0.0) {
+          // 1x1 pivots
+          step = 1;
+          const double coeff = 1.0 / D[col + jb * col];
+          callAndTime_dscal(M, coeff, &R[col], jb, DC);
+        } else {
+          // 2x2 pivots
+          step = 2;
+
+          // columns affected
+          double* c1 = &R[col];
+          double* c2 = &R[col + 1];
+
+          // pivot is [d1 offd; offd d2]
+          double d1 = D[col + jb * col];
+          double d2 = D[col + 1 + jb * (col + 1)];
+          double offd = pivot_2x2_current[col];
+
+          // compute coefficients of 2x2 inverse
+          const double denom = d1 * d2 - offd * offd;
+          const double i_d1 = d2 / denom;
+          const double i_d2 = d1 / denom;
+          const double i_off = -offd / denom;
+
+          // copy of original col1
+          std::vector<double> c1_temp(M);
+          callAndTime_dcopy(M, c1, jb, c1_temp.data(), 1, DC);
+
+          // solve col and col+1
+          callAndTime_dscal(M, i_d1, c1, jb, DC);
+          callAndTime_daxpy(M, i_off, c2, jb, c1, jb, DC);
+          callAndTime_dscal(M, i_d2, c2, jb, DC);
+          callAndTime_daxpy(M, i_off, c1_temp.data(), 1, c2, jb, DC);
+        }
       }
 
       // ===========================================================================
-      // UPDATE
+      // UPDATE FRONTAL
       // ===========================================================================
+      int offset{};
+
       // go through remaining blocks of columns
       for (int jj = j + 1; jj < n_blocks; ++jj) {
         // number of columns in block jj
@@ -113,7 +161,7 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
         const int row_jj = n - nb * jj;
 
         // offset to access T and R
-        const int offset = (jj - j - 1) * nb * jb;
+        // offset = (jj - j - 1) * nb * jb;
 
         const double* P = &T[offset];
         double* Q = &A[diag_start[jj]];
@@ -121,121 +169,60 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
 
         callAndTime_dgemm('T', 'N', col_jj, row_jj, jb, -1.0, P, jb, Rjj, jb,
                           1.0, Q, col_jj, DC);
+
+        offset += jb * col_jj;
       }
-    }
-  }
 
 #ifdef FINE_TIMING
-  DC.sumTime(kTimeDenseFact_main, clock.stop());
-  clock.start();
+      DC.sumTime(kTimeDenseFact_main, clock.stop());
+      clock.start();
 #endif
 
-  // ===========================================================================
-  // COMPUTE SCHUR COMPLEMENT
-  // ===========================================================================
-  if (k < n) {
-    // number of rows/columns in the Schur complement
-    const int ns = n - k;
+      // ===========================================================================
+      // UPDATE SCHUR COMPLEMENT
+      // ===========================================================================
+      if (k < n) {
+        int B_offset{};
 
-    // size of last full block (may be smaller than full_size)
-    const int ncol_last = k % nb;
-    const int last_full_size = ncol_last == 0 ? full_size : ncol_last * nb;
+        // go through blocks of columns of the Schur complement
+        for (int sb = 0; sb < s_blocks; ++sb) {
+          // number of rows of the block
+          const int nrow = ns - nb * sb;
 
-    double beta = 1.0;
+          // number of columns of the block
+          const int ncol = std::min(nb, nrow);
 
-    // buffer for full-format of block of columns of Schur complement
-    std::vector<double> temp_buf;
-    if (format == 'P') temp_buf.resize(ns * nb);
+          const double* P = &T[offset];
+          double* Q = format == 'P' ? schur_buf.data() : &B[B_offset];
+          const double* Rjj = &R[offset];
 
-    // number of blocks in Schur complement
-    const int s_blocks = (ns - 1) / nb + 1;
+          // beta is 0 to avoid initializing schur_buf if format=='P'
+          double beta = format == 'P' ? 0.0 : 1.0;
 
-    // index to write into B
-    int B_start = 0;
+          callAndTime_dgemm('T', 'N', ncol, nrow, jb, -1.0, P, jb, Rjj, jb,
+                            beta, Q, ncol, DC);
 
-    // pointer to access either temp_buf or B
-    double* schur_buf;
+          if (format == 'P') {
+            // schur_buf contains Schur complement in hybrid format (with full
+            // diagonal blocks). Store it by columns in B (with full diagonal
+            // blocks).
+            for (int buf_row = 0; buf_row < nrow; ++buf_row) {
+              const int N = ncol;
+              callAndTime_daxpy(N, 1.0, &schur_buf[buf_row * ncol], 1,
+                                &B[B_offset + buf_row], nrow, DC);
+            }
+          }
 
-    // Go through block of columns of Schur complement.
-    // Each block will have a full-format copy made in schur_buf
-    for (int sb = 0; sb < s_blocks; ++sb) {
-      // select where to write the Schur complement based on format
-      if (format == 'P')
-        schur_buf = temp_buf.data();
-      else
-        schur_buf = &B[B_start];
-
-      // number of rows of the block
-      const int nrow = ns - nb * sb;
-
-      // number of columns of the block
-      const int ncol = std::min(nb, nrow);
-
-      if (format == 'P') beta = 0.0;
-
-      // each block receives contributions from the blocks of the leading part
-      // of A
-      for (int j = 0; j < n_blocks; ++j) {
-        const int jb = std::min(nb, k - nb * j);
-        const int this_diag_size = jb * jb;
-        const int this_full_size = nb * jb;
-
-        // compute index to access diagonal block in A
-        int diag_pos = diag_start[j] + this_diag_size;
-        if (j < n_blocks - 1) {
-          diag_pos += (n_blocks - j - 2) * full_size + last_full_size;
-        }
-        diag_pos += sb * this_full_size;
-
-        const double* Pj = &A[diag_pos];
-        double* D = schur_buf;
-        double* R = &schur_buf[ncol * ncol];
-
-        // create copy of block, multiplied by pivots
-        const int N = ncol * jb;
-        callAndTime_dcopy(N, Pj, 1, T.data(), 1, DC);
-
-        int pivot_pos = diag_start[j];
-        for (int col = 0; col < jb; ++col) {
-          callAndTime_dscal(ncol, A[pivot_pos], &T[col], jb, DC);
-          pivot_pos += jb + 1;
-        }
-
-        // update diagonal block
-        callAndTime_dgemm('T', 'N', ncol, ncol, jb, -1.0, Pj, jb, T.data(), jb,
-                          beta, D, ncol, DC);
-
-        // update subdiagonal part
-        const int M = nrow - nb;
-        if (M > 0) {
-          const double* Qj = &Pj[this_full_size];
-          callAndTime_dgemm('T', 'N', ncol, M, jb, -1.0, T.data(), jb, Qj, jb,
-                            beta, R, ncol, DC);
-        }
-
-        // beta is 0 for the first time (to avoid initializing schur_buf) and
-        // 1 for the next calls (if format=='P')
-        beta = 1.0;
-      }
-
-      if (format == 'P') {
-        // schur_buf contains Schur complement in hybrid format (with full
-        // diagonal blocks). Store it by columns in B (with full diagonal
-        // blocks).
-        for (int buf_row = 0; buf_row < nrow; ++buf_row) {
-          const int N = ncol;
-          callAndTime_daxpy(N, 1.0, &schur_buf[buf_row * ncol], 1,
-                            &B[B_start + buf_row], nrow, DC);
+          B_offset += nrow * ncol;
+          offset += jb * ncol;
         }
       }
-
-      B_start += nrow * ncol;
+#ifdef FINE_TIMING
+      DC.sumTime(kTimeDenseFact_schur, clock.stop());
+      clock.start();
+#endif
     }
   }
-
-#ifdef FINE_TIMING
-  DC.sumTime(kTimeDenseFact_schur, clock.stop());
-#endif
 
   return kRetOk;
 }

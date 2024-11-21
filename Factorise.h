@@ -4,10 +4,10 @@
 #include <cmath>
 
 #include "DataCollector.h"
+#include "FactorHiGHSSettings.h"
 #include "FormatHandler.h"
 #include "Numeric.h"
 #include "Symbolic.h"
-#include "FactorHiGHSSettings.h"
 
 class Factorise {
  public:
@@ -44,6 +44,12 @@ class Factorise {
 
   // swaps of columns for each supernode, ordered locally within a block
   std::vector<std::vector<int>> swaps_{};
+
+  // Information about 2x2 pivots.
+  // If pivot_2x2[sn][i] == 0, 1x1 pivot was used.
+  // If pivot_2x2[sn][i] != 0, 2x2 pivot was used and pivot_2x2[sn][i] stores
+  //  the off-diagonal pivot entry.
+  std::vector<std::vector<double>> pivot_2x2_{};
 
   // largest diagonal element in the original matrix
   double max_diag_{};

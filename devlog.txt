@@ -1398,6 +1398,17 @@ I added a switch for data collection. I removed the option verbose, since that w
 Now, I can switch off data collection all together. I wonder if acquiring the locks for data collection was the reason for the slow node parallelism. I need to try again.
 I also moved the functions to swap columns in Auxiliary.
 ---
+I noticed a bug with the column swaps. When using the augmented system, I need to swap also the pivot signs, or they don't match anymore.
+I also need to put the regularization of each pivot back into the original order given by Symbolic.
+---
+I started adding stuff for 2x2 pivots.
+I added an auxiliary vector to store the off-diagonal pivot entry. If it is zero, 1x1 pivot was used, otherwise 2x2 was used.
+I added the operations to do the solve of the columns with 2x2 pivots.
+I changed the computation of the Schur complement, so that it uses the same trick as the rest of the factorization.
+In this way, I don't have to multiply by the pivots, which would be annoying with 2x2 pivots.
+I also changed the diagonal solve to include the 2x2 pivots case.
+It seems to work when using random 2x2 pivoting.
+---
 
 
 *****

@@ -6,8 +6,9 @@
 HybridSolveHandler::HybridSolveHandler(
     const Symbolic& S, DataCollector& DC,
     const std::vector<std::vector<double>>& sn_columns,
-    const std::vector<std::vector<int>>& swaps)
-    : SolveHandler(S, DC, sn_columns), swaps_{swaps} {}
+    const std::vector<std::vector<int>>& swaps,
+    const std::vector<std::vector<double>>& pivot_2x2)
+    : SolveHandler(S, DC, sn_columns), swaps_{swaps}, pivot_2x2_{pivot_2x2} {}
 
 void HybridSolveHandler::forwardSolve(std::vector<double>& x) const {
   // Forward solve.
@@ -186,10 +187,38 @@ void HybridSolveHandler::diagSolve(std::vector<double>& x) const {
       permuteWithSwaps(&x[sn_start + nb * j], current_swaps, jb);
 #endif
 
+      const double* current_2x2 = &pivot_2x2_[sn][nb * j];
+      int step = 1;
+
       // go through columns of block
-      for (int col = 0; col < jb; ++col) {
-        const double d = sn_columns_[sn][diag_start + (jb + 1) * col];
-        x[sn_start + nb * j + col] /= d;
+      for (int col = 0; col < jb; col += step) {
+        if (current_2x2[col] == 0.0) {
+          // 1x1 pivots
+          step = 1;
+          const double d = sn_columns_[sn][diag_start + col + jb * col];
+          x[sn_start + nb * j + col] /= d;
+        } else {
+          // 2x2 pivots
+          step = 2;
+
+          // pivot is [d1 offd; offd d2]
+          const double d1 = sn_columns_[sn][diag_start + col + jb * col];
+          const double d2 =
+              sn_columns_[sn][diag_start + col + 1 + jb * (col + 1)];
+          const double offd = current_2x2[col];
+
+          // compute coefficients of 2x2 inverse
+          const double denom = d1 * d2 - offd * offd;
+          const double i_d1 = d2 / denom;
+          const double i_d2 = d1 / denom;
+          const double i_off = -offd / denom;
+
+          double x1 = x[sn_start + nb * j + col];
+          double x2 = x[sn_start + nb * j + col + 1];
+
+          x[sn_start + nb * j + col] = i_d1 * x1 + i_off * x2;
+          x[sn_start + nb * j + col + 1] = i_d2 * x2 + i_off * x1;
+        }
       }
 
 #ifdef PIVOTING

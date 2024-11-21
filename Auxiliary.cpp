@@ -240,7 +240,7 @@ void permuteWithSwaps(double* x, const int* swaps, int n, bool reverse) {
 }
 
 void swapCols(char uplo, int n, double* A, int lda, int i, int j, int* swaps,
-              DataCollector& DC) {
+              int* sign, DataCollector& DC) {
   // Exchange rows/cols i and j of symmetric matrix A
 
   // make sure that i < j
@@ -264,6 +264,9 @@ void swapCols(char uplo, int n, double* A, int lda, int i, int j, int* swaps,
     callAndTime_dswap(j - i - 1, &A[i + (i + 1) * lda], lda,
                       &A[i + 1 + j * lda], 1, DC);
   }
+
+  // swap pivot sign
+  std::swap(sign[i], sign[j]);
 
   // keep track of order of swaps
   swaps[i] = j;
