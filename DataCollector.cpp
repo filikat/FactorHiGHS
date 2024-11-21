@@ -1,10 +1,23 @@
 #include "DataCollector.h"
 
+// instance of DataCollector
+DataCollector* DataCollector::ptr_ = nullptr;
+
 DataCollector::DataCollector() {
 #ifdef DATA_COLLECTION
   times_.resize(kTimeSize);
   blas_calls_.resize(kTimeBlasEnd - kTimeBlasStart + 1);
 #endif
+}
+
+DataCollector* DataCollector::get() {
+  if (!ptr_) ptr_ = new DataCollector();
+  return ptr_;
+}
+
+void DataCollector::destruct() {
+  delete ptr_;
+  ptr_ = nullptr;
 }
 
 void DataCollector::sumTime(TimeItems i, double t) {
@@ -18,6 +31,7 @@ void DataCollector::sumTime(TimeItems i, double t) {
 #endif
 #endif
 }
+
 void DataCollector::extremeEntries(double minD, double maxD, double minoffD,
                                    double maxoffD) {
 #ifdef DATA_COLLECTION
@@ -29,12 +43,14 @@ void DataCollector::extremeEntries(double minD, double maxD, double minoffD,
   maxL_ = std::max(maxL_, maxoffD);
 #endif
 }
+
 void DataCollector::sumRegPiv() {
 #ifdef DATA_COLLECTION
   // Increase the number of dynamically regularized pivots.
   ++n_reg_piv_;
 #endif
 }
+
 void DataCollector::setMaxReg(double new_reg) {
 #ifdef DATA_COLLECTION
   // Keep track of maximum regularization used.
@@ -42,6 +58,7 @@ void DataCollector::setMaxReg(double new_reg) {
   max_reg_ = std::max(max_reg_, new_reg);
 #endif
 }
+
 void DataCollector::setWorstRes(double res) {
 #ifdef DATA_COLLECTION
   // Keep track of worst residual

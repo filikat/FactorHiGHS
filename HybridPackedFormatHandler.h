@@ -18,7 +18,7 @@ class HybridPackedFormatHandler : public FormatHandler {
   void extremeEntries() override;
 
  public:
-  HybridPackedFormatHandler(const Symbolic& S, DataCollector& DC, int sn);
+  HybridPackedFormatHandler(const Symbolic& S, int sn);
 };
 
 #endif

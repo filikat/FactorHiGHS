@@ -7,6 +7,11 @@
 
 #include "Timing.h"
 
+// DataCollector is a singleton object.
+// Only one copy of it can exist and it cannot be constructed or destructed
+// explicitly. Any public member function should be accessed through
+// DataCollector::get()-> ...
+
 class DataCollector {
   // Record of times and BLAS calls
   std::vector<double> times_{};
@@ -41,11 +46,19 @@ class DataCollector {
   std::mutex max_reg_mutex_;
   std::mutex worst_res_mutex_;
 
+  // Instance of DataCollector
+  static DataCollector* ptr_;
+
   friend class Analyse;
 
- public:
-  // Constructor
+  // Private ctor and dtor
   DataCollector();
+  ~DataCollector() = default;
+
+ public:
+  // Access to the object
+  static DataCollector* get();
+  static void destruct();
 
   // Functions with lock, they can be accessed simultaneously
   void sumTime(TimeItems i, double t);

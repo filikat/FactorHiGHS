@@ -13,7 +13,7 @@ class HybridSolveHandler : public SolveHandler {
   void diagSolve(std::vector<double>& x) const override;
 
  public:
-  HybridSolveHandler(const Symbolic& S, DataCollector& DC,
+  HybridSolveHandler(const Symbolic& S,
                      const std::vector<std::vector<double>>& sn_columns,
                      const std::vector<std::vector<int>>& swaps,
                      const std::vector<std::vector<double>>& pivot_2x2);

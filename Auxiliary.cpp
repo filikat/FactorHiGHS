@@ -240,7 +240,7 @@ void permuteWithSwaps(double* x, const int* swaps, int n, bool reverse) {
 }
 
 void swapCols(char uplo, int n, double* A, int lda, int i, int j, int* swaps,
-              int* sign, DataCollector& DC) {
+              int* sign) {
   // Exchange rows/cols i and j of symmetric matrix A
 
   // make sure that i < j
@@ -252,17 +252,17 @@ void swapCols(char uplo, int n, double* A, int lda, int i, int j, int* swaps,
 
   // swap rest of rows/cols
   if (uplo == 'L') {
-    callAndTime_dswap(i, &A[i], lda, &A[j], lda, DC);
-    callAndTime_dswap(n - j - 1, &A[j + 1 + i * lda], 1, &A[j + 1 + j * lda], 1,
-                      DC);
+    callAndTime_dswap(i, &A[i], lda, &A[j], lda);
+    callAndTime_dswap(n - j - 1, &A[j + 1 + i * lda], 1, &A[j + 1 + j * lda],
+                      1);
     callAndTime_dswap(j - i - 1, &A[i + 1 + i * lda], 1, &A[j + (i + 1) * lda],
-                      lda, DC);
+                      lda);
   } else {
-    callAndTime_dswap(i, &A[i * lda], 1, &A[j * lda], 1, DC);
+    callAndTime_dswap(i, &A[i * lda], 1, &A[j * lda], 1);
     callAndTime_dswap(n - j - 1, &A[i + (j + 1) * lda], lda,
-                      &A[j + (j + 1) * lda], lda, DC);
+                      &A[j + (j + 1) * lda], lda);
     callAndTime_dswap(j - i - 1, &A[i + (i + 1) * lda], lda,
-                      &A[i + 1 + j * lda], 1, DC);
+                      &A[i + 1 + j * lda], 1);
   }
 
   // swap pivot sign
@@ -272,13 +272,12 @@ void swapCols(char uplo, int n, double* A, int lda, int i, int j, int* swaps,
   swaps[i] = j;
 }
 
-void applySwaps(const int* swaps, int nrow, int ncol, double* R,
-                DataCollector& DC) {
+void applySwaps(const int* swaps, int nrow, int ncol, double* R) {
   // apply the column swaps to block R
   for (int i = 0; i < ncol; ++i) {
     if (swaps[i] != i) {
       // swap col i and col swaps[i]
-      callAndTime_dswap(nrow, &R[i], ncol, &R[swaps[i]], ncol, DC);
+      callAndTime_dswap(nrow, &R[i], ncol, &R[swaps[i]], ncol);
     }
   }
 }

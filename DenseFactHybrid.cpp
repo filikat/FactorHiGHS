@@ -8,7 +8,7 @@
 
 int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
                 const int* pivot_sign, double thresh, double* regul, int* swaps,
-                double* pivot_2x2, DataCollector& DC, int sn) {
+                double* pivot_2x2, int sn) {
   // ===========================================================================
   // Partial blocked factorization
   // Matrix A is in format FH
@@ -87,12 +87,12 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
     double* pivot_2x2_current = &pivot_2x2[j * nb];
     int info = callAndTime_denseFactK('U', jb, D, jb, pivot_sign_current.data(),
                                       thresh, regul_current, swaps_current,
-                                      pivot_2x2_current, DC, sn, j);
+                                      pivot_2x2_current, sn, j);
     if (info != 0) return info;
 
 #ifdef PIVOTING
     // swap columns in R
-    applySwaps(swaps_current, M, jb, R, DC);
+    applySwaps(swaps_current, M, jb, R);
 
     // unswap regularization, to keep it with original ordering
     permuteWithSwaps(regul_current, swaps_current, jb, true);
@@ -103,10 +103,10 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
     // ===========================================================================
     if (M > 0) {
       // solve block R with D
-      callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D, jb, R, jb, DC);
+      callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D, jb, R, jb);
 
       // make copy of partially solved columns
-      callAndTime_dcopy(jb * M, R, 1, T.data(), 1, DC);
+      callAndTime_dcopy(jb * M, R, 1, T.data(), 1);
 
       // solve block R with pivots
       int step = 1;
@@ -115,7 +115,7 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
           // 1x1 pivots
           step = 1;
           const double coeff = 1.0 / D[col + jb * col];
-          callAndTime_dscal(M, coeff, &R[col], jb, DC);
+          callAndTime_dscal(M, coeff, &R[col], jb);
         } else {
           // 2x2 pivots
           step = 2;
@@ -137,13 +137,13 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
 
           // copy of original col1
           std::vector<double> c1_temp(M);
-          callAndTime_dcopy(M, c1, jb, c1_temp.data(), 1, DC);
+          callAndTime_dcopy(M, c1, jb, c1_temp.data(), 1);
 
           // solve col and col+1
-          callAndTime_dscal(M, i_d1, c1, jb, DC);
-          callAndTime_daxpy(M, i_off, c2, jb, c1, jb, DC);
-          callAndTime_dscal(M, i_d2, c2, jb, DC);
-          callAndTime_daxpy(M, i_off, c1_temp.data(), 1, c2, jb, DC);
+          callAndTime_dscal(M, i_d1, c1, jb);
+          callAndTime_daxpy(M, i_off, c2, jb, c1, jb);
+          callAndTime_dscal(M, i_d2, c2, jb);
+          callAndTime_daxpy(M, i_off, c1_temp.data(), 1, c2, jb);
         }
       }
 
@@ -168,13 +168,13 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
         const double* Rjj = &R[offset];
 
         callAndTime_dgemm('T', 'N', col_jj, row_jj, jb, -1.0, P, jb, Rjj, jb,
-                          1.0, Q, col_jj, DC);
+                          1.0, Q, col_jj);
 
         offset += jb * col_jj;
       }
 
 #ifdef FINE_TIMING
-      DC.sumTime(kTimeDenseFact_main, clock.stop());
+      DataCollector::get()->sumTime(kTimeDenseFact_main, clock.stop());
       clock.start();
 #endif
 
@@ -200,7 +200,7 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
           double beta = format == 'P' ? 0.0 : 1.0;
 
           callAndTime_dgemm('T', 'N', ncol, nrow, jb, -1.0, P, jb, Rjj, jb,
-                            beta, Q, ncol, DC);
+                            beta, Q, ncol);
 
           if (format == 'P') {
             // schur_buf contains Schur complement in hybrid format (with full
@@ -209,7 +209,7 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
             for (int buf_row = 0; buf_row < nrow; ++buf_row) {
               const int N = ncol;
               callAndTime_daxpy(N, 1.0, &schur_buf[buf_row * ncol], 1,
-                                &B[B_offset + buf_row], nrow, DC);
+                                &B[B_offset + buf_row], nrow);
             }
           }
 
@@ -218,7 +218,7 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
         }
       }
 #ifdef FINE_TIMING
-      DC.sumTime(kTimeDenseFact_schur, clock.stop());
+      DataCollector::get()->sumTime(kTimeDenseFact_schur, clock.stop());
       clock.start();
 #endif
     }
@@ -227,7 +227,7 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
   return kRetOk;
 }
 
-int denseFactFP2FH(double* A, int nrow, int ncol, int nb, DataCollector& DC) {
+int denseFactFP2FH(double* A, int nrow, int ncol, int nb) {
   // ===========================================================================
   // Packed to Hybrid conversion
   // Matrix A on  input is in format FP
@@ -252,21 +252,20 @@ int denseFactFP2FH(double* A, int nrow, int ncol, int nb, DataCollector& DC) {
     const int row_size = nrow - k * nb;
 
     // Copy block into buf
-    callAndTime_dcopy(row_size * block_size, &A[startAtoBuf], 1, buf.data(), 1,
-                      DC);
+    callAndTime_dcopy(row_size * block_size, &A[startAtoBuf], 1, buf.data(), 1);
     startAtoBuf += row_size * block_size;
 
     // Copy columns back into A, row by row.
     // One call of dcopy_ for each row of the block of columns.
     for (int i = 0; i < row_size; ++i) {
       const int N = block_size;
-      callAndTime_dcopy(N, &buf[i], row_size, &A[startBuftoA], 1, DC);
+      callAndTime_dcopy(N, &buf[i], row_size, &A[startBuftoA], 1);
       startBuftoA += N;
     }
   }
 
 #ifdef FINE_TIMING
-  DC.sumTime(kTimeDenseFact_convert, clock.stop());
+  DataCollector::get()->sumTime(kTimeDenseFact_convert, clock.stop());
 #endif
 
   return kRetOk;

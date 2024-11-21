@@ -1,9 +1,8 @@
 #include "FullSolveHandler.h"
 
 FullSolveHandler::FullSolveHandler(
-    const Symbolic& S, DataCollector& DC,
-    const std::vector<std::vector<double>>& sn_columns)
-    : SolveHandler(S, DC, sn_columns) {}
+    const Symbolic& S, const std::vector<std::vector<double>>& sn_columns)
+    : SolveHandler(S, sn_columns) {}
 
 void FullSolveHandler::forwardSolve(std::vector<double>& x) const {
   // Forward solve.
@@ -28,13 +27,13 @@ void FullSolveHandler::forwardSolve(std::vector<double>& x) const {
     const int start_row = S_.ptr(sn);
 
     callAndTime_dtrsv('L', 'N', 'U', sn_size, sn_columns_[sn].data(), ldSn,
-                      &x[sn_start], 1, DC_);
+                      &x[sn_start], 1);
 
     // temporary space for gemv
     std::vector<double> y(clique_size);
 
     callAndTime_dgemv('N', clique_size, sn_size, 1.0, &sn_columns_[sn][sn_size],
-                      ldSn, &x[sn_start], 1, 0.0, y.data(), 1, DC_);
+                      ldSn, &x[sn_start], 1, 0.0, y.data(), 1);
 
     // scatter solution of gemv
     for (int i = 0; i < clique_size; ++i) {
@@ -78,10 +77,10 @@ void FullSolveHandler::backwardSolve(std::vector<double>& x) const {
 
     callAndTime_dgemv('T', clique_size, sn_size, -1.0,
                       &sn_columns_[sn][sn_size], ldSn, y.data(), 1, 1.0,
-                      &x[sn_start], 1, DC_);
+                      &x[sn_start], 1);
 
     callAndTime_dtrsv('L', 'T', 'U', sn_size, sn_columns_[sn].data(), ldSn,
-                      &x[sn_start], 1, DC_);
+                      &x[sn_start], 1);
   }
 }
 

@@ -16,7 +16,7 @@ class FullFormatHandler : public FormatHandler {
   void extremeEntries() override;
 
  public:
-  FullFormatHandler(const Symbolic& S,DataCollector& DC, int sn);
+  FullFormatHandler(const Symbolic& S, int sn);
 };
 
 #endif

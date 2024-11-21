@@ -1,8 +1,7 @@
 #include "FullFormatHandler.h"
 
-FullFormatHandler::FullFormatHandler(const Symbolic& S, DataCollector& DC,
-                                     int sn)
-    : FormatHandler(S, DC, sn) {
+FullFormatHandler::FullFormatHandler(const Symbolic& S, int sn)
+    : FormatHandler(S, sn) {
   // initialize frontal and clique
   initFrontal();
   initClique();
@@ -23,7 +22,7 @@ void FullFormatHandler::assembleFrontalMultiple(
     int num, const std::vector<double>& child, int nc, int child_sn, int row,
     int col, int i, int j) {
   callAndTime_daxpy(num, 1.0, &child[row + nc * col], 1,
-                    &frontal_[i + ldf_ * j], 1, DC_);
+                    &frontal_[i + ldf_ * j], 1);
 }
 
 int FullFormatHandler::denseFactorise(double reg_thresh) {
@@ -35,7 +34,7 @@ int FullFormatHandler::denseFactorise(double reg_thresh) {
 
   status =
       denseFactF(ldf_, sn_size_, nb_, frontal_.data(), ldf_, clique_.data(),
-                 ldc_, pivot_sign, reg_thresh, local_reg_.data(), DC_, sn_);
+                 ldc_, pivot_sign, reg_thresh, local_reg_.data(), sn_);
 
   return status;
 }
@@ -64,7 +63,7 @@ void FullFormatHandler::assembleClique(const std::vector<double>& child, int nc,
 
         // use daxpy_ for summing consecutive entries
         callAndTime_daxpy(consecutive, 1.0, &child[row + nc * col], 1,
-                          &clique_[i + ldc_ * j], 1, DC_);
+                          &clique_[i + ldc_ * j], 1);
 
         row += consecutive;
       }
@@ -92,5 +91,5 @@ void FullFormatHandler::extremeEntries() {
     }
   }
 
-  DC_.extremeEntries(minD, maxD, minoffD, maxoffD);
+  DataCollector::get()->extremeEntries(minD, maxD, minoffD, maxoffD);
 }

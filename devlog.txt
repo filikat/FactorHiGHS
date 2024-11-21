@@ -1409,6 +1409,11 @@ In this way, I don't have to multiply by the pivots, which would be annoying wit
 I also changed the diagonal solve to include the 2x2 pivots case.
 It seems to work when using random 2x2 pivoting.
 ---
+I have changed DataCollector and made it into a singleton object.
+Now, it cannot be constructed or destructed explicitly. Only one instance of it exists and it is accessed through a static member function get.
+Since it is static, I don't have to pass it around everywhere, but I simply do DataCollector::get()-> and then the thing that I want to access.
+This makes the code a bit nicer, since it removes the DC object everywhere.
+---
 
 
 *****

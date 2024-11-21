@@ -1,8 +1,7 @@
 #include "PackedPackedFormatHandler.h"
 
-PackedPackedFormatHandler::PackedPackedFormatHandler(const Symbolic& S,
-                                                     DataCollector& DC, int sn)
-    : FormatHandler(S, DC, sn) {
+PackedPackedFormatHandler::PackedPackedFormatHandler(const Symbolic& S, int sn)
+    : FormatHandler(S, sn) {
   // initialize frontal and clique
   initFrontal();
   initClique();
@@ -43,7 +42,7 @@ void PackedPackedFormatHandler::assembleFrontalMultiple(
   int jj = j - block * nb_;
 
   callAndTime_daxpy(num, 1.0, &child[start_block + row + ld * col], 1,
-                    &frontal_[diag_start_[block] + ii + ldb * jj], 1, DC_);
+                    &frontal_[diag_start_[block] + ii + ldb * jj], 1);
 }
 
 int PackedPackedFormatHandler::denseFactorise(double reg_thresh) {
@@ -52,7 +51,7 @@ int PackedPackedFormatHandler::denseFactorise(double reg_thresh) {
   const int* pivot_sign = &S_->pivotSign().data()[sn_start];
 
   int status = denseFactFP(ldf_, sn_size_, nb_, frontal_.data(), clique_.data(),
-                           pivot_sign, reg_thresh, local_reg_.data(), DC_, sn_);
+                           pivot_sign, reg_thresh, local_reg_.data(), sn_);
 
   return status;
 }
@@ -97,7 +96,7 @@ void PackedPackedFormatHandler::assembleClique(const std::vector<double>& child,
 
         callAndTime_daxpy(consecutive, 1.0,
                           &child[start_block_c + row_c + ld_c * col_c], 1,
-                          &clique_[start_block + ii + ld * jj], 1, DC_);
+                          &clique_[start_block + ii + ld * jj], 1);
 
         row += consecutive;
       }
@@ -143,5 +142,5 @@ void PackedPackedFormatHandler::extremeEntries() {
     }
   }
 
-  DC_.extremeEntries(minD, maxD, minoffD, maxoffD);
+  DataCollector::get()->extremeEntries(minD, maxD, minoffD, maxoffD);
 }

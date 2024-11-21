@@ -30,8 +30,6 @@ class FormatHandler {
   // symbolic object
   const Symbolic* S_;
 
-  DataCollector& DC_;
-
   // supernode being processed
   const int sn_{};
 
@@ -55,7 +53,7 @@ class FormatHandler {
   std::vector<double> pivot_2x2_{};
 
  public:
-  FormatHandler(const Symbolic& S, DataCollector& DC, int sn);
+  FormatHandler(const Symbolic& S, int sn);
   void terminate(std::vector<double>& frontal, std::vector<double>& clique,
                  std::vector<double>& total_reg, std::vector<int>& swaps,
                  std::vector<double>& pivot_2x2);

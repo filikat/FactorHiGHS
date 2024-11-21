@@ -9,7 +9,7 @@ class FullSolveHandler : public SolveHandler {
   void diagSolve(std::vector<double>& x) const override;
 
  public:
-  FullSolveHandler(const Symbolic& S, DataCollector& DC,
+  FullSolveHandler(const Symbolic& S,
                    const std::vector<std::vector<double>>& sn_columns);
 };
 

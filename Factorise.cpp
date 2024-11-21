@@ -11,11 +11,10 @@
 #include "ReturnValues.h"
 #include "parallel/HighsParallel.h"
 
-Factorise::Factorise(const Symbolic& S, DataCollector& DC,
-                     const std::vector<int>& rowsA,
+Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
                      const std::vector<int>& ptrA,
                      const std::vector<double>& valA)
-    : S_{S}, DC_{DC} {
+    : S_{S} {
   // Input the symmetric matrix to be factorised in CSC format and the symbolic
   // factorisation coming from Analyze.
   // Only the lower triangular part of the matrix is used.
@@ -139,21 +138,20 @@ void Factorise::permute(const std::vector<int>& iperm) {
   valA_ = std::move(new_val);
 }
 
-std::unique_ptr<FormatHandler> getFormatHandler(const Symbolic& S,
-                                                DataCollector& DC, int sn) {
+std::unique_ptr<FormatHandler> getFormatHandler(const Symbolic& S, int sn) {
   std::unique_ptr<FormatHandler> ptr;
   switch (S.formatType()) {
     case FormatType::Full:
-      ptr.reset(new FullFormatHandler(S, DC, sn));
+      ptr.reset(new FullFormatHandler(S, sn));
       break;
     case FormatType::HybridPacked:
-      ptr.reset(new HybridPackedFormatHandler(S, DC, sn));
+      ptr.reset(new HybridPackedFormatHandler(S, sn));
       break;
     case FormatType::HybridHybrid:
-      ptr.reset(new HybridHybridFormatHandler(S, DC, sn));
+      ptr.reset(new HybridHybridFormatHandler(S, sn));
       break;
     case FormatType::PackedPacked:
-      ptr.reset(new PackedPackedFormatHandler(S, DC, sn));
+      ptr.reset(new PackedPackedFormatHandler(S, sn));
       break;
   }
   return ptr;
@@ -193,10 +191,10 @@ void Factorise::processSupernode(int sn) {
 
   // initialize the format handler
   // this also allocates space for the frontal matrix and schur complement
-  std::unique_ptr<FormatHandler> FH = getFormatHandler(S_, DC_, sn);
+  std::unique_ptr<FormatHandler> FH = getFormatHandler(S_, sn);
 
 #ifdef FINE_TIMING
-  DC_.sumTime(kTimeFactorisePrepare, clock.stop());
+  DataCollector::get()->sumTime(kTimeFactorisePrepare, clock.stop());
 #endif
 
 #ifdef FINE_TIMING
@@ -219,7 +217,7 @@ void Factorise::processSupernode(int sn) {
     }
   }
 #ifdef FINE_TIMING
-  DC_.sumTime(kTimeFactoriseAssembleOriginal, clock.stop());
+  DataCollector::get()->sumTime(kTimeFactoriseAssembleOriginal, clock.stop());
 #endif
 
   // ===================================================
@@ -282,7 +280,8 @@ void Factorise::processSupernode(int sn) {
       }
     }
 #ifdef FINE_TIMING
-    DC_.sumTime(kTimeFactoriseAssembleChildrenFrontal, clock.stop());
+    DataCollector::get()->sumTime(kTimeFactoriseAssembleChildrenFrontal,
+                                  clock.stop());
 #endif
 
 // ASSEMBLE INTO CLIQUE
@@ -291,7 +290,8 @@ void Factorise::processSupernode(int sn) {
 #endif
     FH->assembleClique(child_clique, nc, child_sn);
 #ifdef FINE_TIMING
-    DC_.sumTime(kTimeFactoriseAssembleChildrenClique, clock.stop());
+    DataCollector::get()->sumTime(kTimeFactoriseAssembleChildrenClique,
+                                  clock.stop());
 #endif
 
     // Schur contribution of the child is no longer needed
@@ -319,7 +319,7 @@ void Factorise::processSupernode(int sn) {
     return;
   }
 #ifdef FINE_TIMING
-  DC_.sumTime(kTimeFactoriseDenseFact, clock.stop());
+  DataCollector::get()->sumTime(kTimeFactoriseDenseFact, clock.stop());
 #endif
 
 #ifdef FINE_TIMING
@@ -332,7 +332,7 @@ void Factorise::processSupernode(int sn) {
   FH->terminate(sn_columns_[sn], schur_contribution_[sn], total_reg_,
                 swaps_[sn], pivot_2x2_[sn]);
 #ifdef FINE_TIMING
-  DC_.sumTime(kTimeFactoriseTerminate, clock.stop());
+  DataCollector::get()->sumTime(kTimeFactoriseTerminate, clock.stop());
 #endif
 }
 
@@ -349,7 +349,7 @@ bool Factorise::run(Numeric& num) {
   swaps_.resize(S_.sn());
   pivot_2x2_.resize(S_.sn());
 
-  DC_.resetExtremeEntries();
+  DataCollector::get()->resetExtremeEntries();
 
 #ifdef PARALLEL_TREE
   // thr_per_sn.resize(S_.sn());
@@ -387,7 +387,7 @@ bool Factorise::run(Numeric& num) {
   num.pivot_2x2_ = std::move(pivot_2x2_);
 
 #ifdef COARSE_TIMING
-  DC_.sumTime(kTimeFactorise, clock.stop());
+  DataCollector::get()->sumTime(kTimeFactorise, clock.stop());
 #endif
 
   return false;

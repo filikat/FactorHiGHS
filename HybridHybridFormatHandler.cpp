@@ -1,8 +1,7 @@
 #include "HybridHybridFormatHandler.h"
 
-HybridHybridFormatHandler::HybridHybridFormatHandler(const Symbolic& S,
-                                                     DataCollector& DC, int sn)
-    : FormatHandler(S, DC, sn) {
+HybridHybridFormatHandler::HybridHybridFormatHandler(const Symbolic& S, int sn)
+    : FormatHandler(S, sn) {
   // initialize frontal and clique
   initFrontal();
   initClique();
@@ -43,13 +42,13 @@ void HybridHybridFormatHandler::assembleFrontalMultiple(
   int jj = j - block * nb_;
 
   callAndTime_daxpy(num, 1.0, &child[start_block + col_ + jb * row_], jb,
-                    &frontal_[diag_start_[block] + ii + ldb * jj], 1, DC_);
+                    &frontal_[diag_start_[block] + ii + ldb * jj], 1);
 }
 
 int HybridHybridFormatHandler::denseFactorise(double reg_thresh) {
   int status;
 
-  status = denseFactFP2FH(frontal_.data(), ldf_, sn_size_, nb_, DC_);
+  status = denseFactFP2FH(frontal_.data(), ldf_, sn_size_, nb_);
   if (status) return status;
 
   // find the position within pivot_sign corresponding to this supernode
@@ -59,7 +58,7 @@ int HybridHybridFormatHandler::denseFactorise(double reg_thresh) {
   status =
       denseFactFH('H', ldf_, sn_size_, S_->blockSize(), frontal_.data(),
                   clique_.data(), pivot_sign, reg_thresh, local_reg_.data(),
-                  swaps_.data(), pivot_2x2_.data(), DC_, sn_);
+                  swaps_.data(), pivot_2x2_.data(), sn_);
 
   return status;
 }
@@ -131,7 +130,7 @@ void HybridHybridFormatHandler::assembleClique(const std::vector<double>& child,
         const int i_one = 1;
         callAndTime_daxpy(consecutive, 1.0,
                           &child[start_block_c + col_ + jb_c * row_], 1,
-                          &clique_[start_block + j_ + jb * i_], 1, DC_);
+                          &clique_[start_block + j_ + jb * i_], 1);
 
         col += consecutive;
       }
@@ -187,5 +186,5 @@ void HybridHybridFormatHandler::extremeEntries() {
     }
   }
 
-  DC_.extremeEntries(minD, maxD, minoffD, maxoffD);
+  DataCollector::get()->extremeEntries(minD, maxD, minoffD, maxoffD);
 }

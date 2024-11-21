@@ -21,9 +21,6 @@ class Factorise {
   // symbolic factorisation
   const Symbolic& S_;
 
-  // object to handle times and statistics
-  DataCollector& DC_;
-
   // children in supernodal elimination tree
   std::vector<int> first_child_{};
   std::vector<int> next_child_{};
@@ -66,7 +63,7 @@ class Factorise {
   void processSupernode(int sn);
 
  public:
-  Factorise(const Symbolic& S, DataCollector& DC, const std::vector<int>& rowsA,
+  Factorise(const Symbolic& S, const std::vector<int>& rowsA,
             const std::vector<int>& ptrA, const std::vector<double>& valA);
 
   bool run(Numeric& num);

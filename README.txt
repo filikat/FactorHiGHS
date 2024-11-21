@@ -12,7 +12,6 @@ It is stored using three arrays:
 
 The direct solver uses the following objects:
 - Symbolic, to store the symbolic factorization;
-- DataCollector, to collect information during the factorization;
 - Numeric, to store the numeric factorization;
 - Analyse, to perform the analyse phase;
 - Factorise, to perform the factorise phase.
@@ -24,13 +23,12 @@ Define a right-hand side rhs, which will be overwritten with the solution of M^{
 Then, the factorization is performed as follows.
 
     Symbolic S;
-    DataCollector DC;
-    Numeric N(S, DC);
+    Numeric N(S);
 
-    Analyse analyse(S, DC, rows, ptr, neg);
+    Analyse analyse(S, rows, ptr, neg);
     analyse.run();
 
-    Factorise factorise(S, DC, rows, ptr, val);
+    Factorise factorise(S, rows, ptr, val);
     factorise.run(N);
 
     N.solve(rhs);

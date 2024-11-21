@@ -11,9 +11,9 @@
 #include "ReturnValues.h"
 #include "metis.h"
 
-Analyse::Analyse(Symbolic& S, DataCollector& DC, const std::vector<int>& rows,
+Analyse::Analyse(Symbolic& S, const std::vector<int>& rows,
                  const std::vector<int>& ptr, int negative_pivots)
-    : S_{S}, DC_{DC} {
+    : S_{S} {
   // Input the symmetric matrix to be analysed in CSC format.
   // row_ind contains the row indices.
   // col_ptr contains the starting points of each column.
@@ -1313,7 +1313,7 @@ int Analyse::run() {
 #endif
   if (int metis_status = getPermutation()) return kRetMetisError;
 #ifdef FINE_TIMING
-  DC_.sumTime(kTimeAnalyseMetis, clock_items.stop());
+  DataCollector::get()->sumTime(kTimeAnalyseMetis, clock_items.stop());
 #endif
 
 #ifdef FINE_TIMING
@@ -1323,7 +1323,7 @@ int Analyse::run() {
   eTree();
   postorder();
 #ifdef FINE_TIMING
-  DC_.sumTime(kTimeAnalyseTree, clock_items.stop());
+  DataCollector::get()->sumTime(kTimeAnalyseTree, clock_items.stop());
 #endif
 
 #ifdef FINE_TIMING
@@ -1331,7 +1331,7 @@ int Analyse::run() {
 #endif
   colCount();
 #ifdef FINE_TIMING
-  DC_.sumTime(kTimeAnalyseCount, clock_items.stop());
+  DataCollector::get()->sumTime(kTimeAnalyseCount, clock_items.stop());
 #endif
 
 #ifdef FINE_TIMING
@@ -1341,7 +1341,7 @@ int Analyse::run() {
   relaxSupernodes();
   afterRelaxSn();
 #ifdef FINE_TIMING
-  DC_.sumTime(kTimeAnalyseSn, clock_items.stop());
+  DataCollector::get()->sumTime(kTimeAnalyseSn, clock_items.stop());
 #endif
 
 #ifdef FINE_TIMING
@@ -1349,7 +1349,7 @@ int Analyse::run() {
 #endif
   reorderChildren();
 #ifdef FINE_TIMING
-  DC_.sumTime(kTimeAnalyseReorder, clock_items.stop());
+  DataCollector::get()->sumTime(kTimeAnalyseReorder, clock_items.stop());
 #endif
 
 #ifdef FINE_TIMING
@@ -1357,7 +1357,7 @@ int Analyse::run() {
 #endif
   snPattern();
 #ifdef FINE_TIMING
-  DC_.sumTime(kTimeAnalysePattern, clock_items.stop());
+  DataCollector::get()->sumTime(kTimeAnalysePattern, clock_items.stop());
 #endif
 
 #ifdef FINE_TIMING
@@ -1366,7 +1366,7 @@ int Analyse::run() {
   relativeIndCols();
   relativeIndClique();
 #ifdef FINE_TIMING
-  DC_.sumTime(kTimeAnalyseRelInd, clock_items.stop());
+  DataCollector::get()->sumTime(kTimeAnalyseRelInd, clock_items.stop());
 #endif
 
   computeStorage();
@@ -1381,23 +1381,25 @@ int Analyse::run() {
   S_.n_ = n_;
   S_.sn_ = sn_count_;
 
-  DC_.sn_ = sn_count_;
-  DC_.n_ = n_;
-  DC_.nz_ = nz_factor_;
-  DC_.fillin_ = (double)nz_factor_ / nz_;
-  DC_.artificial_nz_ = artificial_nz_;
-  DC_.artificial_ops_ = (double)dense_ops_ - dense_ops_norelax_;
-  DC_.sparse_ops_ = sparse_ops_;
-  DC_.critical_ops_ = critical_ops_;
-  DC_.largest_front_ =
+  DataCollector::get()->sn_ = sn_count_;
+  DataCollector::get()->n_ = n_;
+  DataCollector::get()->nz_ = nz_factor_;
+  DataCollector::get()->fillin_ = (double)nz_factor_ / nz_;
+  DataCollector::get()->artificial_nz_ = artificial_nz_;
+  DataCollector::get()->artificial_ops_ =
+      (double)dense_ops_ - dense_ops_norelax_;
+  DataCollector::get()->sparse_ops_ = sparse_ops_;
+  DataCollector::get()->critical_ops_ = critical_ops_;
+  DataCollector::get()->largest_front_ =
       *std::max_element(sn_indices_.begin(), sn_indices_.end());
-  DC_.serial_storage_ = serial_storage_;
-  DC_.dense_ops_ = dense_ops_;
+  DataCollector::get()->serial_storage_ = serial_storage_;
+  DataCollector::get()->dense_ops_ = dense_ops_;
 
   // compute largest supernode
   std::vector<int> temp(sn_start_);
   for (int i = sn_count_; i > 0; --i) temp[i] -= temp[i - 1];
-  DC_.largest_sn_ = *std::max_element(temp.begin(), temp.end());
+  DataCollector::get()->largest_sn_ =
+      *std::max_element(temp.begin(), temp.end());
 
   // initialize sign of pivots and permute them
   S_.pivot_sign_.insert(S_.pivot_sign_.end(), negative_pivots_, -1);
@@ -1415,7 +1417,7 @@ int Analyse::run() {
   S_.clique_block_start_ = std::move(clique_block_start_);
 
 #ifdef COARSE_TIMING
-  DC_.sumTime(kTimeAnalyse, clock_total.stop());
+  DataCollector::get()->sumTime(kTimeAnalyse, clock_total.stop());
 #endif
 
   return kRetOk;

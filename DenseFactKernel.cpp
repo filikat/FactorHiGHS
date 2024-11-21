@@ -12,7 +12,7 @@
 
 double regularizePivot(double pivot, double thresh, const int* sign,
                        const double* A, int lda, int j, int n, char uplo,
-                       DataCollector& DC, int sn, int bl) {
+                       int sn, int bl) {
   // add static regularization
   if (sign[j] == 1)
     pivot += kDualStaticRegularization;
@@ -101,14 +101,14 @@ double regularizePivot(double pivot, double thresh, const int* sign,
     }
   }
 
-  if (modified_pivot) DC.sumRegPiv();
+  if (modified_pivot) DataCollector::get()->sumRegPiv();
 
   return pivot;
 }
 
 int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
                double thresh, double* regul, int* swaps, double* pivot_2x2,
-               DataCollector& DC, int sn, int bl) {
+               int sn, int bl) {
   // ===========================================================================
   // Factorization kernel
   // Matrix A is in format F
@@ -142,10 +142,10 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
 
       // add regularization
       double old_pivot = Ajj;
-      Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, DC, sn,
-                            bl);
+      Ajj =
+          regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, sn, bl);
       regul[j] = std::abs(Ajj - old_pivot);
-      DC.setMaxReg(regul[j]);
+      DataCollector::get()->setMaxReg(regul[j]);
 
       // save diagonal element
       A[j + lda * j] = Ajj;
@@ -153,14 +153,14 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
       const int M = n - j - 1;
       if (M > 0) {
         // make copy of column
-        callAndTime_dcopy(M, &A[j + 1 + j * lda], 1, temp.data(), 1, DC);
+        callAndTime_dcopy(M, &A[j + 1 + j * lda], 1, temp.data(), 1);
 
         // scale column j
-        callAndTime_dscal(M, 1.0 / Ajj, &A[j + 1 + j * lda], 1, DC);
+        callAndTime_dscal(M, 1.0 / Ajj, &A[j + 1 + j * lda], 1);
 
         // update rest of the matrix
         callAndTime_dger(M, M, -1.0, temp.data(), 1, &A[j + 1 + j * lda], 1,
-                         &A[j + 1 + (j + 1) * lda], lda, DC);
+                         &A[j + 1 + (j + 1) * lda], lda);
       }
     }
   }
@@ -193,10 +193,10 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
         hr.initialise(j);
         int col = hr.integer(n);
         if (col > j) {
-          swapCols('U', n, A, lda, j, col, swaps, pivot_sign, DC);
+          swapCols('U', n, A, lda, j, col, swaps, pivot_sign);
         }
 
-        if (j < n - 1 && col > n / 2) flag_2x2 = true;
+        // if (j < n - 1 && col > n / 2) flag_2x2 = true;
       }
 #endif
 
@@ -217,10 +217,10 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
 
         // add regularization
         double old_pivot = Ajj;
-        Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, DC,
-                              sn, bl);
+        Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, sn,
+                              bl);
         regul[j] = std::abs(Ajj - old_pivot);
-        DC.setMaxReg(regul[j]);
+        DataCollector::get()->setMaxReg(regul[j]);
 
         // save diagonal element
         A[j + lda * j] = Ajj;
@@ -228,14 +228,14 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
         const int M = n - j - 1;
         if (M > 0) {
           // make copy of row
-          callAndTime_dcopy(M, &A[j + (j + 1) * lda], lda, temp.data(), 1, DC);
+          callAndTime_dcopy(M, &A[j + (j + 1) * lda], lda, temp.data(), 1);
 
           // scale row j
-          callAndTime_dscal(M, 1.0 / Ajj, &A[j + (j + 1) * lda], lda, DC);
+          callAndTime_dscal(M, 1.0 / Ajj, &A[j + (j + 1) * lda], lda);
 
           // update rest of the matrix
           callAndTime_dger(M, M, -1.0, temp.data(), 1, &A[j + (j + 1) * lda],
-                           lda, &A[j + 1 + (j + 1) * lda], lda, DC);
+                           lda, &A[j + 1 + (j + 1) * lda], lda);
         }
       } else {
         // 2x2 pivots
@@ -261,10 +261,10 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
           double* r2 = &A[j + 1 + (j + 2) * lda];
 
           // make a copy of first row
-          callAndTime_dcopy(M, r1, lda, temp.data(), 1, DC);
+          callAndTime_dcopy(M, r1, lda, temp.data(), 1);
 
           // make a copy of second row
-          callAndTime_dcopy(M, r2, lda, temp2.data(), 1, DC);
+          callAndTime_dcopy(M, r2, lda, temp2.data(), 1);
 
           // compute coefficients of 2x2 inverse
           const double denom = d1 * d2 - offd * offd;
@@ -273,16 +273,16 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
           const double i_off = -offd / denom;
 
           // solve rows j,j+1
-          callAndTime_dscal(M, i_d1, r1, lda, DC);
-          callAndTime_daxpy(M, i_off, temp2.data(), 1, r1, lda, DC);
-          callAndTime_dscal(M, i_d2, r2, lda, DC);
-          callAndTime_daxpy(M, i_off, temp.data(), 1, r2, lda, DC);
+          callAndTime_dscal(M, i_d1, r1, lda);
+          callAndTime_daxpy(M, i_off, temp2.data(), 1, r1, lda);
+          callAndTime_dscal(M, i_d2, r2, lda);
+          callAndTime_daxpy(M, i_off, temp.data(), 1, r2, lda);
 
           // update rest of the matrix
           callAndTime_dger(M, M, -1.0, temp.data(), 1, r1, lda,
-                           &A[j + 2 + (j + 2) * lda], lda, DC);
+                           &A[j + 2 + (j + 2) * lda], lda);
           callAndTime_dger(M, M, -1.0, temp2.data(), 1, r2, lda,
-                           &A[j + 2 + (j + 2) * lda], lda, DC);
+                           &A[j + 2 + (j + 2) * lda], lda);
         }
       }
     }

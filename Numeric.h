@@ -20,9 +20,6 @@ class Numeric {
   // symbolic object
   const Symbolic& S_;
 
-  // object to handle times and statistics
-  DataCollector& DC_;
-
   // object to handle solve phase in different formats
   std::unique_ptr<SolveHandler> SH_;
 
@@ -32,7 +29,7 @@ class Numeric {
   // dynamic regularization applied to the matrix
   std::vector<double> total_reg_{};
 
-  Numeric(const Symbolic& S, DataCollector& DC);
+  Numeric(const Symbolic& S);
 
   // Full solve
   void solve(std::vector<double>& x) const;

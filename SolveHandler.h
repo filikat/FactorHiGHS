@@ -3,9 +3,9 @@
 
 #include <vector>
 
-#include "Symbolic.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
+#include "Symbolic.h"
 
 // Interface class to handle different formats of dense matrices during the
 // solve phase.
@@ -18,10 +18,9 @@ class SolveHandler {
  protected:
   const Symbolic& S_;
   const std::vector<std::vector<double>>& sn_columns_;
-  DataCollector& DC_;
 
  public:
-  SolveHandler(const Symbolic& S,DataCollector& DC,
+  SolveHandler(const Symbolic& S,
                const std::vector<std::vector<double>>& sn_columns);
 
   // avoid copies

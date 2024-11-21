@@ -1,8 +1,7 @@
 #include "HybridPackedFormatHandler.h"
 
-HybridPackedFormatHandler::HybridPackedFormatHandler(const Symbolic& S,
-                                                     DataCollector& DC, int sn)
-    : FormatHandler(S, DC, sn) {
+HybridPackedFormatHandler::HybridPackedFormatHandler(const Symbolic& S, int sn)
+    : FormatHandler(S, sn) {
   // initialize frontal and clique
   initFrontal();
   initClique();
@@ -43,23 +42,22 @@ void HybridPackedFormatHandler::assembleFrontalMultiple(
   int jj = j - block * nb_;
 
   callAndTime_daxpy(num, 1.0, &child[start_block + row + ld * col], 1,
-                    &frontal_[diag_start_[block] + ii + ldb * jj], 1, DC_);
+                    &frontal_[diag_start_[block] + ii + ldb * jj], 1);
 }
 
 int HybridPackedFormatHandler::denseFactorise(double reg_thresh) {
   int status;
 
-  status = denseFactFP2FH(frontal_.data(), ldf_, sn_size_, nb_, DC_);
+  status = denseFactFP2FH(frontal_.data(), ldf_, sn_size_, nb_);
   if (status) return status;
 
   // find the position within pivot_sign corresponding to this supernode
   int sn_start = S_->snStart(sn_);
   const int* pivot_sign = &S_->pivotSign().data()[sn_start];
 
-  status =
-      denseFactFH('P', ldf_, sn_size_, nb_, frontal_.data(), clique_.data(),
-                  pivot_sign, reg_thresh, local_reg_.data(), swaps_.data(),
-                  pivot_2x2_.data(), DC_, sn_);
+  status = denseFactFH(
+      'P', ldf_, sn_size_, nb_, frontal_.data(), clique_.data(), pivot_sign,
+      reg_thresh, local_reg_.data(), swaps_.data(), pivot_2x2_.data(), sn_);
 
   return status;
 }
@@ -104,7 +102,7 @@ void HybridPackedFormatHandler::assembleClique(const std::vector<double>& child,
 
         callAndTime_daxpy(consecutive, 1.0,
                           &child[start_block_c + row_c + ld_c * col_c], 1,
-                          &clique_[start_block + ii + ld * jj], 1, DC_);
+                          &clique_[start_block + ii + ld * jj], 1);
 
         row += consecutive;
       }
@@ -157,5 +155,5 @@ void HybridPackedFormatHandler::extremeEntries() {
     }
   }
 
-  DC_.extremeEntries(minD, maxD, minoffD, maxoffD);
+  DataCollector::get()->extremeEntries(minD, maxD, minoffD, maxoffD);
 }

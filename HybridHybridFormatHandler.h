@@ -5,7 +5,7 @@
 
 class HybridHybridFormatHandler : public FormatHandler {
   std::vector<int> diag_start_;
-  
+
   void initFrontal() override;
   void initClique() override;
   void assembleFrontal(int i, int j, double val) override;
@@ -18,7 +18,7 @@ class HybridHybridFormatHandler : public FormatHandler {
   void extremeEntries() override;
 
  public:
-  HybridHybridFormatHandler(const Symbolic& S,DataCollector& DC, int sn);
+  HybridHybridFormatHandler(const Symbolic& S, int sn);
 };
 
 #endif

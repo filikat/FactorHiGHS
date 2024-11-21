@@ -1,9 +1,8 @@
 #include "PackedSolveHandler.h"
 
 PackedSolveHandler::PackedSolveHandler(
-    const Symbolic& S, DataCollector& DC,
-    const std::vector<std::vector<double>>& sn_columns)
-    : SolveHandler(S, DC, sn_columns) {}
+    const Symbolic& S, const std::vector<std::vector<double>>& sn_columns)
+    : SolveHandler(S, sn_columns) {}
 
 void PackedSolveHandler::forwardSolve(std::vector<double>& x) const {
   // Forward solve.
@@ -42,7 +41,7 @@ void PackedSolveHandler::forwardSolve(std::vector<double>& x) const {
 
       const int lda = ldSn - j * nb;
       callAndTime_dtrsv('L', 'N', 'U', jb, &sn_columns_[sn][SnCol_ind], lda,
-                        &x[x_start], 1, DC_);
+                        &x[x_start], 1);
 
       // temporary space for gemv
       const int gemv_space = ldSn - nb * j - jb;
@@ -50,7 +49,7 @@ void PackedSolveHandler::forwardSolve(std::vector<double>& x) const {
 
       callAndTime_dgemv('N', gemv_space, jb, 1.0,
                         &sn_columns_[sn][SnCol_ind + jb], lda, &x[x_start], 1,
-                        0.0, y.data(), 1, DC_);
+                        0.0, y.data(), 1);
 
       SnCol_ind += jb * jb + jb * gemv_space;
 
@@ -117,10 +116,10 @@ void PackedSolveHandler::backwardSolve(std::vector<double>& x) const {
       const int lda = ldSn - nb * j;
       callAndTime_dgemv('T', gemv_space, jb, -1.0,
                         &sn_columns_[sn][diag_start[j] + jb], lda, y.data(), 1,
-                        1.0, &x[x_start], 1, DC_);
+                        1.0, &x[x_start], 1);
 
       callAndTime_dtrsv('L', 'T', 'U', jb, &sn_columns_[sn][diag_start[j]], lda,
-                        &x[x_start], 1, DC_);
+                        &x[x_start], 1);
     }
   }
 }

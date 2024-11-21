@@ -18,7 +18,7 @@ class PackedPackedFormatHandler : public FormatHandler {
   void extremeEntries() override;
 
  public:
-  PackedPackedFormatHandler(const Symbolic& S, DataCollector& DC, int sn);
+  PackedPackedFormatHandler(const Symbolic& S, int sn);
 };
 
 #endif

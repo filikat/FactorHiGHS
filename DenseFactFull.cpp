@@ -7,8 +7,7 @@
 // Kept only for reference, "hybrid formats" should be preferred.
 
 int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
-               const int* pivot_sign, double thresh, double* regul,
-               DataCollector& DC, int sn) {
+               const int* pivot_sign, double thresh, double* regul, int sn) {
   // ===========================================================================
   // Partial blocked factorization
   // Matrix A is in format F
@@ -50,41 +49,41 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
 
     int ldt = jb;
     for (int i = 0; i < j; ++i) {
-      callAndTime_dcopy(N, &P[i * lda], 1, &T[i * ldt], 1, DC);
-      callAndTime_dscal(N, A[i + i * lda], &T[i * ldt], 1, DC);
+      callAndTime_dcopy(N, &P[i * lda], 1, &T[i * ldt], 1);
+      callAndTime_dscal(N, A[i + i * lda], &T[i * ldt], 1);
     }
 
     // update diagonal block using dgemm_
     callAndTime_dgemm('N', 'T', jb, jb, j, -1.0, P, lda, T.data(), ldt, 1.0, D,
-                      lda, DC);
+                      lda);
 
     // factorize diagonal block
     std::vector<int> pivot_sign_current(&pivot_sign[j], &pivot_sign[j] + jb);
     double* regul_current = &regul[j];
     int bl = j / nb;
-    int info = callAndTime_denseFactK('L', N, D, lda, pivot_sign_current.data(),
-                                      thresh, regul_current, nullptr, nullptr,
-                                      DC, sn, bl);
+    int info =
+        callAndTime_denseFactK('L', N, D, lda, pivot_sign_current.data(),
+                               thresh, regul_current, nullptr, nullptr, sn, bl);
     if (info != 0) return info;
 
     if (j + jb < n) {
       // update block of columns
       callAndTime_dgemm('N', 'T', M, N, K, -1.0, Q, lda, T.data(), ldt, 1.0, R,
-                        lda, DC);
+                        lda);
 
       // solve block of columns with L
-      callAndTime_dtrsm('R', 'L', 'T', 'U', M, N, 1.0, D, lda, R, lda, DC);
+      callAndTime_dtrsm('R', 'L', 'T', 'U', M, N, 1.0, D, lda, R, lda);
 
       // solve block of columns with D
       for (int i = 0; i < jb; ++i) {
         const double coeff = 1.0 / D[i + i * lda];
-        callAndTime_dscal(M, coeff, &R[lda * i], 1, DC);
+        callAndTime_dscal(M, coeff, &R[lda * i], 1);
       }
     }
   }
 
 #ifdef FINE_TIMING
-  DC.sumTime(kTimeDenseFact_main, clock.stop());
+  DataCollector::get()->sumTime(kTimeDenseFact_main, clock.stop());
   clock.start();
 #endif
 
@@ -116,15 +115,13 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
       double Ajj = A[j + lda * j];
       if (Ajj >= 0.0) {
         Ajj = sqrt(Ajj);
-        callAndTime_dcopy(N, &A[k + j * lda], 1, &temp_pos[start_pos * ldt], 1,
-                          DC);
-        callAndTime_dscal(N, Ajj, &temp_pos[start_pos * ldt], 1, DC);
+        callAndTime_dcopy(N, &A[k + j * lda], 1, &temp_pos[start_pos * ldt], 1);
+        callAndTime_dscal(N, Ajj, &temp_pos[start_pos * ldt], 1);
         ++start_pos;
       } else {
         Ajj = sqrt(-Ajj);
-        callAndTime_dcopy(N, &A[k + j * lda], 1, &temp_neg[start_neg * ldt], 1,
-                          DC);
-        callAndTime_dscal(N, Ajj, &temp_neg[start_neg * ldt], 1, DC);
+        callAndTime_dcopy(N, &A[k + j * lda], 1, &temp_neg[start_neg * ldt], 1);
+        callAndTime_dscal(N, Ajj, &temp_neg[start_neg * ldt], 1);
         ++start_neg;
       }
     }
@@ -135,21 +132,20 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
     // full square schur complement.
 
     callAndTime_dsyrk('L', 'N', N, pos_pivot, -1.0, temp_pos.data(), ldt, 1.0,
-                      B, ldb, DC);
+                      B, ldb);
     callAndTime_dsyrk('L', 'N', N, neg_pivot, 1.0, temp_neg.data(), ldt, 1.0, B,
-                      ldb, DC);
+                      ldb);
   }
 
 #ifdef FINE_TIMING
-  DC.sumTime(kTimeDenseFact_schur, clock.stop());
+  DataCollector::get()->sumTime(kTimeDenseFact_schur, clock.stop());
 #endif
 
   return kRetOk;
 }
 
 int denseFactFP(int n, int k, int nb, double* A, double* B,
-                const int* pivot_sign, double thresh, double* regul,
-                DataCollector& DC, int sn) {
+                const int* pivot_sign, double thresh, double* regul, int sn) {
   // ===========================================================================
   // Partial blocked factorization
   // Matrix A is in format FP
@@ -212,20 +208,20 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
       // copy block Pk into temp and scale by pivots
       const double* Dk = &A[diag_start[k]];
       for (int col = 0; col < nb; ++col) {
-        callAndTime_dcopy(jb, &Pk[col * ldP], 1, &T[col * ldT], 1, DC);
-        callAndTime_dscal(jb, Dk[col + col * ldP], &T[col * ldT], 1, DC);
+        callAndTime_dcopy(jb, &Pk[col * ldP], 1, &T[col * ldT], 1);
+        callAndTime_dscal(jb, Dk[col + col * ldP], &T[col * ldT], 1);
       }
 
       // update diagonal block
       callAndTime_dgemm('N', 'T', jb, jb, nb, -1.0, T.data(), ldT, Pk, ldP, 1.0,
-                        D, ldD, DC);
+                        D, ldD);
 
       // update rectangular block
       if (M > 0) {
         const int Qk_pos = Pk_pos + jb;
         const double* Qk = &A[Qk_pos];
         callAndTime_dgemm('N', 'T', M, jb, nb, -1.0, Qk, ldQ, T.data(), ldT,
-                          1.0, R, ldR, DC);
+                          1.0, R, ldR);
       }
     }
 
@@ -233,25 +229,25 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
     double* regul_current = &regul[j * nb];
     std::vector<int> pivot_sign_current(&pivot_sign[j * nb],
                                         &pivot_sign[j * nb] + jb);
-    int info = callAndTime_denseFactK(
-        'L', jb, D, ldD, pivot_sign_current.data(), thresh, regul_current,
-        nullptr, nullptr, DC, sn, j);
+    int info =
+        callAndTime_denseFactK('L', jb, D, ldD, pivot_sign_current.data(),
+                               thresh, regul_current, nullptr, nullptr, sn, j);
     if (info != 0) return info;
 
     // solve block of columns with diagonal block
     if (M > 0) {
-      callAndTime_dtrsm('R', 'L', 'T', 'U', M, jb, 1.0, D, ldD, R, ldR, DC);
+      callAndTime_dtrsm('R', 'L', 'T', 'U', M, jb, 1.0, D, ldD, R, ldR);
 
       // scale columns by pivots
       for (int col = 0; col < jb; ++col) {
         const double coeff = 1.0 / D[col + col * ldD];
-        callAndTime_dscal(M, coeff, &R[col * ldR], 1, DC);
+        callAndTime_dscal(M, coeff, &R[col * ldR], 1);
       }
     }
   }
 
 #ifdef FINE_TIMING
-  DC.sumTime(kTimeDenseFact_main, clock.stop());
+  DataCollector::get()->sumTime(kTimeDenseFact_main, clock.stop());
   clock.start();
 #endif
 
@@ -296,8 +292,8 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
         // copy block Pj into temp and scale by pivots
         const double* Dj = &A[diag_start[j]];
         for (int col = 0; col < jb; ++col) {
-          callAndTime_dcopy(ncol, &Pj[col * ldP], 1, &T[col * ldT], 1, DC);
-          callAndTime_dscal(ncol, Dj[col + col * ldP], &T[col * ldT], 1, DC);
+          callAndTime_dcopy(ncol, &Pj[col * ldP], 1, &T[col * ldT], 1);
+          callAndTime_dscal(ncol, Dj[col + col * ldP], &T[col * ldT], 1);
         }
 
         const double* Qj = &A[Pj_pos + ncol];
@@ -305,13 +301,13 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
 
         // update diagonal block
         callAndTime_dgemm('N', 'T', ncol, ncol, jb, -1.0, Pj, ldP, T.data(),
-                          ldT, 1.0, D, ldD, DC);
+                          ldT, 1.0, D, ldD);
 
         // update subdiagonal part
         const int M = nrow - ncol;
         if (M > 0) {
           callAndTime_dgemm('N', 'T', M, ncol, jb, -1.0, Qj, ldQ, T.data(), ldT,
-                            1.0, R, ldR, DC);
+                            1.0, R, ldR);
         }
       }
 
@@ -320,7 +316,7 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
   }
 
 #ifdef FINE_TIMING
-  DC.sumTime(kTimeDenseFact_schur, clock.stop());
+  DataCollector::get()->sumTime(kTimeDenseFact_schur, clock.stop());
 #endif
 
   return kRetOk;

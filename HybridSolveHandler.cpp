@@ -4,11 +4,10 @@
 #include "FormatHandler.h"
 
 HybridSolveHandler::HybridSolveHandler(
-    const Symbolic& S, DataCollector& DC,
-    const std::vector<std::vector<double>>& sn_columns,
+    const Symbolic& S, const std::vector<std::vector<double>>& sn_columns,
     const std::vector<std::vector<int>>& swaps,
     const std::vector<std::vector<double>>& pivot_2x2)
-    : SolveHandler(S, DC, sn_columns), swaps_{swaps}, pivot_2x2_{pivot_2x2} {}
+    : SolveHandler(S, sn_columns), swaps_{swaps}, pivot_2x2_{pivot_2x2} {}
 
 void HybridSolveHandler::forwardSolve(std::vector<double>& x) const {
   // Forward solve.
@@ -55,7 +54,7 @@ void HybridSolveHandler::forwardSolve(std::vector<double>& x) const {
 #endif
 
       callAndTime_dtrsv('U', 'T', 'U', jb, &sn_columns_[sn][SnCol_ind], jb,
-                        &x[x_start], 1, DC_);
+                        &x[x_start], 1);
 
       SnCol_ind += diag_entries;
 
@@ -64,7 +63,7 @@ void HybridSolveHandler::forwardSolve(std::vector<double>& x) const {
       std::vector<double> y(gemv_space);
 
       callAndTime_dgemv('T', jb, gemv_space, 1.0, &sn_columns_[sn][SnCol_ind],
-                        jb, &x[x_start], 1, 0.0, y.data(), 1, DC_);
+                        jb, &x[x_start], 1, 0.0, y.data(), 1);
       SnCol_ind += jb * gemv_space;
 
       // scatter solution of gemv
@@ -139,11 +138,11 @@ void HybridSolveHandler::backwardSolve(std::vector<double>& x) const {
 
       SnCol_ind -= jb * gemv_space;
       callAndTime_dgemv('N', jb, gemv_space, -1.0, &sn_columns_[sn][SnCol_ind],
-                        jb, y.data(), 1, 1.0, &x[x_start], 1, DC_);
+                        jb, y.data(), 1, 1.0, &x[x_start], 1);
 
       SnCol_ind -= diag_entries;
       callAndTime_dtrsv('U', 'N', 'U', jb, &sn_columns_[sn][SnCol_ind], jb,
-                        &x[x_start], 1, DC_);
+                        &x[x_start], 1);
 
 #ifdef PIVOTING
       // apply inverse swaps

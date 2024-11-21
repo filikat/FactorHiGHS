@@ -29,9 +29,8 @@ int getDiagStart(int n, int k, int nb, int n_blocks, std::vector<int>& start,
                  bool triang = false);
 void permuteWithSwaps(double* x, const int* swaps, int n, bool reverse = false);
 void swapCols(char uplo, int n, double* A, int lda, int i, int j, int* swaps,
-              int* sign, DataCollector& DC);
-void applySwaps(const int* swaps, int nrow, int ncol, double* R,
-                DataCollector& DC);
+              int* sign);
+void applySwaps(const int* swaps, int nrow, int ncol, double* R);
 
 template <typename T>
 void permuteVector(std::vector<T>& v, const std::vector<int>& perm) {
