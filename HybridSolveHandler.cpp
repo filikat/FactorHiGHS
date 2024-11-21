@@ -3,21 +3,6 @@
 #include "FactorHiGHSSettings.h"
 #include "FormatHandler.h"
 
-void permuteWithSwaps(double* x, const int* swaps, int n,
-                      bool reverse = false) {
-  if (!reverse) {
-    // apply the swaps in forward order
-    for (int i = 0; i < n; ++i) {
-      if (swaps[i] != i) std::swap(x[i], x[swaps[i]]);
-    }
-  } else {
-    // apply the swaps in backward order
-    for (int i = n - 1; i >= 0; --i) {
-      if (swaps[i] != i) std::swap(x[i], x[swaps[i]]);
-    }
-  }
-}
-
 HybridSolveHandler::HybridSolveHandler(
     const Symbolic& S, DataCollector& DC,
     const std::vector<std::vector<double>>& sn_columns,

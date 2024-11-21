@@ -1,6 +1,8 @@
 #ifndef TIMING_H
 #define TIMING_H
 
+#include "FactorHiGHSSettings.h"
+
 // choose level of timing:
 // - TIMING_0: no timing
 // - TIMING_1: basic timing
@@ -8,7 +10,10 @@
 // - TIMING_3: extreme timing (timing of each BLAS call, considerably slower)
 #define TIMING_2
 
-// define for timing
+
+// defines for timing
+#ifdef DATA_COLLECTION
+
 #if (defined(TIMING_1) || defined(TIMING_2) || defined(TIMING_3))
 #define COARSE_TIMING
 #endif
@@ -19,6 +24,8 @@
 
 #if (defined(TIMING_3))
 #define BLAS_TIMING
+#endif
+
 #endif
 
 enum TimeItems {

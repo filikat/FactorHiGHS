@@ -10,6 +10,9 @@
 // switch for pivoting
 #define PIVOTING
 
+// switch for data collection
+#define DATA_COLLECTION
+
 // parameters for supernode amalgamation
 const int kStartThreshRelax = 256;
 const double kUpperRatioRelax = 0.02;

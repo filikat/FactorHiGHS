@@ -1392,6 +1392,13 @@ Surprisingly, it all works on the first try.
 I also created a separate file for settings. I moved some of the numerical constants there, and the #define that I use to trigger parallelism and pivoting.
 ---
 
+*****
+21 Nov 2024
+I added a switch for data collection. I removed the option verbose, since that was only for printing, but the data was collected anyway.
+Now, I can switch off data collection all together. I wonder if acquiring the locks for data collection was the reason for the slow node parallelism. I need to try again.
+I also moved the functions to swap columns in Auxiliary.
+---
+
 
 *****
 To do:

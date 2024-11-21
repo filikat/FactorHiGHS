@@ -1,21 +1,10 @@
 #include "Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
-#include "ReturnValues.h"
 #include "FactorHiGHSSettings.h"
+#include "ReturnValues.h"
 
 // Factorization with "hybrid formats".
-
-void applySwaps(const int* swaps, int nrow, int ncol, double* R,
-                DataCollector& DC) {
-  // apply the column swaps to block R
-  for (int i = 0; i < ncol; ++i) {
-    if (swaps[i] != i) {
-      // swap col i and col swaps[i]
-      callAndTime_dswap(nrow, &R[i], ncol, &R[swaps[i]], ncol, DC);
-    }
-  }
-}
 
 int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
                 const int* pivot_sign, double thresh, double* regul, int* swaps,

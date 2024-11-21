@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <string>
 #include <vector>
+#include "DataCollector.h"
 
 void counts2Ptr(std::vector<int>& ptr, std::vector<int>& w);
 void inversePerm(const std::vector<int>& perm, std::vector<int>& iperm);
@@ -25,6 +26,11 @@ void processEdge(int j, int i, const std::vector<int>& first,
                  std::vector<int>& prevleaf, std::vector<int>& ancestor);
 int getDiagStart(int n, int k, int nb, int n_blocks, std::vector<int>& start,
                  bool triang = false);
+void permuteWithSwaps(double* x, const int* swaps, int n, bool reverse = false);
+void swapCols(char uplo, int n, double* A, int lda, int i, int j, int* swaps,
+              DataCollector& DC);
+void applySwaps(const int* swaps, int nrow, int ncol, double* R,
+                DataCollector& DC);
 
 template <typename T>
 void permuteVector(std::vector<T>& v, const std::vector<int>& perm) {

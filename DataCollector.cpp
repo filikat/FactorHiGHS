@@ -1,11 +1,14 @@
 #include "DataCollector.h"
 
 DataCollector::DataCollector() {
+#ifdef DATA_COLLECTION
   times_.resize(kTimeSize);
   blas_calls_.resize(kTimeBlasEnd - kTimeBlasStart + 1);
+#endif
 }
 
 void DataCollector::sumTime(TimeItems i, double t) {
+#ifdef DATA_COLLECTION
   // Keep track of times and blas calls.
   std::lock_guard<std::mutex> lock(times_mutex_);
   times_[i] += t;
@@ -13,32 +16,42 @@ void DataCollector::sumTime(TimeItems i, double t) {
   if (i >= kTimeBlasStart && i <= kTimeBlasEnd)
     ++blas_calls_[i - kTimeBlasStart];
 #endif
+#endif
 }
 void DataCollector::extremeEntries(double minD, double maxD, double minoffD,
                                    double maxoffD) {
+#ifdef DATA_COLLECTION
   // Store max and min entries of D and L.
   std::lock_guard<std::mutex> lock(extreme_entries_mutex_);
   minD_ = std::min(minD_, minD);
   maxD_ = std::max(maxD_, maxD);
   minL_ = std::min(minL_, minoffD);
   maxL_ = std::max(maxL_, maxoffD);
+#endif
 }
 void DataCollector::sumRegPiv() {
+#ifdef DATA_COLLECTION
   // Increase the number of dynamically regularized pivots.
   ++n_reg_piv_;
+#endif
 }
 void DataCollector::setMaxReg(double new_reg) {
+#ifdef DATA_COLLECTION
   // Keep track of maximum regularization used.
   std::lock_guard<std::mutex> lock(max_reg_mutex_);
   max_reg_ = std::max(max_reg_, new_reg);
+#endif
 }
 void DataCollector::setWorstRes(double res) {
+#ifdef DATA_COLLECTION
   // Keep track of worst residual
   std::lock_guard<std::mutex> lock(worst_res_mutex_);
   worst_res_ = std::max(worst_res_, res);
+#endif
 }
 
 void DataCollector::resetExtremeEntries() {
+#ifdef DATA_COLLECTION
   minD_ = std::numeric_limits<double>::max();
   maxD_ = 0.0;
   minL_ = std::numeric_limits<double>::max();
@@ -46,6 +59,7 @@ void DataCollector::resetExtremeEntries() {
   max_reg_ = 0.0;
   worst_res_ = 0.0;
   n_reg_piv_ = 0;
+#endif
 }
 
 void DataCollector::printTimes() const {
