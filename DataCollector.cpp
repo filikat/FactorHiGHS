@@ -51,6 +51,18 @@ void DataCollector::sumRegPiv() {
 #endif
 }
 
+void DataCollector::sumSwap() {
+#ifdef DATA_COLLECTION
+  ++n_swaps_;
+#endif
+}
+
+void DataCollector::sum2x2() {
+#ifdef DATA_COLLECTION
+  ++n_2x2_;
+#endif
+}
+
 void DataCollector::setMaxReg(double new_reg) {
 #ifdef DATA_COLLECTION
   // Keep track of maximum regularization used.
@@ -76,6 +88,8 @@ void DataCollector::resetExtremeEntries() {
   max_reg_ = 0.0;
   worst_res_ = 0.0;
   n_reg_piv_ = 0;
+  n_swaps_ = 0;
+  n_2x2_ = 0;
 #endif
 }
 
@@ -227,3 +241,5 @@ double DataCollector::maxL() const { return maxL_; }
 double DataCollector::maxReg() const { return max_reg_; }
 double DataCollector::worstRes() const { return worst_res_; }
 int DataCollector::nRegPiv() const { return n_reg_piv_; }
+int DataCollector::nSwaps() const { return n_swaps_; }
+int DataCollector::n2x2() const { return n_2x2_; }

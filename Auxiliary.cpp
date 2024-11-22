@@ -270,6 +270,8 @@ void swapCols(char uplo, int n, double* A, int lda, int i, int j, int* swaps,
 
   // keep track of order of swaps
   swaps[i] = j;
+
+  DataCollector::get()->sumSwap();
 }
 
 void applySwaps(const int* swaps, int nrow, int ncol, double* R) {

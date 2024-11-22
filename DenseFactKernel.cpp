@@ -288,6 +288,8 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
           callAndTime_dger(M, M, -1.0, temp2.data(), 1, r2, lda,
                            &A[j + 2 + (j + 2) * lda], lda);
         }
+
+        DataCollector::get()->sum2x2();
       }
     }
   }

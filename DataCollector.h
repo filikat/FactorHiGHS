@@ -39,6 +39,8 @@ class DataCollector {
   double max_reg_{};
   double worst_res_{};
   std::atomic<int> n_reg_piv_{};
+  std::atomic<int> n_swaps_{};
+  std::atomic<int> n_2x2_{};
 
   // Mutexes for concurrent access
   std::mutex times_mutex_;
@@ -63,6 +65,8 @@ class DataCollector {
   // Functions with lock, they can be accessed simultaneously
   void sumTime(TimeItems i, double t);
   void sumRegPiv();
+  void sumSwap();
+  void sum2x2();
   void setMaxReg(double new_reg);
   void setWorstRes(double res);
   void extremeEntries(double minD, double maxD, double minoffD, double maxoffD);
@@ -80,6 +84,8 @@ class DataCollector {
   double maxReg() const;
   double worstRes() const;
   int nRegPiv() const;
+  int nSwaps() const;
+  int n2x2() const;
 };
 
 #endif
