@@ -22,5 +22,6 @@ const int kSnSizeRelax = 8;
 
 // parameters for dense factorization
 const int kBlockSize = 128;
+const double kAlphaBK = (sqrt(17.0) + 1.0) / 8.0;
 
 #endif

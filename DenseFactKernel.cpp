@@ -10,6 +10,76 @@
 
 // #define DEBUG
 
+bool blockBunchKaufman(int j, int n, double* A, int lda, int* swaps, int* sign,
+                       double thresh, double* regul) {
+  // Perform Bunch-Kaufman pivoting within a block of the supernode (see Schenk,
+  // Gartner, ETNA 2006).
+  // It works only for upper triangular A.
+  // Return true if 2x2 pivot should be used, false otherwise.
+  // Swap of columns may be performed.
+  // Regularization of pivot may be performed.
+
+  Clock clock;
+
+  // compute gamma := max in row j and its index r
+  double gamma{};
+  int r{};
+  for (int col = j + 1; col < n; ++col) {
+    double val = std::abs(A[j + lda * col]);
+    if (val > gamma) {
+      gamma = val;
+      r = col;
+    }
+  }
+
+  // compute sigma := max in row/col r
+  double sigma{};
+  for (int row = j; row < r; ++row)
+    sigma = std::max(sigma, std::abs(A[row + lda * r]));
+  for (int col = r + 1; col < n; ++col)
+    sigma = std::max(sigma, std::abs(A[r + lda * col]));
+
+  double Ajj = std::abs(A[j + lda * j]);
+  double Arr = std::abs(A[r + lda * r]);
+
+  bool flag_2x2 = false;
+
+  if (std::max(Ajj, gamma) <= thresh) {
+    // perturbe pivot
+    A[j + lda * j] = sign[j] * thresh;
+    regul[j] = std::abs(A[j + lda * j]) - Ajj;
+    DataCollector::get()->setMaxReg(regul[j]);
+    DataCollector::get()->sumRegPiv();
+
+  } else if (Ajj >= kAlphaBK * gamma ||
+             Ajj * sigma >= kAlphaBK * gamma * gamma) {
+    // accept current pivot
+
+  } else if (Arr >= kAlphaBK * sigma) {
+    // use pivot r
+    swapCols('U', n, A, lda, j, r, swaps, sign);
+
+  } else if (r != j && j < n - 1) {
+    // use 2x2 pivot (j,r)
+    swapCols('U', n, A, lda, j + 1, r, swaps, sign);
+    flag_2x2 = true;
+
+  } else {
+    // This is unlikely to happen (maybe impossible??)
+    printf("pivoting failure case\n");
+
+    // perturbe pivot
+    A[j + lda * j] = sign[j] * kAlphaBK * gamma;
+    regul[j] = std::abs(A[j + lda * j]) - Ajj;
+    assert(regul[j] >= 0);
+    DataCollector::get()->setMaxReg(regul[j]);
+    DataCollector::get()->sumRegPiv();
+  }
+
+  DataCollector::get()->sumTime(kTimeDenseFact_pivoting, clock.stop());
+  return flag_2x2;
+}
+
 double regularizePivot(double pivot, double thresh, const int* sign,
                        const double* A, int lda, int j, int n, char uplo,
                        int sn, int bl) {
@@ -187,17 +257,8 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
       bool flag_2x2 = false;
 
 #ifdef PIVOTING
-      // some random pivoting to test
-      if (n > 20) {
-        HighsRandom hr;
-        hr.initialise(j);
-        int col = hr.integer(n);
-        if (col > j) {
-          swapCols('U', n, A, lda, j, col, swaps, pivot_sign);
-        }
-
-        if (j < n - 1 && col > n / 2) flag_2x2 = true;
-      }
+      flag_2x2 =
+          blockBunchKaufman(j, n, A, lda, swaps, pivot_sign, thresh, regul);
 #endif
 
       // cannot do 2x2 pivoting on last column
@@ -215,12 +276,14 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
           return kRetInvalidPivot;
         }
 
+#ifndef PIVOTING
         // add regularization
         double old_pivot = Ajj;
         Ajj = regularizePivot(Ajj, thresh, pivot_sign, A, lda, j, n, uplo, sn,
                               bl);
         regul[j] = std::abs(Ajj - old_pivot);
         DataCollector::get()->setMaxReg(regul[j]);
+#endif
 
         // save reciprocal of pivot
         A[j + lda * j] = 1.0 / Ajj;

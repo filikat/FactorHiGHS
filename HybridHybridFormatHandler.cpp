@@ -174,7 +174,6 @@ void HybridHybridFormatHandler::extremeEntries() {
       index += jb - k;
     }
 
-    // temporary space for gemv
     const int entries_left = (ldf_ - nb_ * j - jb) * jb;
 
     for (int i = 0; i < entries_left; ++i) {

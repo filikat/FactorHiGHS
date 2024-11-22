@@ -1420,15 +1420,18 @@ This makes the code a bit nicer, since it removes the DC object everywhere.
 I now store the reciprocal of the pivot, for 1x1 pivots, and the coefficients of the 2x2 inverse, for 2x2 pivots.
 In this way I don't have to recompute them every time.
 ---
+I added Bunch-Kaufman within a block of columns and removed the regularization that I was using until now.
+I followed Schenk-Gardner paper, but set a smaller regularization. They use 1e-8, I use 1e-16. In some cases, it may still be too much.
+It may also be good to prefer 2x2 pivots rather that 1x1, when possible.
+Anyway, it seems to work decently.
+It does not really improve convergence, but I should be able to play a little with various strategies now.
+If I can find a pivoting strategy that is robust enough and that does not regulariza too many pivots, I can reduce a lot the regularization values and hopefully the ipm will be less affected.
+It does seem to regulariza a bit too many pivots. Maybe I should check for 2x2 pivots first, and regularize only if there is no other choice.
+---
 
 
 *****
 To do:
-- row growth factor (and store inverse of D?)
-- check iterative refinement
-
-- free variables
-- limit growth of x and s?
-
-- Bunch-Kauffman within a block (Schenk-Gardner paper)
 - other variations from Ashcraft-Grimes-Lewis, for dense or sparse
+- prefer 2x2 pivots?
+- can I skip convert?

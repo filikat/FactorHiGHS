@@ -10,7 +10,6 @@
 // - TIMING_3: extreme timing (timing of each BLAS call, considerably slower)
 #define TIMING_2
 
-
 // defines for timing
 #ifdef DATA_COLLECTION
 
@@ -49,6 +48,7 @@ enum TimeItems {
   kTimeDenseFact_schur,                   // TIMING_2
   kTimeDenseFact_fact,                    // TIMING_2
   kTimeDenseFact_convert,                 // TIMING_2
+  kTimeDenseFact_pivoting,                // TIMING_2
   kTimeFactoriseTerminate,                // TIMING_2
   // Solve timer
   kTimeSolve,  // TIMING_1

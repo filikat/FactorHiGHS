@@ -64,6 +64,18 @@ Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
     min_diag_ = std::min(min_diag_, val);
   }
 
+  // compute norm 1 of matrix
+  std::vector<double> col_norm1(n_);
+  for (int col = 0; col < n_; ++col) {
+    for (int el = ptrA_[col]; el < ptrA_[col + 1]; ++el) {
+      int row = rowsA_[el];
+      double val = valA_[el];
+      col_norm1[col] += std::abs(val);
+      if (row != col) col_norm1[row] += std::abs(val);
+    }
+  }
+  A_norm1_ = *std::max_element(col_norm1.begin(), col_norm1.end());
+
   /*print(S_.snParent(), "parent");
   print(S_.snStart(), "start");
   print(rowsA_, "rows");
@@ -312,7 +324,8 @@ void Factorise::processSupernode(int sn) {
   clock.start();
 #endif
   // threshold for regularization
-  const double reg_thresh = max_diag_ * kDynamicDiagCoeff;
+  //const double reg_thresh = max_diag_ * kDynamicDiagCoeff;
+  const double reg_thresh = A_norm1_ * kDynamicDiagCoeff;
 
   if (FH->denseFactorise(reg_thresh)) {
     flag_stop_ = true;

@@ -51,6 +51,7 @@ class Factorise {
   // largest diagonal element in the original matrix
   double max_diag_{};
   double min_diag_{};
+  double A_norm1_{};
 
   // regularization
   std::vector<double> total_reg_{};

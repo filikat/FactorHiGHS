@@ -146,6 +146,7 @@ void DataCollector::printTimes() const {
   printf("\t\tSchur:          %8.4f\n", times_[kTimeDenseFact_schur]);
   printf("\t\tkernel:         %8.4f\n", times_[kTimeDenseFact_fact]);
   printf("\t\tconvert:        %8.4f\n", times_[kTimeDenseFact_convert]);
+  printf("\t\tpivoting:       %8.4f\n", times_[kTimeDenseFact_pivoting]);
   printf("\tTerminate:              %8.4f (%4.1f%%)\n",
          times_[kTimeFactoriseTerminate],
          times_[kTimeFactoriseTerminate] / times_[kTimeFactorise] * 100);
