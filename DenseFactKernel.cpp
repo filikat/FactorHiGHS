@@ -194,6 +194,10 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
   // quick return
   if (n == 0) return kRetOk;
 
+#ifdef FINE_TIMING
+  Clock clock;
+#endif
+
   // ===========================================================================
   // LOWER TRIANGULAR
   // ===========================================================================
@@ -356,6 +360,10 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
       }
     }
   }
+
+#ifdef FINE_TIMING
+  DataCollector::get()->sumTime(kTimeDenseFact_kernel, clock.stop());
+#endif
 
   return kRetOk;
 }

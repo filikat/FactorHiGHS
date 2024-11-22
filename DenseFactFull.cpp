@@ -1,6 +1,7 @@
 #include "Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
+#include "DenseFact.h"
 #include "ReturnValues.h"
 
 // Factorization with "full formats".
@@ -61,9 +62,8 @@ int denseFactF(int n, int k, int nb, double* A, int lda, double* B, int ldb,
     std::vector<int> pivot_sign_current(&pivot_sign[j], &pivot_sign[j] + jb);
     double* regul_current = &regul[j];
     int bl = j / nb;
-    int info =
-        callAndTime_denseFactK('L', N, D, lda, pivot_sign_current.data(),
-                               thresh, regul_current, nullptr, nullptr, sn, bl);
+    int info = denseFactK('L', N, D, lda, pivot_sign_current.data(), thresh,
+                          regul_current, nullptr, nullptr, sn, bl);
     if (info != 0) return info;
 
     if (j + jb < n) {
@@ -229,9 +229,8 @@ int denseFactFP(int n, int k, int nb, double* A, double* B,
     double* regul_current = &regul[j * nb];
     std::vector<int> pivot_sign_current(&pivot_sign[j * nb],
                                         &pivot_sign[j * nb] + jb);
-    int info =
-        callAndTime_denseFactK('L', jb, D, ldD, pivot_sign_current.data(),
-                               thresh, regul_current, nullptr, nullptr, sn, j);
+    int info = denseFactK('L', jb, D, ldD, pivot_sign_current.data(), thresh,
+                          regul_current, nullptr, nullptr, sn, j);
     if (info != 0) return info;
 
     // solve block of columns with diagonal block

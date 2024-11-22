@@ -1,5 +1,9 @@
 #include "PackedSolveHandler.h"
 
+#include "Auxiliary.h"
+#include "CallAndTimeBlas.h"
+#include "DataCollector.h"
+
 PackedSolveHandler::PackedSolveHandler(
     const Symbolic& S, const std::vector<std::vector<double>>& sn_columns)
     : SolveHandler(S, sn_columns) {}

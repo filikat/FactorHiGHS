@@ -2,6 +2,9 @@
 
 #include "FactorHiGHSSettings.h"
 #include "FormatHandler.h"
+#include "Auxiliary.h"
+#include "CallAndTimeBlas.h"
+#include "DataCollector.h"
 
 HybridSolveHandler::HybridSolveHandler(
     const Symbolic& S, const std::vector<std::vector<double>>& sn_columns,

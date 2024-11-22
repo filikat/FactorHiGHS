@@ -10,6 +10,7 @@
 #include "GKlib.h"
 #include "ReturnValues.h"
 #include "metis.h"
+#include "DataCollector.h"
 
 Analyse::Analyse(Symbolic& S, const std::vector<int>& rows,
                  const std::vector<int>& ptr, int negative_pivots)

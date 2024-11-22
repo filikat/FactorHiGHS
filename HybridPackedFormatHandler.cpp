@@ -1,4 +1,8 @@
 #include "HybridPackedFormatHandler.h"
+#include "CallAndTimeBlas.h"
+#include "DenseFact.h"
+#include "DataCollector.h"
+#include "Auxiliary.h"
 
 HybridPackedFormatHandler::HybridPackedFormatHandler(const Symbolic& S, int sn)
     : FormatHandler(S, sn) {

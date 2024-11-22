@@ -1,4 +1,7 @@
 #include "FullFormatHandler.h"
+#include "CallAndTimeBlas.h"
+#include "DenseFact.h"
+#include "DataCollector.h"
 
 FullFormatHandler::FullFormatHandler(const Symbolic& S, int sn)
     : FormatHandler(S, sn) {

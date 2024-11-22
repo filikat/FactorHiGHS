@@ -3,10 +3,6 @@
 
 #include <vector>
 
-#include "Auxiliary.h"
-#include "CallAndTimeBlas.h"
-#include "DataCollector.h"
-#include "DenseFact.h"
 #include "Symbolic.h"
 
 // Interface class to handle different formats of dense matrices during the

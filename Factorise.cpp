@@ -4,12 +4,15 @@
 
 #include "../ProtoIPM/Regularization.h"
 #include "Auxiliary.h"
+#include "DataCollector.h"
+#include "FormatHandler.h"
 #include "FullFormatHandler.h"
 #include "HybridHybridFormatHandler.h"
 #include "HybridPackedFormatHandler.h"
 #include "PackedPackedFormatHandler.h"
 #include "ReturnValues.h"
 #include "parallel/HighsParallel.h"
+#include "FactorHiGHSSettings.h"
 
 Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
                      const std::vector<int>& ptrA,
@@ -324,7 +327,7 @@ void Factorise::processSupernode(int sn) {
   clock.start();
 #endif
   // threshold for regularization
-  //const double reg_thresh = max_diag_ * kDynamicDiagCoeff;
+  // const double reg_thresh = max_diag_ * kDynamicDiagCoeff;
   const double reg_thresh = A_norm1_ * kDynamicDiagCoeff;
 
   if (FH->denseFactorise(reg_thresh)) {

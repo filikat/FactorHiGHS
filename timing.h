@@ -46,7 +46,7 @@ enum TimeItems {
   kTimeFactoriseDenseFact,                // TIMING_2
   kTimeDenseFact_main,                    // TIMING_2
   kTimeDenseFact_schur,                   // TIMING_2
-  kTimeDenseFact_fact,                    // TIMING_2
+  kTimeDenseFact_kernel,                  // TIMING_2
   kTimeDenseFact_convert,                 // TIMING_2
   kTimeDenseFact_pivoting,                // TIMING_2
   kTimeFactoriseTerminate,                // TIMING_2

@@ -1,8 +1,6 @@
 #ifndef DENSE_FACT_H
 #define DENSE_FACT_H
 
-#include "DataCollector.h"
-
 /*
   Names:
   denseFact:

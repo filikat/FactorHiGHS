@@ -1,5 +1,10 @@
 #include "FormatHandler.h"
 
+#include "Auxiliary.h"
+#include "CallAndTimeBlas.h"
+#include "DataCollector.h"
+#include "DenseFact.h"
+
 FormatHandler::FormatHandler(const Symbolic& S, int sn)
     : S_{&S},
       sn_{sn},

@@ -3,6 +3,7 @@
 #include <stack>
 
 #include "CallAndTimeBlas.h"
+#include "DataCollector.h"
 
 void counts2Ptr(std::vector<int>& ptr, std::vector<int>& w) {
   // Given the column counts in the vector w (of size n),

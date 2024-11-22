@@ -1,4 +1,5 @@
 #include "CallAndTimeBlas.h"
+#include "DataCollector.h"
 
 #include <cblas.h>
 
@@ -145,21 +146,4 @@ void callAndTime_dtrsm(char side, char uplo, char trans, char diag, int m,
 #ifdef BLAS_TIMING
   DataCollector::get()->sumTime(kTimeBlas_trsm, clock.stop());
 #endif
-}
-
-// kernel
-
-int callAndTime_denseFactK(char uplo, int n, double* A, int lda,
-                           int* pivot_sign, double thresh, double* regul,
-                           int* swaps, double* pivot_2x2, int sn, int bl) {
-#ifdef FINE_TIMING
-  Clock clock;
-#endif
-  int info = denseFactK(uplo, n, A, lda, pivot_sign, thresh, regul, swaps,
-                        pivot_2x2, sn, bl);
-#ifdef FINE_TIMING
-  DataCollector::get()->sumTime(kTimeDenseFact_fact, clock.stop());
-#endif
-
-  return info;
 }

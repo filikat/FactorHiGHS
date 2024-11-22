@@ -1,4 +1,8 @@
 #include "PackedPackedFormatHandler.h"
+#include "Auxiliary.h"
+#include "CallAndTimeBlas.h"
+#include "DataCollector.h"
+#include "DenseFact.h"
 
 PackedPackedFormatHandler::PackedPackedFormatHandler(const Symbolic& S, int sn)
     : FormatHandler(S, sn) {

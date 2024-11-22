@@ -1,7 +1,6 @@
 #ifndef PACKED_SOLVE_HANDLER_H
 #define PACKED_SOLVE_HANDLER_H
 
-#include "Auxiliary.h"
 #include "SolveHandler.h"
 
 class PackedSolveHandler : public SolveHandler {

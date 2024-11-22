@@ -1,7 +1,6 @@
 #ifndef HYBRID_SOLVE_HANDLER_H
 #define HYBRID_SOLVE_HANDLER_H
 
-#include "Auxiliary.h"
 #include "SolveHandler.h"
 
 class HybridSolveHandler : public SolveHandler {

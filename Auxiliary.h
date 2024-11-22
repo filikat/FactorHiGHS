@@ -7,8 +7,6 @@
 #include <string>
 #include <vector>
 
-#include "DataCollector.h"
-
 void counts2Ptr(std::vector<int>& ptr, std::vector<int>& w);
 void inversePerm(const std::vector<int>& perm, std::vector<int>& iperm);
 void subtreeSize(const std::vector<int>& parent, std::vector<int>& sizes);

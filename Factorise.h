@@ -3,9 +3,6 @@
 
 #include <cmath>
 
-#include "DataCollector.h"
-#include "FactorHiGHSSettings.h"
-#include "FormatHandler.h"
 #include "Numeric.h"
 #include "Symbolic.h"
 
@@ -25,13 +22,10 @@ class Factorise {
   std::vector<int> first_child_{};
   std::vector<int> next_child_{};
 
-#ifdef PARALLEL_TREE
   // reverse linked lists of chidlren
   std::vector<int> first_child_reverse_{};
   std::vector<int> next_child_reverse_{};
-
   // std::vector<int> thr_per_sn{};
-#endif
 
   // generated elements, aka Schur complements.
   std::vector<std::vector<double>> schur_contribution_{};

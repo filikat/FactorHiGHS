@@ -7,6 +7,7 @@
 #include "HybridSolveHandler.h"
 #include "PackedSolveHandler.h"
 #include "Timing.h"
+#include "DataCollector.h"
 
 Numeric::Numeric(const Symbolic& S) : S_{S} {
   // initialize solve handler

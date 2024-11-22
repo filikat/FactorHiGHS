@@ -1,8 +1,6 @@
 #ifndef CALL_AND_TIME_BLAS_H
 #define CALL_AND_TIME_BLAS_H
 
-#include "DataCollector.h"
-
 // level 1
 void callAndTime_daxpy(int n, double da, const double* dx, int incx, double* dy,
                        int incy);
@@ -31,10 +29,5 @@ void callAndTime_dsyrk(char uplo, char trans, int n, int k, double alpha,
 void callAndTime_dtrsm(char side, char uplo, char trans, char diag, int m,
                        int n, double alpha, const double* a, int lda, double* b,
                        int ldb);
-
-// kernel
-int callAndTime_denseFactK(char uplo, int n, double* A, int lda,
-                           int* pivot_sign, double thresh, double* regul,
-                           int* swaps, double* pivot_2x2, int sn, int bl);
 
 #endif

@@ -3,7 +3,6 @@
 
 #include <vector>
 
-#include "DataCollector.h"
 #include "SolveHandler.h"
 #include "Symbolic.h"
 

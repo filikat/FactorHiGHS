@@ -1,6 +1,7 @@
 #include "Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
+#include "DenseFact.h"
 #include "FactorHiGHSSettings.h"
 #include "ReturnValues.h"
 
@@ -85,9 +86,9 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
                                         &pivot_sign[j * nb] + jb);
     int* swaps_current = &swaps[j * nb];
     double* pivot_2x2_current = &pivot_2x2[j * nb];
-    int info = callAndTime_denseFactK('U', jb, D, jb, pivot_sign_current.data(),
-                                      thresh, regul_current, swaps_current,
-                                      pivot_2x2_current, sn, j);
+    int info =
+        denseFactK('U', jb, D, jb, pivot_sign_current.data(), thresh,
+                   regul_current, swaps_current, pivot_2x2_current, sn, j);
     if (info != 0) return info;
 
 #ifdef PIVOTING

@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <vector>
 
-#include "DataCollector.h"
 #include "Symbolic.h"
 
 // Class to perform the analyse phase of the factorization.
