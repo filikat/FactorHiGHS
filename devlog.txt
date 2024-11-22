@@ -1415,6 +1415,12 @@ Since it is static, I don't have to pass it around everywhere, but I simply do D
 This makes the code a bit nicer, since it removes the DC object everywhere.
 ---
 
+*****
+22 Nov 2024
+I now store the reciprocal of the pivot, for 1x1 pivots, and the coefficients of the 2x2 inverse, for 2x2 pivots.
+In this way I don't have to recompute them every time.
+---
+
 
 *****
 To do:

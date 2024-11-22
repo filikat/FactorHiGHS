@@ -177,7 +177,7 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
     // initialize order of pivots
     for (int i = 0; i < n; ++i) swaps[i] = i;
 
-    // allocate space for copy of col
+    // allocate space for copy of col(s)
     std::vector<double> temp(n - 1);
     std::vector<double> temp2(n - 1);
 
@@ -196,7 +196,7 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
           swapCols('U', n, A, lda, j, col, swaps, pivot_sign);
         }
 
-        // if (j < n - 1 && col > n / 2) flag_2x2 = true;
+        if (j < n - 1 && col > n / 2) flag_2x2 = true;
       }
 #endif
 
@@ -222,8 +222,8 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
         regul[j] = std::abs(Ajj - old_pivot);
         DataCollector::get()->setMaxReg(regul[j]);
 
-        // save diagonal element
-        A[j + lda * j] = Ajj;
+        // save reciprocal of pivot
+        A[j + lda * j] = 1.0 / Ajj;
 
         const int M = n - j - 1;
         if (M > 0) {
@@ -241,7 +241,7 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
         // 2x2 pivots
         step = 2;
 
-        // diagonal elements
+        // diagonal pivot elements
         const double d1 = A[j + lda * j];
         const double d2 = A[j + 1 + lda * (j + 1)];
 
@@ -250,10 +250,20 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
           return kRetInvalidPivot;
         }
 
-        // save off-diagonal pivot element
+        // off-diagonal pivot element
         const double offd = A[j + lda * (j + 1)];
-        pivot_2x2[j] = offd;
         A[j + lda * (j + 1)] = 0.0;
+
+        // compute coefficients of 2x2 inverse
+        const double denom = d1 * d2 - offd * offd;
+        const double i_d1 = d2 / denom;
+        const double i_d2 = d1 / denom;
+        const double i_off = -offd / denom;
+
+        // save them in place of pivots
+        A[j + lda * j] = i_d1;
+        A[j + 1 + lda * (j + 1)] = i_d2;
+        pivot_2x2[j] = i_off;
 
         const int M = n - j - 2;
         if (M > 0) {
@@ -265,12 +275,6 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
 
           // make a copy of second row
           callAndTime_dcopy(M, r2, lda, temp2.data(), 1);
-
-          // compute coefficients of 2x2 inverse
-          const double denom = d1 * d2 - offd * offd;
-          const double i_d1 = d2 / denom;
-          const double i_d2 = d1 / denom;
-          const double i_off = -offd / denom;
 
           // solve rows j,j+1
           callAndTime_dscal(M, i_d1, r1, lda);

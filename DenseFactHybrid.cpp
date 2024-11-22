@@ -114,8 +114,7 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
         if (pivot_2x2_current[col] == 0.0) {
           // 1x1 pivots
           step = 1;
-          const double coeff = 1.0 / D[col + jb * col];
-          callAndTime_dscal(M, coeff, &R[col], jb);
+          callAndTime_dscal(M, D[col + jb * col], &R[col], jb);
         } else {
           // 2x2 pivots
           step = 2;
@@ -124,16 +123,10 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
           double* c1 = &R[col];
           double* c2 = &R[col + 1];
 
-          // pivot is [d1 offd; offd d2]
-          double d1 = D[col + jb * col];
-          double d2 = D[col + 1 + jb * (col + 1)];
-          double offd = pivot_2x2_current[col];
-
-          // compute coefficients of 2x2 inverse
-          const double denom = d1 * d2 - offd * offd;
-          const double i_d1 = d2 / denom;
-          const double i_d2 = d1 / denom;
-          const double i_off = -offd / denom;
+          // inverse of 2x2 pivot
+          double i_d1 = D[col + jb * col];
+          double i_d2 = D[col + 1 + jb * (col + 1)];
+          double i_off = pivot_2x2_current[col];
 
           // copy of original col1
           std::vector<double> c1_temp(M);

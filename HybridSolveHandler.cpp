@@ -194,23 +194,17 @@ void HybridSolveHandler::diagSolve(std::vector<double>& x) const {
         if (current_2x2[col] == 0.0) {
           // 1x1 pivots
           step = 1;
-          const double d = sn_columns_[sn][diag_start + col + jb * col];
-          x[sn_start + nb * j + col] /= d;
+          const double inv_d = sn_columns_[sn][diag_start + col + jb * col];
+          x[sn_start + nb * j + col] *= inv_d;
         } else {
           // 2x2 pivots
           step = 2;
 
-          // pivot is [d1 offd; offd d2]
-          const double d1 = sn_columns_[sn][diag_start + col + jb * col];
-          const double d2 =
+          // inverse of 2x2 pivot
+          const double i_d1 = sn_columns_[sn][diag_start + col + jb * col];
+          const double i_d2 =
               sn_columns_[sn][diag_start + col + 1 + jb * (col + 1)];
-          const double offd = current_2x2[col];
-
-          // compute coefficients of 2x2 inverse
-          const double denom = d1 * d2 - offd * offd;
-          const double i_d1 = d2 / denom;
-          const double i_d2 = d1 / denom;
-          const double i_off = -offd / denom;
+          const double i_off = current_2x2[col];
 
           double x1 = x[sn_start + nb * j + col];
           double x2 = x[sn_start + nb * j + col + 1];
