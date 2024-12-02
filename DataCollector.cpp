@@ -20,6 +20,25 @@ void DataCollector::destruct() {
   ptr_ = nullptr;
 }
 
+void DataCollector::append() {
+  // add an empty IterData object to the record
+  iter_data_record_.push_back(IterData());
+}
+
+const IterData& DataCollector::iter(int i) const {
+  // access the data record of a specific iteration
+  return iter_data_record_[i];
+}
+
+IterData& DataCollector::last() {
+  // access most recent record of data to write
+  return iter_data_record_.back();
+}
+const IterData& DataCollector::last() const {
+  // access most recent record of data to read
+  return iter_data_record_.back();
+}
+
 void DataCollector::sumTime(TimeItems i, double t) {
 #ifdef DATA_COLLECTION
   // Keep track of times and blas calls.
@@ -36,60 +55,49 @@ void DataCollector::extremeEntries(double minD, double maxD, double minoffD,
                                    double maxoffD) {
 #ifdef DATA_COLLECTION
   // Store max and min entries of D and L.
-  std::lock_guard<std::mutex> lock(extreme_entries_mutex_);
-  minD_ = std::min(minD_, minD);
-  maxD_ = std::max(maxD_, maxD);
-  minL_ = std::min(minL_, minoffD);
-  maxL_ = std::max(maxL_, maxoffD);
+  std::lock_guard<std::mutex> lock(iter_data_mutex_);
+  last().minD = std::min(last().minD, minD);
+  last().maxD = std::max(last().maxD, maxD);
+  last().minL = std::min(last().minL, minoffD);
+  last().maxL = std::max(last().maxL, maxoffD);
 #endif
 }
 
 void DataCollector::sumRegPiv() {
 #ifdef DATA_COLLECTION
   // Increase the number of dynamically regularized pivots.
-  ++n_reg_piv_;
+  std::lock_guard<std::mutex> lock(iter_data_mutex_);
+  ++last().n_reg_piv;
 #endif
 }
 
 void DataCollector::sumSwap() {
 #ifdef DATA_COLLECTION
-  ++n_swaps_;
+  std::lock_guard<std::mutex> lock(iter_data_mutex_);
+  ++last().n_swap;
 #endif
 }
 
 void DataCollector::sum2x2() {
 #ifdef DATA_COLLECTION
-  ++n_2x2_;
+  std::lock_guard<std::mutex> lock(iter_data_mutex_);
+  ++last().n_2x2;
 #endif
 }
 
 void DataCollector::setMaxReg(double new_reg) {
 #ifdef DATA_COLLECTION
   // Keep track of maximum regularization used.
-  std::lock_guard<std::mutex> lock(max_reg_mutex_);
-  max_reg_ = std::max(max_reg_, new_reg);
+  std::lock_guard<std::mutex> lock(iter_data_mutex_);
+  last().max_reg = std::max(last().max_reg, new_reg);
 #endif
 }
 
 void DataCollector::setWorstRes(double res) {
 #ifdef DATA_COLLECTION
   // Keep track of worst residual
-  std::lock_guard<std::mutex> lock(worst_res_mutex_);
-  worst_res_ = std::max(worst_res_, res);
-#endif
-}
-
-void DataCollector::resetExtremeEntries() {
-#ifdef DATA_COLLECTION
-  minD_ = std::numeric_limits<double>::max();
-  maxD_ = 0.0;
-  minL_ = std::numeric_limits<double>::max();
-  maxL_ = 0.0;
-  max_reg_ = 0.0;
-  worst_res_ = 0.0;
-  n_reg_piv_ = 0;
-  n_swaps_ = 0;
-  n_2x2_ = 0;
+  std::lock_guard<std::mutex> lock(iter_data_mutex_);
+  last().worst_res = std::max(last().worst_res, res);
 #endif
 }
 
@@ -230,7 +238,7 @@ void DataCollector::printSymbolic(bool verbose) const {
            (double)artificial_nz_ / nz_ * 100);
     printf("artificial ops  : %.1e (%.1f%%)\n", artificial_ops_,
            artificial_ops_ / dense_ops_ * 100);
-    printf("largest front   : %5d\n",largest_front_);
+    printf("largest front   : %5d\n", largest_front_);
     printf("largest sn      : %5d\n", largest_sn_);
     printf("supernodes      : %5d\n", sn_);
     printf("sn size <=   1  : %5d\n", sn_size_1_);
@@ -240,12 +248,12 @@ void DataCollector::printSymbolic(bool verbose) const {
   printf("\n");
 }
 
-double DataCollector::minD() const { return minD_; }
-double DataCollector::maxD() const { return maxD_; }
-double DataCollector::minL() const { return minL_; }
-double DataCollector::maxL() const { return maxL_; }
-double DataCollector::maxReg() const { return max_reg_; }
-double DataCollector::worstRes() const { return worst_res_; }
-int DataCollector::nRegPiv() const { return n_reg_piv_; }
-int DataCollector::nSwaps() const { return n_swaps_; }
-int DataCollector::n2x2() const { return n_2x2_; }
+double DataCollector::minD() const { return last().minD; }
+double DataCollector::maxD() const { return last().maxD; }
+double DataCollector::minL() const { return last().minL; }
+double DataCollector::maxL() const { return last().maxL; }
+double DataCollector::maxReg() const { return last().max_reg; }
+double DataCollector::worstRes() const { return last().worst_res; }
+int DataCollector::nRegPiv() const { return last().n_reg_piv; }
+int DataCollector::nSwaps() const { return last().n_swap; }
+int DataCollector::n2x2() const { return last().n_2x2; }

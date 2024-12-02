@@ -7,6 +7,19 @@
 
 #include "Timing.h"
 
+struct IterData {
+  // data of a given ipm iteration
+  double minD = std::numeric_limits<double>::max();
+  double maxD = 0.0;
+  double minL = std::numeric_limits<double>::max();
+  double maxL = 0.0;
+  double max_reg = 0.0;
+  double worst_res = 0.0;
+  int n_reg_piv = 0;
+  int n_swap = 0;
+  int n_2x2 = 0;
+};
+
 // DataCollector is a singleton object.
 // Only one copy of it can exist and it cannot be constructed or destructed
 // explicitly. Any public member function should be accessed through
@@ -34,22 +47,12 @@ class DataCollector {
   int sn_size_10_{};
   int sn_size_100_{};
 
-  // Other statistics
-  double minD_{};
-  double maxD_{};
-  double minL_{};
-  double maxL_{};
-  double max_reg_{};
-  double worst_res_{};
-  std::atomic<int> n_reg_piv_{};
-  std::atomic<int> n_swaps_{};
-  std::atomic<int> n_2x2_{};
+  // record of data of ipm iterations
+  std::vector<IterData> iter_data_record_{};
 
   // Mutexes for concurrent access
   std::mutex times_mutex_;
-  std::mutex extreme_entries_mutex_;
-  std::mutex max_reg_mutex_;
-  std::mutex worst_res_mutex_;
+  std::mutex iter_data_mutex_;
 
   // Instance of DataCollector
   static DataCollector* ptr_;
@@ -60,10 +63,17 @@ class DataCollector {
   DataCollector();
   ~DataCollector() = default;
 
+  IterData& last();
+  const IterData& last() const;
+
  public:
   // Access to the object
   static DataCollector* get();
   static void destruct();
+
+  // Manage record of data of iterations
+  void append();
+  const IterData& iter(int i) const;
 
   // Functions with lock, they can be accessed simultaneously
   void sumTime(TimeItems i, double t);
@@ -73,9 +83,6 @@ class DataCollector {
   void setMaxReg(double new_reg);
   void setWorstRes(double res);
   void extremeEntries(double minD, double maxD, double minoffD, double maxoffD);
-
-  // Functions without lock, to be accessed serially
-  void resetExtremeEntries();
 
   // Const functions
   void printTimes() const;

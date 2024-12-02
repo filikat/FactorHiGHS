@@ -364,8 +364,6 @@ bool Factorise::run(Numeric& num) {
   swaps_.resize(S_.sn());
   pivot_2x2_.resize(S_.sn());
 
-  DataCollector::get()->resetExtremeEntries();
-
 #ifdef PARALLEL_TREE
   // thr_per_sn.resize(S_.sn());
 
