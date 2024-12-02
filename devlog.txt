@@ -1429,6 +1429,46 @@ If I can find a pivoting strategy that is robust enough and that does not regula
 It does seem to regulariza a bit too many pivots. Maybe I should check for 2x2 pivots first, and regularize only if there is no other choice.
 ---
 
+*****
+25 Nov 2024
+Unfortunately, updating the columns of R inside of the kernel, using dger instead of dtrsm, is really slow.
+It would be quite important to perform the pivoting knowing the full column, rather than knowing just the portion of column inside of the diagonal block.
+I tries some other pivoting technique, but it gets a bit messy. 
+Is there a faster way of computing the columns of R?
+---
+
+*****
+26 Nov 2024
+I think I can compute columns using dgemv. For now I focus on trying to understand the block BK pivoting.
+It seems like most of the regularization is done on pivots that are the last ones in the supernode. Often this happens when they are the only ones in the supernode.
+I checked the supernode amalgamation, but changing the parameters and forcing it to merge small supernode does not seem to work much.
+---
+It looks like sometimes the regularization is too large. I am not sure of how to tune it to the problem.
+---
+
+*****
+27 Nov 2024
+I tried to modify the Bunch-Kaufman pivoting so that it always chooses the largest diagonal entry as starting pivot. It does not seem to change much.
+The main problem is that when there is a single column in the supernode, I cannot do any pivoting. I can only accept it, and regularize it blindly. 
+This in turn is likely to produce large entries in L, which are catastrophic later on.
+It seems fundamental to keep the entries of L relatively small (smaller than 1e4 or 1e5 let's say). However, doing so may require a large regularization, that hampers the convergence of the IPM.
+I wonder if iterative refinement with the original matrix works better with larger regularization, since the factor should be less ill conditioned.
+I also wonder if gmres can do the trick.
+I tried to force the supernodes to be larger, using the other method to relax them, but for some reason the ipm does not converge in that case.
+I added static regularization inside of Bunch-Kaufman, but it does not change much.
+---
+I will have either to consider the full column inside of the kernel, or to have some strategy that rejects a certain diagonal block if it creates large entries in R, increases the regularization, and tries again.
+---
+
+*****
+29 Nov 2024
+It looks like the large entries in L are mostly caused by supernodes of size 1, as expected, because I cannot do anything else but regularize them blindly.
+By changing the value of regularization parameters, I am able to make different problems converge. Maybe I should start from small values of regularization and increase them if necessary.
+For example, if the residual becomes too large. Or it the entries in L become too large. If I can find a way of checking whether the regularization should be increased, I may have a solution.
+To avoid computing the columns within the kernel, I could recompute the factorization of the diagonal block only if the entries in R are large. For many supernodes of size 1, this would be quite easy.
+Otherwise, I could compute the full column only if the block is small enough.
+---
+
 
 *****
 To do:

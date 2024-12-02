@@ -1,4 +1,3 @@
-#include "../ProtoIPM/Regularization.h"
 #include "Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
@@ -8,10 +7,45 @@
 
 // Dense Factorization kernel
 
-// #define DEBUG
+std::pair<int, double> maxInCol(int j, int n, int m, double* A, int lda) {
+  // Given the symemtric matrix A, of size nxn, accessed with leading dimension
+  // lda, in upper triangular format, ignoring rows 0:j-1, find the maximum in
+  // row/col m.
+
+  double maxval = -1.0;
+  int r = -1;
+  // scan column m, rows j:m-1
+  for (int row = j; row < m; ++row) {
+    double val = std::abs(A[row + lda * m]);
+    if (val > maxval) {
+      maxval = val;
+      r = row;
+    }
+  }
+  // scan row m, columns m+1:n
+  for (int col = m + 1; col < n; ++col) {
+    double val = std::abs(A[m + lda * col]);
+    if (val > maxval) {
+      maxval = val;
+      r = col;
+    }
+  }
+  return {r, maxval};
+}
+
+void staticReg(double& pivot, int sign, double& regul) {
+  // apply static regularization
+
+  double old_pivot = pivot;
+  if (sign > 0)
+    pivot += kDualStaticRegularization;
+  else
+    pivot -= kPrimalStaticRegularization;
+  regul = std::abs(pivot - old_pivot);
+}
 
 bool blockBunchKaufman(int j, int n, double* A, int lda, int* swaps, int* sign,
-                       double thresh, double* regul) {
+                       double thresh, double* regul, int sn, int bl) {
   // Perform Bunch-Kaufman pivoting within a block of the supernode (see Schenk,
   // Gartner, ETNA 2006).
   // It works only for upper triangular A.
@@ -20,60 +54,73 @@ bool blockBunchKaufman(int j, int n, double* A, int lda, int* swaps, int* sign,
   // Regularization of pivot may be performed.
 
   Clock clock;
-
-  // compute gamma := max in row j and its index r
-  double gamma{};
-  int r{};
-  for (int col = j + 1; col < n; ++col) {
-    double val = std::abs(A[j + lda * col]);
-    if (val > gamma) {
-      gamma = val;
-      r = col;
-    }
-  }
-
-  // compute sigma := max in row/col r
-  double sigma{};
-  for (int row = j; row < r; ++row)
-    sigma = std::max(sigma, std::abs(A[row + lda * r]));
-  for (int col = r + 1; col < n; ++col)
-    sigma = std::max(sigma, std::abs(A[r + lda * col]));
-
-  double Ajj = std::abs(A[j + lda * j]);
-  double Arr = std::abs(A[r + lda * r]);
-
   bool flag_2x2 = false;
 
-  if (std::max(Ajj, gamma) <= thresh) {
-    // perturbe pivot
-    A[j + lda * j] = sign[j] * thresh;
-    regul[j] = std::abs(A[j + lda * j]) - Ajj;
+#if 1
+  // Find largest diagonal entry in the residual part of the block
+  int ind_max_diag = -1;
+  double max_diag = -1.0;
+  for (int i = j; i < n; ++i) {
+    double val = std::abs(A[i + lda * i]);
+    if (val > max_diag) {
+      max_diag = val;
+      ind_max_diag = i;
+    }
+  }
+  assert(ind_max_diag >= j);
+
+  // put column with max pivot as first column
+  swapCols('U', n, A, lda, j, ind_max_diag, swaps, sign);
+#endif
+
+  // Max in column j of diagonal block
+  auto res = maxInCol(j, n, j, A, lda);
+  double gamma_j = res.second;
+  int r = res.first;
+  double Ajj = sign[j] > 0 ? A[j + lda * j] + kDualStaticRegularization
+                           : A[j + lda * j] - kPrimalStaticRegularization;
+
+  if (std::max(std::abs(Ajj), gamma_j) <= thresh || j == n - 1) {
+    // Must accept current pivot
+    double old_pivot = A[j + lda * j];
+    staticReg(A[j + lda * j], sign[j], regul[j]);
+    if (std::max(std::abs(Ajj), gamma_j) < thresh) {
+      // perturbe pivot
+      A[j + lda * j] = sign[j] * thresh;
+      DataCollector::get()->sumRegPiv();
+#ifdef PRINT_REGULARIZATION
+      printf("%4d %2d %2d: pivot %8.1e set to %8.1e\n", sn, bl, j, old_pivot,
+             A[j + lda * j]);
+#endif
+    }
+    regul[j] = std::abs(A[j + lda * j] - old_pivot);
     DataCollector::get()->setMaxReg(regul[j]);
-    DataCollector::get()->sumRegPiv();
-
-  } else if (Ajj >= kAlphaBK * gamma ||
-             Ajj * sigma >= kAlphaBK * gamma * gamma) {
-    // accept current pivot
-
-  } else if (Arr >= kAlphaBK * sigma) {
-    // use pivot r
-    swapCols('U', n, A, lda, j, r, swaps, sign);
-
-  } else if (r != j && j < n - 1) {
-    // use 2x2 pivot (j,r)
-    swapCols('U', n, A, lda, j + 1, r, swaps, sign);
-    flag_2x2 = true;
 
   } else {
-    // This is unlikely to happen (maybe impossible??)
-    printf("pivoting failure case\n");
+    // Max in column r of diagonal block
+    assert(r >= 0);
+    res = maxInCol(j, n, r, A, lda);
+    double gamma_r = res.second;
+    double Arr = sign[r] > 0 ? A[r + lda * r] + kDualStaticRegularization
+                             : A[r + lda * r] - kPrimalStaticRegularization;
 
-    // perturbe pivot
-    A[j + lda * j] = sign[j] * kAlphaBK * gamma;
-    regul[j] = std::abs(A[j + lda * j]) - Ajj;
-    assert(regul[j] >= 0);
-    DataCollector::get()->setMaxReg(regul[j]);
-    DataCollector::get()->sumRegPiv();
+    if (std::abs(Ajj) >= kAlphaBK * gamma_j ||
+        std::abs(Ajj) * gamma_r >= kAlphaBK * gamma_j * gamma_j) {
+      // Accept current pivot
+      staticReg(A[j + lda * j], sign[j], regul[j]);
+
+    } else if (std::abs(Arr) >= kAlphaBK * gamma_r) {
+      // Use pivot r
+      swapCols('U', n, A, lda, j, r, swaps, sign);
+      staticReg(A[j + lda * j], sign[j], regul[j]);
+
+    } else {
+      // Use 2x2 pivot (j,r)
+      swapCols('U', n, A, lda, j + 1, r, swaps, sign);
+      flag_2x2 = true;
+      staticReg(A[j + lda * j], sign[j], regul[j]);
+      staticReg(A[j + 1 + lda * (j + 1)], sign[j + 1], regul[j + 1]);
+    }
   }
 
   DataCollector::get()->sumTime(kTimeDenseFact_pivoting, clock.stop());
@@ -103,7 +150,7 @@ double regularizePivot(double pivot, double thresh, const int* sign,
     pivot = s * thresh;
     adjust = true;
     modified_pivot = true;
-#ifdef DEBUG
+#ifdef PRINT_REGULARIZATION
     printf("%2d, %2d, %2d: small pivot %e, with sign %d, set to %e\n", sn, bl,
            j, old_pivot, sign[j], pivot);
 #endif
@@ -113,7 +160,7 @@ double regularizePivot(double pivot, double thresh, const int* sign,
     pivot = s * thresh * 10;
     adjust = true;
     modified_pivot = true;
-#ifdef DEBUG
+#ifdef PRINT_REGULARIZATION
     printf("%2d, %2d, %2d: wrong pivot %e, with sign %d, set to %e\n", sn, bl,
            j, old_pivot, sign[j], pivot);
 #endif
@@ -122,7 +169,7 @@ double regularizePivot(double pivot, double thresh, const int* sign,
     // pivot is completely lost
     pivot = s * 1e100;
     modified_pivot = true;
-#ifdef DEBUG
+#ifdef PRINT_REGULARIZATION
     printf("%2d, %2d, %2d: disaster pivot %e, with sign %d, set to %e\n", sn,
            bl, j, old_pivot, sign[j], pivot);
 #endif
@@ -165,7 +212,7 @@ double regularizePivot(double pivot, double thresh, const int* sign,
       else
         pivot = std::min(pivot, required_pivot);
 
-#ifdef DEBUG
+#ifdef PRINT_REGULARIZATION
       printf("\t%2d, %2d, %2d: adjust %e to %e\n", sn, bl, j, old_pivot, pivot);
 #endif
     }
@@ -201,6 +248,8 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
   // ===========================================================================
   // LOWER TRIANGULAR
   // ===========================================================================
+  // No pivoting performed.
+  // This is kept only for reference, to use the formats F and FP.
   if (uplo == 'L') {
     // allocate space for copy of col
     std::vector<double> temp(n - 1);
@@ -261,8 +310,8 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
       bool flag_2x2 = false;
 
 #ifdef PIVOTING
-      flag_2x2 =
-          blockBunchKaufman(j, n, A, lda, swaps, pivot_sign, thresh, regul);
+      flag_2x2 = blockBunchKaufman(j, n, A, lda, swaps, pivot_sign, thresh,
+                                   regul, sn, bl);
 #endif
 
       // cannot do 2x2 pivoting on last column

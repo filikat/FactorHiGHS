@@ -99,10 +99,10 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
     permuteWithSwaps(regul_current, swaps_current, jb, true);
 #endif
 
-    // ===========================================================================
-    // SOLVE COLUMNS
-    // ===========================================================================
     if (M > 0) {
+      // ===========================================================================
+      // SOLVE COLUMNS
+      // ===========================================================================
       // solve block R with D
       callAndTime_dtrsm('L', 'U', 'T', 'U', jb, M, 1.0, D, jb, R, jb);
 
@@ -141,6 +141,13 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
         }
       }
 
+      // check entries of L
+      /*double max_in_R = -1.0;
+      for (int i = 0; i < M * jb; ++i) {
+        max_in_R = std::max(max_in_R, std::abs(R[i]));
+      }
+      if (max_in_R > 1e8) printf("%.1e, %5d %5d\n", max_in_R, jb, M);*/
+
       // ===========================================================================
       // UPDATE FRONTAL
       // ===========================================================================
@@ -153,9 +160,6 @@ int denseFactFH(char format, int n, int k, int nb, double* A, double* B,
 
         // number of rows in block jj
         const int row_jj = n - nb * jj;
-
-        // offset to access T and R
-        // offset = (jj - j - 1) * nb * jb;
 
         const double* P = &T[offset];
         double* Q = &A[diag_start[jj]];

@@ -220,17 +220,22 @@ void DataCollector::printSymbolic(bool verbose) const {
   printf("serial memory   : ");
   printMemory(serial_storage_);
 
-  printf("dense  ops      : %.2e\n", dense_ops_);
-  printf("sparse ops      : %.2e\n", sparse_ops_);
-  printf("critical ops    : %.2e\n", critical_ops_);
+  printf("dense  ops      : %.1e\n", dense_ops_);
+  printf("sparse ops      : %.1e\n", sparse_ops_);
+  printf("critical ops    : %.1e\n", critical_ops_);
   printf("max tree speedup: %.2f\n", dense_ops_ / critical_ops_);
 
   if (verbose) {
-    printf("supernodes      : %d\n", sn_);
-    printf("artificial nz   : %.2e\n", (double)artificial_nz_);
-    printf("artificial ops  : %.2e\n", artificial_ops_);
-    printf("largest front   : %.2e\n", (double)largest_front_);
-    printf("largest sn      : %.2e\n", (double)largest_sn_);
+    printf("artificial nz   : %.1e (%.1f%%)\n", (double)artificial_nz_,
+           (double)artificial_nz_ / nz_ * 100);
+    printf("artificial ops  : %.1e (%.1f%%)\n", artificial_ops_,
+           artificial_ops_ / dense_ops_ * 100);
+    printf("largest front   : %5d\n",largest_front_);
+    printf("largest sn      : %5d\n", largest_sn_);
+    printf("supernodes      : %5d\n", sn_);
+    printf("sn size <=   1  : %5d\n", sn_size_1_);
+    printf("sn size <=  10  : %5d\n", sn_size_10_);
+    printf("sn size <= 100  : %5d\n", sn_size_100_);
   }
   printf("\n");
 }

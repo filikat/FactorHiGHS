@@ -2,12 +2,12 @@
 
 #include "Auxiliary.h"
 #include "CallAndTimeBlas.h"
+#include "DataCollector.h"
 #include "FormatHandler.h"
 #include "FullSolveHandler.h"
 #include "HybridSolveHandler.h"
 #include "PackedSolveHandler.h"
 #include "Timing.h"
-#include "DataCollector.h"
 
 Numeric::Numeric(const Symbolic& S) : S_{S} {
   // initialize solve handler
@@ -28,7 +28,6 @@ Numeric::Numeric(const Symbolic& S) : S_{S} {
 void Numeric::solve(std::vector<double>& x) const {
 #ifdef COARSE_TIMING
   Clock clock{};
-  clock.start();
 #endif
 
   // permute rhs

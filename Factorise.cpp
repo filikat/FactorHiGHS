@@ -2,9 +2,9 @@
 
 #include <fstream>
 
-#include "../ProtoIPM/Regularization.h"
 #include "Auxiliary.h"
 #include "DataCollector.h"
+#include "FactorHiGHSSettings.h"
 #include "FormatHandler.h"
 #include "FullFormatHandler.h"
 #include "HybridHybridFormatHandler.h"
@@ -12,7 +12,6 @@
 #include "PackedPackedFormatHandler.h"
 #include "ReturnValues.h"
 #include "parallel/HighsParallel.h"
-#include "FactorHiGHSSettings.h"
 
 Factorise::Factorise(const Symbolic& S, const std::vector<int>& rowsA,
                      const std::vector<int>& ptrA,

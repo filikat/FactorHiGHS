@@ -11,10 +11,10 @@ enum class FormatType { Full, HybridPacked, HybridHybrid, PackedPacked };
 // Symbolic factorization object
 class Symbolic {
   // Format
-  const FormatType format_type_ = FormatType::HybridHybrid;
+  const FormatType format_type_;
 
   // Size of blocks for dense factorization
-  const int block_size_ = 128;
+  const int block_size_;
 
   // Size of the matrix L
   int n_{};

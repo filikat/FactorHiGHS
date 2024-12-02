@@ -8,3 +8,5 @@ a.out
 *.o
 results*
 test*
+temp_*
+gmres.cpp

@@ -6,11 +6,11 @@
 #include <stack>
 
 #include "Auxiliary.h"
+#include "DataCollector.h"
 #include "FactorHiGHSSettings.h"
 #include "GKlib.h"
 #include "ReturnValues.h"
 #include "metis.h"
-#include "DataCollector.h"
 
 Analyse::Analyse(Symbolic& S, const std::vector<int>& rows,
                  const std::vector<int>& ptr, int negative_pivots)
@@ -1397,10 +1397,17 @@ int Analyse::run() {
   DataCollector::get()->dense_ops_ = dense_ops_;
 
   // compute largest supernode
-  std::vector<int> temp(sn_start_);
-  for (int i = sn_count_; i > 0; --i) temp[i] -= temp[i - 1];
+  std::vector<int> sn_size(sn_start_.begin() + 1, sn_start_.end());
+  for (int i = sn_count_ - 1; i > 0; --i) sn_size[i] -= sn_size[i - 1];
   DataCollector::get()->largest_sn_ =
-      *std::max_element(temp.begin(), temp.end());
+      *std::max_element(sn_size.begin(), sn_size.end());
+
+  // build statistics about supernodes size
+  for (int i : sn_size) {
+    if (i == 1) DataCollector::get()->sn_size_1_++;
+    if (i <= 10) DataCollector::get()->sn_size_10_++;
+    if (i <= 100) DataCollector::get()->sn_size_100_++;
+  }
 
   // initialize sign of pivots and permute them
   S_.pivot_sign_.insert(S_.pivot_sign_.end(), negative_pivots_, -1);

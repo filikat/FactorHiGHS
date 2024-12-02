@@ -4,10 +4,10 @@
 #include "Analyse.h"
 #include "Auxiliary.h"
 #include "DataCollector.h"
+#include "FactorHiGHSSettings.h"
 #include "Factorise.h"
 #include "Numeric.h"
-#include "Symbolic.h"
 #include "ReturnValues.h"
-#include "FactorHiGHSSettings.h"
+#include "Symbolic.h"
 
 #endif

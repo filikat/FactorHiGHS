@@ -27,9 +27,12 @@ class DataCollector {
   double critical_ops_{};
   int artificial_nz_{};
   double artificial_ops_{};
+  int serial_storage_{};
   int largest_front_{};
   int largest_sn_{};
-  int serial_storage_{};
+  int sn_size_1_{};
+  int sn_size_10_{};
+  int sn_size_100_{};
 
   // Other statistics
   double minD_{};
