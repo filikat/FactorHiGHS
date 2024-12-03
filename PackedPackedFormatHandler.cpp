@@ -1,4 +1,5 @@
 #include "PackedPackedFormatHandler.h"
+
 #include "Auxiliary.h"
 #include "CallAndTimeBlas.h"
 #include "DataCollector.h"
@@ -130,8 +131,8 @@ void PackedPackedFormatHandler::extremeEntries() {
       index += k;
 
       // diagonal entry
-      minD = std::min(minD, std::abs(frontal_[index]));
-      maxD = std::max(maxD, std::abs(frontal_[index]));
+      minD = std::min(minD, std::abs(1.0 / frontal_[index]));
+      maxD = std::max(maxD, std::abs(1.0 / frontal_[index]));
       ++index;
 
       // off diagonal entries
@@ -146,5 +147,5 @@ void PackedPackedFormatHandler::extremeEntries() {
     }
   }
 
-  DataCollector::get()->extremeEntries(minD, maxD, minoffD, maxoffD);
+  DataCollector::get()->setExtremeEntries(minD, maxD, minoffD, maxoffD);
 }

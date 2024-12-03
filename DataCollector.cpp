@@ -21,22 +21,22 @@ void DataCollector::destruct() {
 }
 
 void DataCollector::append() {
+#ifdef DATA_COLLECTION
   // add an empty IterData object to the record
   iter_data_record_.push_back(IterData());
+#endif
 }
 
 const IterData& DataCollector::iter(int i) const {
+#ifdef DATA_COLLECTION
   // access the data record of a specific iteration
   return iter_data_record_[i];
+#endif
 }
 
-IterData& DataCollector::last() {
-  // access most recent record of data to write
-  return iter_data_record_.back();
-}
-const IterData& DataCollector::last() const {
-  // access most recent record of data to read
-  return iter_data_record_.back();
+IterData& DataCollector::back() {
+  // access most recent record of data
+  return get()->iter_data_record_.back();
 }
 
 void DataCollector::sumTime(TimeItems i, double t) {
@@ -51,37 +51,45 @@ void DataCollector::sumTime(TimeItems i, double t) {
 #endif
 }
 
-void DataCollector::extremeEntries(double minD, double maxD, double minoffD,
-                                   double maxoffD) {
+void DataCollector::setExtremeEntries(double minD, double maxD, double minoffD,
+                                      double maxoffD) {
 #ifdef DATA_COLLECTION
   // Store max and min entries of D and L.
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
-  last().minD = std::min(last().minD, minD);
-  last().maxD = std::max(last().maxD, maxD);
-  last().minL = std::min(last().minL, minoffD);
-  last().maxL = std::max(last().maxL, maxoffD);
+  back().minD = std::min(back().minD, minD);
+  back().maxD = std::max(back().maxD, maxD);
+  back().minL = std::min(back().minL, minoffD);
+  back().maxL = std::max(back().maxL, maxoffD);
 #endif
 }
 
-void DataCollector::sumRegPiv() {
+void DataCollector::countRegPiv() {
 #ifdef DATA_COLLECTION
   // Increase the number of dynamically regularized pivots.
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
-  ++last().n_reg_piv;
+  ++back().n_reg_piv;
 #endif
 }
 
-void DataCollector::sumSwap() {
+void DataCollector::countSwap() {
 #ifdef DATA_COLLECTION
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
-  ++last().n_swap;
+  ++back().n_swap;
 #endif
 }
 
-void DataCollector::sum2x2() {
+void DataCollector::count2x2() {
 #ifdef DATA_COLLECTION
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
-  ++last().n_2x2;
+  ++back().n_2x2;
+#endif
+}
+
+void DataCollector::setWrongSign(double p) {
+#ifdef DATA_COLLECTION
+  std::lock_guard<std::mutex> lock(iter_data_mutex_);
+  ++back().wrong_sign;
+  back().max_wrong_sign = std::max(back().max_wrong_sign, std::abs(p));
 #endif
 }
 
@@ -89,7 +97,7 @@ void DataCollector::setMaxReg(double new_reg) {
 #ifdef DATA_COLLECTION
   // Keep track of maximum regularization used.
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
-  last().max_reg = std::max(last().max_reg, new_reg);
+  back().max_reg = std::max(back().max_reg, new_reg);
 #endif
 }
 
@@ -97,7 +105,7 @@ void DataCollector::setWorstRes(double res) {
 #ifdef DATA_COLLECTION
   // Keep track of worst residual
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
-  last().worst_res = std::max(last().worst_res, res);
+  back().worst_res = std::max(back().worst_res, res);
 #endif
 }
 
@@ -248,12 +256,25 @@ void DataCollector::printSymbolic(bool verbose) const {
   printf("\n");
 }
 
-double DataCollector::minD() const { return last().minD; }
-double DataCollector::maxD() const { return last().maxD; }
-double DataCollector::minL() const { return last().minL; }
-double DataCollector::maxL() const { return last().maxL; }
-double DataCollector::maxReg() const { return last().max_reg; }
-double DataCollector::worstRes() const { return last().worst_res; }
-int DataCollector::nRegPiv() const { return last().n_reg_piv; }
-int DataCollector::nSwaps() const { return last().n_swap; }
-int DataCollector::n2x2() const { return last().n_2x2; }
+void DataCollector::printIter() const {
+#ifdef DATA_COLLECTION
+  printf(
+      "\niter |    min T     max T      x_j * z_j / mu  |"
+      "     minD      maxD      minL      maxL  |"
+      "    reg   swap    2x2     ws | "
+      "  max_reg   max_res    max_ws |\n");
+
+  for (int i = 0; i < iter_data_record_.size(); ++i) {
+    const IterData& iter = iter_data_record_[i];
+    printf(
+        "%3d  | %9.1e %9.1e %9.1e %9.1e | %9.1e %9.1e %9.1e %9.1e | %6d %6d "
+        "%6d %6d | "
+        "%9.1e %9.1e "
+        "%9.1e |\n",
+        i, iter.min_theta, iter.max_theta, iter.min_prod, iter.max_prod,
+        iter.minD, iter.maxD, iter.minL, iter.maxL, iter.n_reg_piv, iter.n_swap,
+        iter.n_2x2, iter.wrong_sign, iter.max_reg, iter.worst_res,
+        iter.max_wrong_sign);
+  }
+#endif
+}

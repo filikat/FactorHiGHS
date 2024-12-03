@@ -1,7 +1,8 @@
 #include "FullFormatHandler.h"
+
 #include "CallAndTimeBlas.h"
-#include "DenseFact.h"
 #include "DataCollector.h"
+#include "DenseFact.h"
 
 FullFormatHandler::FullFormatHandler(const Symbolic& S, int sn)
     : FormatHandler(S, sn) {
@@ -82,8 +83,8 @@ void FullFormatHandler::extremeEntries() {
 
   for (int col = 0; col < sn_size_; ++col) {
     // diagonal entry
-    minD = std::min(minD, std::abs(frontal_[col + ldf_ * col]));
-    maxD = std::max(maxD, std::abs(frontal_[col + ldf_ * col]));
+    minD = std::min(minD, std::abs(1.0 / frontal_[col + ldf_ * col]));
+    maxD = std::max(maxD, std::abs(1.0 / frontal_[col + ldf_ * col]));
 
     // off diagonal entries
     for (int row = col + 1; row < ldf_; ++row) {
@@ -94,5 +95,5 @@ void FullFormatHandler::extremeEntries() {
     }
   }
 
-  DataCollector::get()->extremeEntries(minD, maxD, minoffD, maxoffD);
+  DataCollector::get()->setExtremeEntries(minD, maxD, minoffD, maxoffD);
 }

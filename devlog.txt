@@ -1469,6 +1469,15 @@ To avoid computing the columns within the kernel, I could recompute the factoriz
 Otherwise, I could compute the full column only if the block is small enough.
 ---
 
+*****
+3 Dec 2024
+I changed the DataCollector to record data for each ipm iteration and keep track of it.
+I also added some quantities to compute, like max and min complementariry products and pivots with wrong sign.
+I added both a counter of pivot with wrong sign and the maximum magnitude of pivots with wrong sign.
+It now also records generic data of a given ipm iteration, the same that are printed to screen.
+I need to find a way to print this information in a meaningful way.
+---
+
 
 *****
 To do:

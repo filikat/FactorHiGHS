@@ -80,14 +80,18 @@ bool blockBunchKaufman(int j, int n, double* A, int lda, int* swaps, int* sign,
   double Ajj = sign[j] > 0 ? A[j + lda * j] + kDualStaticRegularization
                            : A[j + lda * j] - kPrimalStaticRegularization;
 
-  if (std::max(std::abs(Ajj), gamma_j) <= thresh || j == n - 1) {
+  if (std::max(std::abs(Ajj), gamma_j) <= thresh || sign[j] * Ajj < 0 ||
+      j == n - 1) {
+    if (sign[j] * A[j + lda * j] < 0)
+      DataCollector::get()->setWrongSign(A[j + lda * j]);
+
     // Must accept current pivot
     double old_pivot = A[j + lda * j];
     staticReg(A[j + lda * j], sign[j], regul[j]);
     if (std::max(std::abs(Ajj), gamma_j) < thresh) {
       // perturbe pivot
       A[j + lda * j] = sign[j] * thresh;
-      DataCollector::get()->sumRegPiv();
+      DataCollector::get()->countRegPiv();
 #ifdef PRINT_REGULARIZATION
       printf("%4d %2d %2d: pivot %8.1e set to %8.1e\n", sn, bl, j, old_pivot,
              A[j + lda * j]);
@@ -107,15 +111,25 @@ bool blockBunchKaufman(int j, int n, double* A, int lda, int* swaps, int* sign,
     if (std::abs(Ajj) >= kAlphaBK * gamma_j ||
         std::abs(Ajj) * gamma_r >= kAlphaBK * gamma_j * gamma_j) {
       // Accept current pivot
+      if (sign[j] * A[j + lda * j] < 0)
+        DataCollector::get()->setWrongSign(A[j + lda * j]);
       staticReg(A[j + lda * j], sign[j], regul[j]);
 
     } else if (std::abs(Arr) >= kAlphaBK * gamma_r) {
       // Use pivot r
+      if (sign[r] * A[r + lda * r] < 0)
+        DataCollector::get()->setWrongSign(A[r + lda * r]);
+
       swapCols('U', n, A, lda, j, r, swaps, sign);
       staticReg(A[j + lda * j], sign[j], regul[j]);
 
     } else {
       // Use 2x2 pivot (j,r)
+      if (sign[j] * A[j + lda * j] < 0)
+        DataCollector::get()->setWrongSign(A[j + lda * j]);
+      if (sign[r] * A[r + lda * r] < 0)
+        DataCollector::get()->setWrongSign(A[r + lda * r]);
+
       swapCols('U', n, A, lda, j + 1, r, swaps, sign);
       flag_2x2 = true;
       staticReg(A[j + lda * j], sign[j], regul[j]);
@@ -218,7 +232,7 @@ double regularizePivot(double pivot, double thresh, const int* sign,
     }
   }
 
-  if (modified_pivot) DataCollector::get()->sumRegPiv();
+  if (modified_pivot) DataCollector::get()->countRegPiv();
 
   return pivot;
 }
@@ -405,7 +419,7 @@ int denseFactK(char uplo, int n, double* A, int lda, int* pivot_sign,
                            &A[j + 2 + (j + 2) * lda], lda);
         }
 
-        DataCollector::get()->sum2x2();
+        DataCollector::get()->count2x2();
       }
     }
   }

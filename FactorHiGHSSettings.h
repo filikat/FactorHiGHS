@@ -25,7 +25,7 @@ const int kSnSizeRelax = 8;
 
 // dense factorization
 const int kBlockSize = 128;
-const double kAlphaBK = (sqrt(17.0) + 1.0) / 8.0;
+const double kAlphaBK = 0.1;//(sqrt(17.0) + 1.0) / 8.0;
 
 // regularization
 const double kPrimalStaticRegularization = 1e-12;

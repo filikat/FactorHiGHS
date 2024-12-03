@@ -9,6 +9,8 @@
 
 struct IterData {
   // data of a given ipm iteration
+
+  // factorization data
   double minD = std::numeric_limits<double>::max();
   double maxD = 0.0;
   double minL = std::numeric_limits<double>::max();
@@ -18,6 +20,22 @@ struct IterData {
   int n_reg_piv = 0;
   int n_swap = 0;
   int n_2x2 = 0;
+  int wrong_sign = 0;
+  double max_wrong_sign = 0.0;
+
+  // ipm data
+  double p_obj;
+  double d_obj;
+  double p_inf;
+  double d_inf;
+  double mu;
+  double pd_gap;
+  double p_alpha;
+  double d_alpha;
+  double max_prod;
+  double min_prod;
+  double min_theta;
+  double max_theta;
 };
 
 // DataCollector is a singleton object.
@@ -63,13 +81,11 @@ class DataCollector {
   DataCollector();
   ~DataCollector() = default;
 
-  IterData& last();
-  const IterData& last() const;
-
  public:
   // Access to the object
   static DataCollector* get();
   static void destruct();
+  static IterData& back();
 
   // Manage record of data of iterations
   void append();
@@ -77,25 +93,19 @@ class DataCollector {
 
   // Functions with lock, they can be accessed simultaneously
   void sumTime(TimeItems i, double t);
-  void sumRegPiv();
-  void sumSwap();
-  void sum2x2();
+  void countRegPiv();
+  void countSwap();
+  void count2x2();
+  void setWrongSign(double p);
   void setMaxReg(double new_reg);
   void setWorstRes(double res);
-  void extremeEntries(double minD, double maxD, double minoffD, double maxoffD);
+  void setExtremeEntries(double minD, double maxD, double minoffD,
+                         double maxoffD);
 
   // Const functions
   void printTimes() const;
   void printSymbolic(bool verbose = false) const;
-  double minD() const;
-  double maxD() const;
-  double minL() const;
-  double maxL() const;
-  double maxReg() const;
-  double worstRes() const;
-  int nRegPiv() const;
-  int nSwaps() const;
-  int n2x2() const;
+  void printIter() const;
 };
 
 #endif
