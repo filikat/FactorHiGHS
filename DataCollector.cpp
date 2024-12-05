@@ -27,13 +27,6 @@ void DataCollector::append() {
 #endif
 }
 
-const IterData& DataCollector::iter(int i) const {
-#ifdef DATA_COLLECTION
-  // access the data record of a specific iteration
-  return iter_data_record_[i];
-#endif
-}
-
 IterData& DataCollector::back() {
   // access most recent record of data
   return get()->iter_data_record_.back();
@@ -88,7 +81,7 @@ void DataCollector::count2x2() {
 void DataCollector::setWrongSign(double p) {
 #ifdef DATA_COLLECTION
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
-  ++back().wrong_sign;
+  ++back().n_wrong_sign;
   back().max_wrong_sign = std::max(back().max_wrong_sign, std::abs(p));
 #endif
 }
@@ -259,21 +252,26 @@ void DataCollector::printSymbolic(bool verbose) const {
 void DataCollector::printIter() const {
 #ifdef DATA_COLLECTION
   printf(
-      "\niter |    min T     max T      x_j * z_j / mu  |"
-      "     minD      maxD      minL      maxL  |"
+      "\niter |    min T     max T  |"
+      "     x_j * z_j / mu    small/large |"
+      " corr  sigma |"
+      "    min D     max D     min L     max L  |"
       "    reg   swap    2x2     ws | "
       "  max_reg   max_res    max_ws |\n");
 
   for (int i = 0; i < iter_data_record_.size(); ++i) {
     const IterData& iter = iter_data_record_[i];
     printf(
-        "%3d  | %9.1e %9.1e %9.1e %9.1e | %9.1e %9.1e %9.1e %9.1e | %6d %6d "
-        "%6d %6d | "
-        "%9.1e %9.1e "
-        "%9.1e |\n",
+        "%3d  | %9.1e %9.1e |"
+        " %9.1e %9.1e %6d %5d  |"
+        " %3d %7.2f |"
+        " %9.1e %9.1e %9.1e %9.1e |"
+        " %6d %6d %6d %6d |"
+        " %9.1e %9.1e %9.1e |\n",
         i, iter.min_theta, iter.max_theta, iter.min_prod, iter.max_prod,
+        iter.num_small_prod, iter.num_large_prod, iter.correctors, iter.sigma,
         iter.minD, iter.maxD, iter.minL, iter.maxL, iter.n_reg_piv, iter.n_swap,
-        iter.n_2x2, iter.wrong_sign, iter.max_reg, iter.worst_res,
+        iter.n_2x2, iter.n_wrong_sign, iter.max_reg, iter.worst_res,
         iter.max_wrong_sign);
   }
 #endif

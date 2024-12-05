@@ -20,7 +20,7 @@ struct IterData {
   int n_reg_piv = 0;
   int n_swap = 0;
   int n_2x2 = 0;
-  int wrong_sign = 0;
+  int n_wrong_sign = 0;
   double max_wrong_sign = 0.0;
 
   // ipm data
@@ -32,10 +32,14 @@ struct IterData {
   double pd_gap;
   double p_alpha;
   double d_alpha;
-  double max_prod;
   double min_prod;
+  double max_prod;
   double min_theta;
   double max_theta;
+  double sigma;
+  int correctors;
+  int num_small_prod;
+  int num_large_prod;
 };
 
 // DataCollector is a singleton object.
@@ -89,7 +93,6 @@ class DataCollector {
 
   // Manage record of data of iterations
   void append();
-  const IterData& iter(int i) const;
 
   // Functions with lock, they can be accessed simultaneously
   void sumTime(TimeItems i, double t);

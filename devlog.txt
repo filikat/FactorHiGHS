@@ -1478,9 +1478,28 @@ It now also records generic data of a given ipm iteration, the same that are pri
 I need to find a way to print this information in a meaningful way.
 ---
 
+*****
+5 Dec 2024
+I implemented the centrality correctors.
+They seem to make a difference in problems like some of the pilots and dfl001.
+However, they do require some tuning to find a good balance.
+I should also have a look at the scaling in Colombo-Gondzio, and at doing different things for primal and dual spaces.
+---
+The main problem that I notice is that the complementarity products become very small and cannot be recovered.
+This causes the dual stepsize to become tiny usually.
+I wonder if a single centring direction (no correctors) may help.
+I wonder also if the fact that some entries of L become very large is a problem.
+It surely is actually, I just need to find a way to deal with it. Maybe a variable threshold for regularization.
+---
+
 
 *****
 To do:
+- more sophisticated correctors, with weighting
+- single centring direction
+- bound on L
+- artificially alter pd variables with small complementarity products
+
 - other variations from Ashcraft-Grimes-Lewis, for dense or sparse
 - prefer 2x2 pivots?
 - can I skip convert?

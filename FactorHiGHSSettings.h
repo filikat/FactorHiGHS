@@ -11,6 +11,14 @@
 #define DATA_COLLECTION
 // #define PRINT_ITER_REF
 // #define PRINT_REGULARIZATION
+// #define PRINT_CORRECTORS
+
+// choose level of timing:
+// - TIMING_0: no timing
+// - TIMING_1: basic timing
+// - TIMING_2: advanced timing
+// - TIMING_3: extreme timing (timing of each BLAS call, considerably slower)
+#define TIMING_2
 
 // ===========================================================================
 // PARAMETERS
@@ -25,7 +33,7 @@ const int kSnSizeRelax = 8;
 
 // dense factorization
 const int kBlockSize = 128;
-const double kAlphaBK = 0.1;//(sqrt(17.0) + 1.0) / 8.0;
+const double kAlphaBK = 0.1;  //(sqrt(17.0) + 1.0) / 8.0;
 
 // regularization
 const double kPrimalStaticRegularization = 1e-12;

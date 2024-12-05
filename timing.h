@@ -3,13 +3,6 @@
 
 #include "FactorHiGHSSettings.h"
 
-// choose level of timing:
-// - TIMING_0: no timing
-// - TIMING_1: basic timing
-// - TIMING_2: advanced timing
-// - TIMING_3: extreme timing (timing of each BLAS call, considerably slower)
-#define TIMING_2
-
 // defines for timing
 #ifdef DATA_COLLECTION
 
