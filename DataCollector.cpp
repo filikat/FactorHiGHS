@@ -10,26 +10,22 @@ DataCollector::DataCollector() {
 #endif
 }
 
-DataCollector* DataCollector::get() {
-  if (!ptr_) ptr_ = new DataCollector();
-  return ptr_;
-}
+DataCollector* DataCollector::get() { return ptr_; }
 
+void DataCollector::start() {
+  if (!ptr_) ptr_ = new DataCollector();
+}
 void DataCollector::destruct() {
   delete ptr_;
   ptr_ = nullptr;
 }
-
 void DataCollector::append() {
-#ifdef DATA_COLLECTION
   // add an empty IterData object to the record
   iter_data_record_.push_back(IterData());
-#endif
 }
-
 IterData& DataCollector::back() {
   // access most recent record of data
-  return get()->iter_data_record_.back();
+  return iter_data_record_.back();
 }
 
 void DataCollector::sumTime(TimeItems i, double t) {
@@ -91,14 +87,6 @@ void DataCollector::setMaxReg(double new_reg) {
   // Keep track of maximum regularization used.
   std::lock_guard<std::mutex> lock(iter_data_mutex_);
   back().max_reg = std::max(back().max_reg, new_reg);
-#endif
-}
-
-void DataCollector::setWorstRes(double res) {
-#ifdef DATA_COLLECTION
-  // Keep track of worst residual
-  std::lock_guard<std::mutex> lock(iter_data_mutex_);
-  back().worst_res = std::max(back().worst_res, res);
 #endif
 }
 
@@ -257,9 +245,9 @@ void DataCollector::printIter() const {
       " corr  sigma |"
       "    min D     max D     min L     max L  |"
       "    reg   swap    2x2     ws | "
-      "  max_reg   max_res    max_ws |\n");
+      "  max_reg    p_res     o_res     max_ws |\n");
 
-  for (int i = 0; i < iter_data_record_.size(); ++i) {
+  for (int i = 1; i < iter_data_record_.size(); ++i) {
     const IterData& iter = iter_data_record_[i];
     printf(
         "%3d  | %9.1e %9.1e |"
@@ -267,12 +255,26 @@ void DataCollector::printIter() const {
         " %3d %7.2f |"
         " %9.1e %9.1e %9.1e %9.1e |"
         " %6d %6d %6d %6d |"
-        " %9.1e %9.1e %9.1e |\n",
+        " %9.1e %9.1e %9.1e %9.1e |\n",
         i, iter.min_theta, iter.max_theta, iter.min_prod, iter.max_prod,
         iter.num_small_prod, iter.num_large_prod, iter.correctors, iter.sigma,
         iter.minD, iter.maxD, iter.minL, iter.maxL, iter.n_reg_piv, iter.n_swap,
-        iter.n_2x2, iter.n_wrong_sign, iter.max_reg, iter.worst_res,
-        iter.max_wrong_sign);
+        iter.n_2x2, iter.n_wrong_sign, iter.max_reg, iter.perturbed_res,
+        iter.original_res, iter.max_wrong_sign);
+  }
+
+  printf(
+      "\niter |    x       xl      xu      y       zl      zu   |"
+      "   dx      dxl     dxu     dy      dzl     dzu   |\n");
+
+  for (int i = 1; i < iter_data_record_.size(); ++i) {
+    const IterData& iter = iter_data_record_[i];
+    printf(
+        "%3d  | %.1e %.1e %.1e %.1e %.1e %.1e |"
+        " %.1e %.1e %.1e %.1e %.1e %.1e |\n",
+        i, iter.norm_x, iter.norm_xl, iter.norm_xu, iter.norm_y, iter.norm_zl,
+        iter.norm_zu, iter.norm_dx, iter.norm_dxl, iter.norm_dxu, iter.norm_dy,
+        iter.norm_dzl, iter.norm_dzu);
   }
 #endif
 }

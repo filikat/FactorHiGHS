@@ -10,20 +10,21 @@
 struct IterData {
   // data of a given ipm iteration
 
+#ifdef DATA_COLLECTION
   // factorization data
   double minD = std::numeric_limits<double>::max();
   double maxD = 0.0;
   double minL = std::numeric_limits<double>::max();
   double maxL = 0.0;
   double max_reg = 0.0;
-  double worst_res = 0.0;
   int n_reg_piv = 0;
   int n_swap = 0;
   int n_2x2 = 0;
   int n_wrong_sign = 0;
   double max_wrong_sign = 0.0;
+#endif
 
-  // ipm data
+  // generic ipm data
   double p_obj;
   double d_obj;
   double p_inf;
@@ -32,20 +33,40 @@ struct IterData {
   double pd_gap;
   double p_alpha;
   double d_alpha;
-  double min_prod;
-  double max_prod;
+
+  // advanced ipm data
   double min_theta;
   double max_theta;
-  double sigma;
-  int correctors;
+  double min_prod;
+  double max_prod;
   int num_small_prod;
   int num_large_prod;
+  double sigma;
+  int correctors;
+  double perturbed_res;
+  double original_res;
+
+  // norms
+  double norm_x;
+  double norm_xl;
+  double norm_xu;
+  double norm_y;
+  double norm_zl;
+  double norm_zu;
+  double norm_dx;
+  double norm_dxl;
+  double norm_dxu;
+  double norm_dy;
+  double norm_dzl;
+  double norm_dzu;
 };
 
 // DataCollector is a singleton object.
-// Only one copy of it can exist and it cannot be constructed or destructed
-// explicitly. Any public member function should be accessed through
-// DataCollector::get()-> ...
+// Only one copy of it can exist and it does not have a public constructor or
+// destructor.
+// Use DataCollector::start() to allocate the DataCollector.
+// Use DataCollector::destruct() to deallocate the DataCollector.
+// Use DataCollector::get()->... to access any non-static member function.
 
 class DataCollector {
   // Record of times and BLAS calls
@@ -88,11 +109,12 @@ class DataCollector {
  public:
   // Access to the object
   static DataCollector* get();
+  static void start();
   static void destruct();
-  static IterData& back();
 
   // Manage record of data of iterations
   void append();
+  IterData& back();
 
   // Functions with lock, they can be accessed simultaneously
   void sumTime(TimeItems i, double t);
@@ -101,7 +123,6 @@ class DataCollector {
   void count2x2();
   void setWrongSign(double p);
   void setMaxReg(double new_reg);
-  void setWorstRes(double res);
   void setExtremeEntries(double minD, double maxD, double minoffD,
                          double maxoffD);
 
