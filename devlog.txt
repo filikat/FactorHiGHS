@@ -1492,11 +1492,23 @@ I wonder also if the fact that some entries of L become very large is a problem.
 It surely is actually, I just need to find a way to deal with it. Maybe a variable threshold for regularization.
 ---
 
+*****
+10 Dec 2024
+I added other data to be collected.
+I also added an implementation of gmres that I want to use in place of iterative refinement.
+---
+
+*****
+11 Dec 2024
+I added the conjugate gradient for the starting point.
+Sometimes it takes quite a few iterations, but this is not a problem since it's only for the starting point.
+It should still be quite a bit faster than doing a full factorization.
+---
+
 
 *****
 To do:
 - more sophisticated correctors, with weighting
-- single centring direction
 - bound on L
 - artificially alter pd variables with small complementarity products
 
